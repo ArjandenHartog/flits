@@ -4,6 +4,7 @@ A scene is one JSON file. flits renders it to MP4 (H.264/HEVC/AV1 + AAC):
 
     flits render scene.json -o out.mp4        # full render (GPU compositor + hardware encoder when available)
     flits render scene.json --scale 0.5       # fast half-resolution preview
+    flits preview scene.json                  # live preview in the browser (scrub, play); reloads on save
     flits sheet scene.json -o sheet.png       # 12 frames in one image: check the whole video at a glance
     flits still scene.json --at 12.5 -o f.png # single frame(s)
     flits check scene.json                    # validate (typos are reported) + print the resolved timeline

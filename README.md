@@ -32,6 +32,7 @@ FLITS_PROFILE=1 flits render bench/scene.json --encoder null   # renderer only, 
 ```sh
 # scenes
 flits render scene.json -o video.mp4          # render (--scale 0.5 = quick preview, --speed fast, --codec hevc)
+flits preview scene.json                      # live preview in the browser, reloads when you save the scene
 flits sheet scene.json -o sheet.png           # contact sheet: check the whole video in one image
 flits still scene.json --at 12.5 -o frame.png
 flits check scene.json                        # validate (typos are reported) + print the timeline
@@ -52,6 +53,13 @@ flits measure < texts.json                    # text metrics for scripts that la
 flits serve --token secret                    # make this (GPU) machine a render/transcription server
 flits remote http://gpu-box:7777 --token secret   # on another machine: offload work to it
 ```
+
+`flits preview` serves a page on `http://127.0.0.1:7878/` (`--port`, `--scale 0.5`, `--gpu cpu`,
+`--no-open`) with a scrubber, play/pause in real time, frame stepping (arrow keys), a thumbnail strip and
+a problems panel. Frames are rendered on demand on the GPU; decoders stay open between frames, so playing
+and scrubbing through video clips is fast. The scene file and every file it references (media, transcripts,
+fonts) are watched: save and the page updates; errors appear in the page while the last good version stays
+on screen.
 
 As a library:
 
@@ -93,6 +101,7 @@ src/
   gfx.rs          sprites, blur, shadows, rounded shapes
   transcribe/     faster-whisper via uv (CUDA when available), SRT/VTT/TXT
   remote/         `flits serve` and offloading to a GPU machine
+  preview/        `flits preview`: live browser preview with hot reload (page in index.html)
   templates/      podcast, captions, slideshow, cut, starters
 tests/            CPU = GPU parity, end-to-end renders, audio
 examples/         reproducible benchmark
