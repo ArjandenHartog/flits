@@ -110,7 +110,7 @@ pub fn vaapi_device() -> String {
     std::env::var("FLITS_VAAPI_DEVICE").unwrap_or_else(|_| "/dev/dri/renderD128".into())
 }
 
-fn encoder_works(codec: &str) -> bool {
+pub fn encoder_works(codec: &str) -> bool {
     let mut c = ffmpeg();
     let vaapi = codec.ends_with("_vaapi");
     if vaapi {

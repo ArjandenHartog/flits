@@ -99,7 +99,7 @@ impl Remote {
                     .arg("-y")
                     .arg("-i")
                     .arg(input)
-                    .args(["-vn", "-ac", "1", "-ar", "16000", "-c:a", "aac", "-b:a", "48k"])
+                    .args(["-vn", "-ac", "1", "-ar", "16000", "-c:a", "aac", "-aac_coder", "fast", "-b:a", "48k"])
                     .arg(&tmp),
                 "audio extract",
             )?;

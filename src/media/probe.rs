@@ -14,6 +14,9 @@ pub struct MediaInfo {
     pub fps: f64,
     pub has_video: bool,
     pub has_audio: bool,
+    /// first audio stream: sample rate and channel count
+    pub audio_rate: u32,
+    pub audio_channels: u32,
     pub hdr: bool,
     /// colour description of the video stream (bit depth, transfer, matrix, range)
     pub color: FrameFormat,
@@ -70,7 +73,11 @@ pub fn probe(path: &Path) -> Result<MediaInfo> {
                     info.duration = s["duration"].as_str().and_then(|x| x.parse().ok()).unwrap_or(0.0);
                 }
             }
-            Some("audio") => info.has_audio = true,
+            Some("audio") if !info.has_audio => {
+                info.has_audio = true;
+                info.audio_rate = s["sample_rate"].as_str().and_then(|r| r.parse().ok()).unwrap_or(48000);
+                info.audio_channels = s["channels"].as_u64().unwrap_or(2) as u32;
+            }
             _ => {}
         }
     }

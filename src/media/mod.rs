@@ -1,6 +1,7 @@
 //! Everything that touches media files through ffmpeg/ffprobe.
 
 pub mod audio;
+pub mod beats;
 pub mod colorspace;
 pub mod encode;
 pub mod image;

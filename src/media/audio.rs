@@ -9,7 +9,6 @@ use crate::compose::{AudioInput, Prepared};
 use crate::scene::anim::{Ease, Prop};
 use anyhow::{bail, Context, Result};
 use std::path::Path;
-use std::sync::OnceLock;
 
 /// Decode mono f32 PCM at `rate` for [start, start+dur).
 pub fn decode_audio(path: &Path, start: f64, dur: f64, rate: u32) -> Result<Vec<f32>> {
@@ -24,20 +23,6 @@ pub fn decode_audio(path: &Path, start: f64, dur: f64, rate: u32) -> Result<Vec<
         bail!("ffmpeg could not decode audio from {}: {}", path.display(), String::from_utf8_lossy(&out.stderr));
     }
     Ok(out.stdout.as_chunks::<4>().0.iter().map(|b| f32::from_le_bytes(*b)).collect())
-}
-
-/// ffmpeg >= 7 reads filter scripts with `-/filter_complex file`, older ones with `-filter_complex_script`.
-fn ffmpeg_major() -> u32 {
-    static V: OnceLock<u32> = OnceLock::new();
-    *V.get_or_init(|| {
-        let o = std::process::Command::new("ffmpeg").arg("-version").output().ok();
-        o.and_then(|o| {
-            let s = String::from_utf8_lossy(&o.stdout).to_string();
-            let v = s.split_whitespace().nth(2)?.to_string();
-            v.trim_start_matches(|c: char| !c.is_ascii_digit()).split('.').next()?.parse().ok()
-        })
-        .unwrap_or(7)
-    })
 }
 
 /// `volume` filter argument: a constant, or a piecewise-linear expression over the keyframes.
@@ -157,12 +142,8 @@ pub fn mix(p: &Prepared, out: &Path) -> Result<bool> {
     // the graph can get long (keyframed volumes, many clips): pass it as a file
     let script = out.with_extension("filters.txt");
     std::fs::write(&script, filter_graph(p))?;
-    if ffmpeg_major() >= 7 {
-        cmd.arg("-/filter_complex").arg(&script);
-    } else {
-        cmd.arg("-filter_complex_script").arg(&script);
-    }
-    cmd.args(["-map", "[out]", "-c:a", "aac", "-b:a", "192k"]).arg(out);
+    super::process::filter_script(&mut cmd, &script);
+    cmd.args(["-map", "[out]", "-c:a", "aac", "-aac_coder", "fast", "-b:a", "192k"]).arg(out);
     let r = run(&mut cmd, "audio mix");
     let _ = std::fs::remove_file(&script);
     r?;
