@@ -138,6 +138,21 @@ enum Cmd {
         #[arg(long, default_value_t = 480)]
         thumb: u32,
     },
+    /// Live preview in the browser: scrub, play, step frames; reloads when the scene file changes
+    Preview {
+        scene: PathBuf,
+        #[arg(long, default_value_t = 7878)]
+        port: u16,
+        /// render scale of the preview frames
+        #[arg(long, default_value_t = 0.5)]
+        scale: f64,
+        /// compositor: auto | gpu | cpu
+        #[arg(long, default_value = "auto")]
+        gpu: String,
+        /// don't open the browser
+        #[arg(long)]
+        no_open: bool,
+    },
     /// Validate a scene and print its timeline
     Check { scene: PathBuf },
     /// Write a ready-to-render example scene (intro, quote, stats, lower-third, countdown)
@@ -373,6 +388,7 @@ fn run(cli: Cli) -> Result<()> {
         Cmd::Render { scene, out, r, remote } => make::render(&scene, out, &r, remote),
         Cmd::Still { scene, at, out, scale } => make::still(&scene, &at, &out, scale),
         Cmd::Sheet { scene, out, count, cols, thumb } => make::sheet(&scene, &out, count, cols, thumb),
+        Cmd::Preview { scene, port, scale, gpu, no_open } => tools::preview(&scene, port, scale, &gpu, !no_open),
         Cmd::Check { scene } => tools::check(&scene),
         Cmd::New { starter, out } => make::new(starter, out),
         Cmd::Measure => tools::measure(),

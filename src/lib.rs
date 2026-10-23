@@ -17,6 +17,7 @@ pub mod compose;
 pub mod gfx;
 pub mod media;
 pub mod paint;
+pub mod preview;
 pub mod remote;
 pub mod render;
 pub mod scene;
