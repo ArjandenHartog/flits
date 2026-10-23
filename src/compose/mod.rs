@@ -686,6 +686,7 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
                 box_w: bw * q,
                 box_h: bh * q,
                 q,
+                speaker_colors: l.speaker_colors.clone(),
             };
             let caps = captions::build(&words, dur_guess, &opts)?;
             Kind::Captions(Arc::new(caps))

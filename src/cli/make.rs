@@ -1,9 +1,9 @@
 //! Commands that produce media.
 
-use super::{load, with_suffix, write_scene_and_render, RenderArgs, WhisperArgs};
+use super::{load, with_suffix, write_scene_and_render, CutArgs, RenderArgs, WhisperArgs};
 use anyhow::{anyhow, bail, Context, Result};
-use flits::compose::captions::load_transcript;
-use flits::templates::{self, cut, slideshow, starters};
+use flits::compose::captions::load_transcript_full;
+use flits::templates::{self, cut, edit, export, fillers, slideshow, starters};
 use flits::{media, render, transcribe, Scene};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -80,7 +80,7 @@ pub fn captions(
     if out == video {
         bail!("output would overwrite the input");
     }
-    let tr = transcribe::ensure(video, transcript.as_deref(), &w.opts())?;
+    let tr = transcribe::ensure(video, transcript.as_deref(), &w.opts()?)?;
     let scene = templates::captioned_video(&templates::CaptionOpts { video, transcript: &tr, style, highlight, uppercase, position })?;
     write_scene_and_render(scene, &out, r)
 }
@@ -102,7 +102,7 @@ pub fn podcast(
     r: &RenderArgs,
 ) -> Result<()> {
     let out = out.unwrap_or_else(|| with_suffix(audio, "-video.mp4"));
-    let tr = transcribe::ensure(audio, transcript.as_deref(), &w.opts())?;
+    let tr = transcribe::ensure(audio, transcript.as_deref(), &w.opts()?)?;
     let title = if title.is_empty() { audio.file_stem().and_then(|s| s.to_str()).unwrap_or("Podcast").to_string() } else { title };
     let scene = templates::podcast(&templates::PodcastOpts {
         audio,
@@ -124,31 +124,103 @@ fn fmt_ts(t: f64) -> String {
     format!("{:02}:{:05.2}", (t / 60.0) as u64, t % 60.0)
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn cut(
-    input: &Path,
-    out: Option<PathBuf>,
-    threshold: f64,
-    min: f64,
-    keep: f64,
-    fillers: bool,
-    dry_run: bool,
-    transcript: Option<PathBuf>,
-    w: &WhisperArgs,
-    r: &RenderArgs,
-) -> Result<()> {
+pub fn cut(input: &Path, out: Option<PathBuf>, c: &CutArgs, transcript: Option<PathBuf>, w: &WhisperArgs, r: &RenderArgs) -> Result<()> {
     let info = media::probe(input)?;
     if !info.has_audio {
         bail!("{} has no audio to detect silences in", input.display());
     }
-    let words = if fillers { load_transcript(&transcribe::ensure(input, transcript.as_deref(), &w.opts())?)? } else { vec![] };
-    let o = cut::CutOpts {
-        threshold_db: threshold,
-        min_silence: min,
-        keep,
-        fillers: if fillers { cut::DEFAULT_FILLERS.iter().map(|s| s.to_string()).collect() } else { vec![] },
+    let mut formats: Vec<export::Format> = c.export.iter().map(|f| export::Format::parse(f)).collect::<Result<_>>()?;
+    // "fcpxml,resolve" is one file
+    let mut seen = vec![];
+    formats.retain(|f| {
+        let new = !seen.contains(f);
+        seen.push(*f);
+        new
+    });
+    let custom_fillers = c.fillers_list.as_deref().map(fillers::parse_list);
+    let want_fillers = c.fillers || custom_fillers.is_some();
+    let edit_text = match &c.apply {
+        Some(p) => Some(std::fs::read_to_string(p).with_context(|| format!("reading edit file {}", p.display()))?),
+        None => None,
     };
-    let ranges = cut::plan(input, info.duration, &o, &words)?;
+
+    // the transcript: given, named in the edit file, existing next to the input, or made now
+    let mut wo = w.opts()?;
+    if (want_fillers || c.repeats) && wo.initial_prompt.is_none() {
+        // make whisper write hesitations down instead of smoothing them away
+        wo.initial_prompt = fillers::verbatim_prompt(&wo.language).map(str::to_string);
+    }
+    let transcript = transcript.or_else(|| edit_text.as_deref().and_then(edit::transcript_from_header));
+    let tr_path = if want_fillers || c.repeats || c.edit || c.apply.is_some() {
+        Some(transcribe::ensure(input, transcript.as_deref(), &wo)?)
+    } else {
+        None
+    };
+    let tr = match &tr_path {
+        Some(p) => load_transcript_full(p)?,
+        None => Default::default(),
+    };
+
+    if c.edit {
+        let path = with_suffix(input, ".edit.txt");
+        if path.exists() && !c.force {
+            bail!(
+                "{} already exists: edit it and run `flits cut {} --apply {}` (or --force to start over)",
+                path.display(),
+                input.display(),
+                path.display()
+            );
+        }
+        let doc = edit::EditDoc::new(&tr);
+        if doc.lines.is_empty() {
+            bail!("the transcript has no words to edit");
+        }
+        let tr_abs = PathBuf::from(templates::abs(tr_path.as_deref().unwrap()));
+        std::fs::write(&path, doc.render(input, &tr_abs, &path))?;
+        eprintln!(
+            "flits: {} lines written. Delete lines or words (or wrap them in [[ ]]), save, then run:\n  flits cut {} --apply {}",
+            doc.lines.len(),
+            input.display(),
+            path.display()
+        );
+        println!("{}", path.display());
+        return Ok(());
+    }
+
+    let (words, preset) = match &edit_text {
+        Some(text) => {
+            let doc = edit::EditDoc::new(&tr);
+            let a = edit::apply(&doc, text);
+            for wn in &a.warnings {
+                eprintln!("warning: {wn}");
+            }
+            eprintln!("flits: edit file keeps {} line(s), cuts {}", a.kept_lines, a.removed_lines);
+            (doc.words, a.removed)
+        }
+        None => (tr.words(), vec![]),
+    };
+    let lang = if w.lang != "auto" { Some(w.lang.as_str()) } else { tr.language.as_deref() };
+    let filler_list = match custom_fillers {
+        Some(l) => l,
+        None if want_fillers => fillers::for_language(lang),
+        None => vec![],
+    };
+    if want_fillers {
+        eprintln!("flits: filler words ({}): {}", lang.unwrap_or("unknown language"), filler_list.join(", "));
+    }
+    let o = cut::CutOpts {
+        threshold_db: c.threshold,
+        min_silence: c.min,
+        keep: c.keep,
+        silences: !c.no_silence,
+        fillers: filler_list,
+        repeats: c.repeats,
+    };
+    let removed = cut::removed_words(&words, &o, &preset).iter().filter(|r| **r).count();
+    if removed > 0 {
+        eprintln!("flits: cutting {removed} of {} words", words.len());
+    }
+    let ranges = cut::plan(input, info.duration, &o, &words, &preset)?;
     let kept: f64 = ranges.iter().map(|(s, e)| e - s).sum();
     eprintln!(
         "flits: keeping {} of {} ({} removed, {} cuts)",
@@ -157,7 +229,7 @@ pub fn cut(
         fmt_ts(info.duration - kept),
         ranges.len().saturating_sub(1)
     );
-    if dry_run {
+    if c.dry_run {
         for (s, e) in &ranges {
             println!("keep {} - {}  ({:.2}s)", fmt_ts(*s), fmt_ts(*e), e - s);
         }
@@ -167,6 +239,32 @@ pub fn cut(
     let out = out.unwrap_or_else(|| with_suffix(input, &format!("-cut.{default_ext}")));
     if out == input {
         bail!("output would overwrite the input");
+    }
+    if !formats.is_empty() {
+        let stem = input.file_stem().and_then(|s| s.to_str()).unwrap_or("cut");
+        let tl = export::Timeline::new(export::Source::probe(input)?, &ranges, &format!("{stem} (cut)"));
+        for f in &formats {
+            let p = with_suffix(&out, f.suffix());
+            std::fs::write(&p, export::render(&tl, *f)?)?;
+            let hint = match f {
+                export::Format::Fcpxml => "Final Cut Pro: File > Import > XML; DaVinci Resolve: File > Import > Timeline",
+                export::Format::Premiere => "Premiere Pro: File > Import",
+                export::Format::Edl => "DaVinci Resolve: File > Import > Timeline (add the source to the media pool first)",
+                export::Format::Json => "cut list",
+            };
+            println!("{}", p.display());
+            eprintln!("flits:   {hint}");
+        }
+        let fps = format!("{:.3}", tl.source.rate.fps());
+        eprintln!(
+            "flits: timeline of {} clip(s), {} at {} fps",
+            tl.clips.len(),
+            fmt_ts(tl.frames() as f64 / tl.source.rate.fps()),
+            fps.trim_end_matches('0').trim_end_matches('.')
+        );
+        if !c.render {
+            return Ok(());
+        }
     }
     let t = Instant::now();
     if !info.has_video {
@@ -181,7 +279,16 @@ pub fn cut(
     write_scene_and_render(scene, &out, r)
 }
 
-pub fn transcribe(inputs: &[PathBuf], out: Option<PathBuf>, outdir: Option<PathBuf>, w: &WhisperArgs) -> Result<()> {
+pub fn transcribe(
+    inputs: &[PathBuf],
+    out: Option<PathBuf>,
+    outdir: Option<PathBuf>,
+    words_only: bool,
+    segments_only: bool,
+    w: &WhisperArgs,
+) -> Result<()> {
+    let mut o = w.opts()?;
+    o.word_timestamps = !segments_only;
     if out.is_some() && inputs.len() > 1 {
         bail!("-o works with one input; use --outdir for several");
     }
@@ -200,7 +307,12 @@ pub fn transcribe(inputs: &[PathBuf], out: Option<PathBuf>, outdir: Option<PathB
         std::fs::create_dir_all(d)?;
     }
     let t = Instant::now();
-    transcribe::transcribe_many(&jobs, &w.opts())?;
+    transcribe::transcribe_many(&jobs, &o)?;
+    if words_only {
+        for (_, j) in &jobs {
+            transcribe::to_words_only(j)?;
+        }
+    }
     eprintln!("flits: transcribed {} file(s) in {:.1}s", jobs.len(), t.elapsed().as_secs_f64());
     for (_, o) in &jobs {
         println!("{}", o.display());

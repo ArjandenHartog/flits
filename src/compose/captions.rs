@@ -13,11 +13,39 @@ use std::path::Path;
 use std::sync::Arc;
 use tiny_skia::Transform;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Word {
     pub text: String,
     pub start: f64,
     pub end: f64,
+    /// speaker label from diarization (e.g. "SPEAKER_00"), if any
+    pub speaker: Option<String>,
+}
+
+/// One transcript segment (a whisper segment or a subtitle cue) with its words.
+#[derive(Clone, Debug, Default)]
+pub struct Segment {
+    pub start: f64,
+    pub end: f64,
+    pub text: String,
+    pub speaker: Option<String>,
+    pub words: Vec<Word>,
+}
+
+/// A transcript with its segment structure and (when known) the spoken language.
+#[derive(Clone, Debug, Default)]
+pub struct Transcript {
+    pub language: Option<String>,
+    pub segments: Vec<Segment>,
+}
+
+impl Transcript {
+    /// All words in time order.
+    pub fn words(&self) -> Vec<Word> {
+        let mut words: Vec<Word> = self.segments.iter().flat_map(|s| s.words.iter().cloned()).collect();
+        words.sort_by(|a, b| a.start.total_cmp(&b.start));
+        words
+    }
 }
 
 fn parse_ts(s: &str) -> Option<f64> {
@@ -33,39 +61,53 @@ fn parse_ts(s: &str) -> Option<f64> {
 
 /// Load words from our/faster-whisper JSON, or from .srt/.vtt (word times interpolated).
 pub fn load_transcript(path: &Path) -> Result<Vec<Word>> {
+    Ok(load_transcript_full(path)?.words())
+}
+
+fn json_speaker(v: &Value) -> Option<String> {
+    v["speaker"].as_str().filter(|s| !s.is_empty()).map(str::to_string)
+}
+
+/// Load a transcript with segments, speakers and language (JSON, .srt or .vtt).
+pub fn load_transcript_full(path: &Path) -> Result<Transcript> {
     let txt = std::fs::read_to_string(path).with_context(|| format!("reading transcript {}", path.display()))?;
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
-    let mut words = Vec::new();
+    let mut tr = Transcript::default();
     if ext == "json" {
         let v: Value = serde_json::from_str(&txt)?;
-        let segs = v["segments"].as_array().cloned().unwrap_or_default();
-        let direct = v["words"].as_array().cloned();
-        let push = |w: &Value, words: &mut Vec<Word>| {
+        tr.language = v["language"].as_str().filter(|s| !s.is_empty()).map(str::to_string);
+        let word = |w: &Value, seg_speaker: &Option<String>| -> Option<Word> {
             let text = w["word"].as_str().or(w["text"].as_str()).unwrap_or("").trim().to_string();
-            if let (Some(s), Some(e)) = (w["start"].as_f64(), w["end"].as_f64()) {
-                if !text.is_empty() {
-                    words.push(Word { text, start: s, end: e });
+            match (w["start"].as_f64(), w["end"].as_f64()) {
+                (Some(start), Some(end)) if !text.is_empty() => {
+                    Some(Word { text, start, end, speaker: json_speaker(w).or_else(|| seg_speaker.clone()) })
                 }
+                _ => None,
             }
         };
-        if let Some(ws) = direct {
-            for w in &ws {
-                push(w, &mut words);
+        // a flat word list ({"words": [...]}, e.g. `flits transcribe --words-only`)
+        if let Some(ws) = v["words"].as_array() {
+            let words: Vec<Word> = ws.iter().filter_map(|w| word(w, &None)).collect();
+            if let (Some(a), Some(b)) = (words.first(), words.last()) {
+                let text = words.iter().map(|w| w.text.as_str()).collect::<Vec<_>>().join(" ");
+                tr.segments.push(Segment { start: a.start, end: b.end, text, speaker: None, words });
             }
         }
-        for s in &segs {
-            match s["words"].as_array() {
-                Some(ws) if !ws.is_empty() => {
-                    for w in ws {
-                        push(w, &mut words);
-                    }
-                }
-                _ => {
-                    if let (Some(a), Some(b), Some(t)) = (s["start"].as_f64(), s["end"].as_f64(), s["text"].as_str()) {
-                        spread(t, a, b, &mut words);
-                    }
+        for s in v["segments"].as_array().map(Vec::as_slice).unwrap_or_default() {
+            let speaker = json_speaker(s);
+            let text = s["text"].as_str().unwrap_or("").trim().to_string();
+            let mut words: Vec<Word> =
+                s["words"].as_array().map(Vec::as_slice).unwrap_or_default().iter().filter_map(|w| word(w, &speaker)).collect();
+            let (a, b) = (s["start"].as_f64(), s["end"].as_f64());
+            if words.is_empty() {
+                if let (Some(a), Some(b)) = (a, b) {
+                    spread(&text, a, b, &mut words);
+                    words.iter_mut().for_each(|w| w.speaker = speaker.clone());
                 }
             }
+            let (Some(first), Some(last)) = (words.first(), words.last()) else { continue };
+            let (start, end) = (a.unwrap_or(first.start), b.unwrap_or(last.end));
+            tr.segments.push(Segment { start, end, text, speaker, words });
         }
     } else if ext == "srt" || ext == "vtt" {
         let mut lines = txt.lines().peekable();
@@ -83,14 +125,18 @@ pub fn load_transcript(path: &Path) -> Result<Vec<Word>> {
                     text.push_str(n);
                     lines.next();
                 }
+                let mut words = vec![];
                 spread(&text, a, b, &mut words);
+                if !words.is_empty() {
+                    tr.segments.push(Segment { start: a, end: b, text: text.trim().to_string(), speaker: None, words });
+                }
             }
         }
     } else {
         bail!("unsupported transcript format '{}' (json, srt, vtt)", path.display());
     }
-    words.sort_by(|a, b| a.start.partial_cmp(&b.start).unwrap());
-    Ok(words)
+    tr.segments.sort_by(|a, b| a.start.total_cmp(&b.start));
+    Ok(tr)
 }
 
 fn spread(text: &str, a: f64, b: f64, out: &mut Vec<Word>) {
@@ -99,7 +145,7 @@ fn spread(text: &str, a: f64, b: f64, out: &mut Vec<Word>) {
     let mut t = a;
     for tok in toks {
         let d = (b - a) * (tok.chars().count() + 1) as f64 / total.max(1) as f64;
-        out.push(Word { text: tok.to_string(), start: t, end: t + d });
+        out.push(Word { text: tok.to_string(), start: t, end: t + d, speaker: None });
         t += d;
     }
 }
@@ -157,6 +203,23 @@ pub struct CapOptions {
     pub box_h: f32,
     /// oversampling: style/box are in pixels at q x the logical size
     pub q: f32,
+    /// text colour per speaker (in order of first appearance); empty = `style.color` for everyone
+    pub speaker_colors: Vec<Rgba>,
+}
+
+/// Index of every word's speaker in order of first appearance (None = no speaker label).
+fn speaker_indices(words: &[Word]) -> Vec<Option<usize>> {
+    let mut seen: Vec<&str> = vec![];
+    words
+        .iter()
+        .map(|w| {
+            let s = w.speaker.as_deref()?;
+            Some(seen.iter().position(|x| *x == s).unwrap_or_else(|| {
+                seen.push(s);
+                seen.len() - 1
+            }))
+        })
+        .collect()
 }
 
 fn logical(mut s: Sprite, q: f32) -> Sprite {
@@ -171,16 +234,23 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
     let maxw = if o.kind == CapKind::Word { 1 } else { o.max_words.max(1) };
     let max_chars = (maxw * 9).max(12);
     // 1. group words into on-screen chunks
-    let mut chunks: Vec<Vec<Word>> = vec![];
-    for w in words.iter().filter(|w| w.end > 0.0 && w.start < dur) {
+    let speakers = speaker_indices(words);
+    // the normal text colour of a word: its speaker's colour when `speaker_colors` is set
+    let color_of = |si: Option<usize>| match (si, o.speaker_colors.len()) {
+        (Some(i), n) if n > 0 => o.speaker_colors[i % n],
+        _ => o.style.color,
+    };
+    let mut chunks: Vec<Vec<(Word, Option<usize>)>> = vec![];
+    for (w, si) in words.iter().zip(&speakers).filter(|(w, _)| w.end > 0.0 && w.start < dur) {
         let text = if o.uppercase { w.text.to_uppercase() } else { w.text.clone() };
         let w = Word { text, ..w.clone() };
         let new_chunk = match chunks.last() {
             None => true,
             Some(c) => {
-                let last = c.last().unwrap();
-                let chars: usize = c.iter().map(|x| x.text.chars().count() + 1).sum();
+                let (last, last_si) = c.last().unwrap();
+                let chars: usize = c.iter().map(|x| x.0.text.chars().count() + 1).sum();
                 c.len() >= maxw
+                    || last_si != si
                     || w.start - last.end > 0.6
                     || chars + w.text.chars().count() > max_chars
                     || last.text.ends_with(['.', '?', '!', ':'])
@@ -188,37 +258,39 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
             }
         };
         if new_chunk {
-            chunks.push(vec![w]);
+            chunks.push(vec![(w, *si)]);
         } else {
-            chunks.last_mut().unwrap().push(w);
+            chunks.last_mut().unwrap().push((w, *si));
         }
     }
-    // 2. unique word sprites, rendered in parallel
-    let mut uniq: Vec<String> = chunks.iter().flatten().map(|w| w.text.clone()).collect();
+    // 2. unique word sprites (text + speaker colour), rendered in parallel
+    let ckey = |si: Option<usize>| if o.speaker_colors.is_empty() { None } else { si.map(|i| i % o.speaker_colors.len()) };
+    let mut uniq: Vec<(String, Option<usize>)> = chunks.iter().flatten().map(|(w, si)| (w.text.clone(), ckey(*si))).collect();
     uniq.sort();
     uniq.dedup();
     let pill = o.highlight_bg;
-    let hi_color = if pill.is_some() && o.highlight == o.style.color { o.style.color } else { o.highlight };
-    let sprites: HashMap<String, (Arc<Sprite>, Arc<Sprite>)> = uniq
+    let sprites: HashMap<(String, Option<usize>), (Arc<Sprite>, Arc<Sprite>)> = uniq
         .par_iter()
-        .map(|t| -> Result<(String, (Arc<Sprite>, Arc<Sprite>))> {
-            let n = Arc::new(logical(render_word(&o.style, t, o.style.color, None)?, o.q));
+        .map(|(t, ci)| -> Result<((String, Option<usize>), (Arc<Sprite>, Arc<Sprite>))> {
+            let color = color_of(*ci);
+            let hi_color = if pill.is_some() && o.highlight == o.style.color { color } else { o.highlight };
+            let n = Arc::new(logical(render_word(&o.style, t, color, None)?, o.q));
             let h = if o.kind == CapKind::Line { n.clone() } else { Arc::new(logical(render_word(&o.style, t, hi_color, pill)?, o.q)) };
-            Ok((t.clone(), (n, h)))
+            Ok(((t.clone(), *ci), (n, h)))
         })
         .collect::<Result<_>>()?;
     // 3. layout each chunk centred in the layer box
     let mut groups = Vec::with_capacity(chunks.len());
     for (ci, c) in chunks.iter().enumerate() {
-        let toks: Vec<String> = c.iter().map(|w| w.text.clone()).collect();
+        let toks: Vec<String> = c.iter().map(|(w, _)| w.text.clone()).collect();
         let lay = layout(&o.style, &toks);
         let gx = (o.box_w - lay.width) / 2.0;
         let gy = (o.box_h - lay.height) / 2.0;
         let lh = o.style.line_px();
-        let next_start = chunks.get(ci + 1).map(|n| n[0].start).unwrap_or(f64::INFINITY);
-        let start = c[0].start;
+        let next_start = chunks.get(ci + 1).map(|n| n[0].0.start).unwrap_or(f64::INFINITY);
+        let start = c[0].0.start;
         // keep the chunk up until the next one starts if the gap is short
-        let mut end = c.last().unwrap().end + 0.25;
+        let mut end = c.last().unwrap().0.end + 0.25;
         if next_start - end < 0.6 {
             end = next_start;
         }
@@ -227,9 +299,9 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
             .iter()
             .zip(&lay.words)
             .enumerate()
-            .map(|(i, (w, pw))| {
-                let (n, h) = sprites[&w.text].clone();
-                let wend = c.get(i + 1).map(|x| x.start).unwrap_or(end);
+            .map(|(i, ((w, si), pw))| {
+                let (n, h) = sprites[&(w.text.clone(), ckey(*si))].clone();
+                let wend = c.get(i + 1).map(|x| x.0.start).unwrap_or(end);
                 CapWord {
                     start: w.start,
                     end: wend.max(w.end.min(end)),
@@ -316,6 +388,29 @@ mod tests {
         assert_eq!(v.len(), 3);
         assert!((v[0].start - 1.0).abs() < 1e-9 && (v[2].end - 4.0).abs() < 1e-9);
         assert!(v.windows(2).all(|w| w[0].end <= w[1].start + 1e-9));
+    }
+
+    #[test]
+    fn loads_speakers_language_and_segments() {
+        let dir = std::env::temp_dir().join(format!("flits-captions-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("t.json");
+        let v = serde_json::json!({"language": "nl", "segments": [
+            {"start": 0.0, "end": 1.0, "text": "hoi daar", "speaker": "SPEAKER_00",
+             "words": [{"word": "hoi", "start": 0.0, "end": 0.4}, {"word": "daar", "start": 0.5, "end": 1.0}]},
+            {"start": 1.5, "end": 2.5, "text": "dag allemaal", "speaker": "SPEAKER_01"}
+        ]});
+        std::fs::write(&p, v.to_string()).unwrap();
+        let tr = load_transcript_full(&p).unwrap();
+        assert_eq!(tr.language.as_deref(), Some("nl"));
+        assert_eq!(tr.segments.len(), 2);
+        let words = tr.words();
+        assert_eq!(words.len(), 4);
+        // word speakers inherit the segment's; a segment without words is spread over its text
+        assert_eq!(words[1].speaker.as_deref(), Some("SPEAKER_00"));
+        assert_eq!(words[3].speaker.as_deref(), Some("SPEAKER_01"));
+        assert_eq!(speaker_indices(&words), vec![Some(0), Some(0), Some(1), Some(1)]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

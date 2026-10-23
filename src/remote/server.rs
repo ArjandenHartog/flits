@@ -1,6 +1,6 @@
 //! `flits serve`: HTTP server that runs jobs on this machine's GPU.
 
-use super::rand_u64;
+use super::{pct_decode, rand_u64};
 use anyhow::{anyhow, Context, Result};
 use serde_json::json;
 use std::fs::File;
@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 
 fn query(url: &str) -> Vec<(String, String)> {
     url.split_once('?')
-        .map(|(_, q)| q.split('&').filter_map(|kv| kv.split_once('=')).map(|(k, v)| (k.to_string(), v.replace("%20", " "))).collect())
+        .map(|(_, q)| q.split('&').filter_map(|kv| kv.split_once('=')).map(|(k, v)| (k.to_string(), pct_decode(v))).collect())
         .unwrap_or_default()
 }
 
@@ -74,6 +74,11 @@ fn handle(mut req: tiny_http::Request, token: &str, job: &Mutex<()>, gpu_name: &
                 device: "auto".into(),
                 python: None,
                 remote: Some("off".into()),
+                initial_prompt: q(&qs, "prompt").filter(|s| !s.is_empty()).map(str::to_string),
+                hotwords: q(&qs, "hotwords").filter(|s| !s.is_empty()).map(str::to_string),
+                word_timestamps: q(&qs, "words") != Some("0"),
+                diarize: q(&qs, "diarize") == Some("1"),
+                speakers: q(&qs, "speakers").and_then(|s| s.parse().ok()),
             };
             let res = {
                 let _g = job.lock().unwrap();

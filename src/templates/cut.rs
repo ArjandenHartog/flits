@@ -18,11 +18,15 @@ pub struct CutOpts {
     pub min_silence: f64,
     /// pause left in place of a removed silence
     pub keep: f64,
-    /// words to remove (from a transcript); empty = none
+    /// shorten silences (false: only words are cut)
+    pub silences: bool,
+    /// words/phrases to remove (from a transcript); empty = none
     pub fillers: Vec<String>,
+    /// remove repeated words and stutters ("I I I think")
+    pub repeats: bool,
 }
 
-pub const DEFAULT_FILLERS: &[&str] = &["uh", "uhm", "um", "umm", "eh", "ehm", "euh", "uhh", "hm", "hmm", "mm", "ah", "eeh"];
+pub use super::fillers::DEFAULT_FILLERS;
 
 /// Silent ranges reported by ffmpeg's silencedetect.
 pub fn silences(input: &Path, threshold_db: f64, min: f64) -> Result<Vec<(f64, f64)>> {
@@ -51,10 +55,6 @@ pub fn silences(input: &Path, threshold_db: f64, min: f64) -> Result<Vec<(f64, f
     Ok(res)
 }
 
-fn norm_word(w: &str) -> String {
-    w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase()
-}
-
 /// Ranges to keep, given the removable ranges (sorted, merged) and the total length.
 pub fn keep_ranges(total: f64, mut remove: Vec<(f64, f64)>) -> Vec<(f64, f64)> {
     remove.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
@@ -81,21 +81,61 @@ pub fn keep_ranges(total: f64, mut remove: Vec<(f64, f64)>) -> Vec<(f64, f64)> {
     keep
 }
 
-/// Everything that should go: shortened silences plus filler words.
-pub fn plan(input: &Path, total: f64, o: &CutOpts, words: &[Word]) -> Result<Vec<(f64, f64)>> {
-    let mut remove: Vec<(f64, f64)> = silences(input, o.threshold_db, o.min_silence)?
-        .into_iter()
-        .map(|(s, e)| (s + o.keep / 2.0, e.min(total) - o.keep / 2.0))
-        .filter(|(s, e)| e > s)
-        .collect();
-    if !o.fillers.is_empty() {
-        for w in words {
-            if o.fillers.contains(&norm_word(&w.text)) {
-                remove.push(((w.start - 0.04).max(0.0), w.end + 0.04));
-            }
+/// Time ranges for removed words (`words` sorted by start). Every run of consecutive removed
+/// words goes from the middle of the pause before it to the middle of the pause after it, so
+/// the pause that remains sounds natural and no breath of a removed word is left behind. A run
+/// at the very start (end) reaches back to 0 (on to `total`).
+pub fn word_removals(words: &[Word], removed: &[bool], total: f64) -> Vec<(f64, f64)> {
+    let mut out = vec![];
+    let mut i = 0;
+    while i < words.len() {
+        if !removed.get(i).copied().unwrap_or(false) {
+            i += 1;
+            continue;
+        }
+        let first = i;
+        while i < words.len() && removed.get(i).copied().unwrap_or(false) {
+            i += 1;
+        }
+        let last = i - 1;
+        let a = if first == 0 { 0.0 } else { (words[first - 1].end + words[first].start) / 2.0 };
+        let b = if i == words.len() { total } else { (words[last].end + words[i].start) / 2.0 };
+        if b > a {
+            out.push((a.max(0.0), b.min(total)));
         }
     }
-    Ok(keep_ranges(total, remove))
+    out
+}
+
+/// Words removed by the filler/repeat options, merged with `preset` (e.g. from an edit file).
+pub fn removed_words(words: &[Word], o: &CutOpts, preset: &[bool]) -> Vec<bool> {
+    let mut removed: Vec<bool> = (0..words.len()).map(|i| preset.get(i).copied().unwrap_or(false)).collect();
+    let mut mark = |idx: Vec<usize>| idx.into_iter().for_each(|i| removed[i] = true);
+    if !o.fillers.is_empty() {
+        mark(super::fillers::find_fillers(words, &o.fillers));
+    }
+    if o.repeats {
+        mark(super::fillers::find_repeats(words));
+    }
+    removed
+}
+
+/// Kept ranges from detected silences (shortened to `o.keep`) and removed words.
+pub fn plan_ranges(total: f64, silences: &[(f64, f64)], o: &CutOpts, words: &[Word], removed: &[bool]) -> Vec<(f64, f64)> {
+    let mut remove: Vec<(f64, f64)> = if o.silences {
+        silences.iter().map(|&(s, e)| (s + o.keep / 2.0, e.min(total) - o.keep / 2.0)).filter(|(s, e)| e > s).collect()
+    } else {
+        vec![]
+    };
+    remove.extend(word_removals(words, &removed_words(words, o, removed), total));
+    keep_ranges(total, remove)
+}
+
+/// Everything that should go: shortened silences, filler words, repeats and the words in
+/// `removed` (one flag per word; may be empty).
+pub fn plan(input: &Path, total: f64, o: &CutOpts, words: &[Word], removed: &[bool]) -> Result<Vec<(f64, f64)>> {
+    let sil = if o.silences { silences(input, o.threshold_db, o.min_silence)? } else { vec![] };
+    Ok(plan_ranges(total, &sil, o, words, removed))
 }
 
 fn codec_args(out: &Path) -> &'static [&'static str] {
@@ -228,8 +268,44 @@ mod tests {
         assert_eq!(keep_ranges(5.0, vec![]), vec![(0.0, 5.0)]);
     }
 
+    fn w(text: &str, start: f64, end: f64) -> Word {
+        Word { text: text.into(), start, end, speaker: None }
+    }
+
+    fn opts() -> CutOpts {
+        CutOpts { threshold_db: -35.0, min_silence: 0.6, keep: 0.2, silences: true, fillers: vec![], repeats: false }
+    }
+
     #[test]
-    fn normalizes_filler_words() {
-        assert_eq!(norm_word(" Uhm,"), "uhm");
+    fn removed_words_cut_from_pause_middle_to_pause_middle() {
+        let words = vec![w("so", 0.5, 0.8), w("uhm", 1.0, 1.4), w("we", 1.6, 1.8), w("go", 2.0, 2.4)];
+        // "uhm": from the middle of 0.8..1.0 to the middle of 1.4..1.6
+        let r = word_removals(&words, &[false, true, false, false], 5.0);
+        assert_eq!(r.len(), 1);
+        assert!((r[0].0 - 0.9).abs() < 1e-9 && (r[0].1 - 1.5).abs() < 1e-9);
+        // a run at the start reaches back to 0, a run at the end on to the total
+        let r = word_removals(&words, &[true, false, false, true], 5.0);
+        assert_eq!(r, vec![(0.0, (0.8 + 1.0) / 2.0), ((1.8 + 2.0) / 2.0, 5.0)]);
+    }
+
+    #[test]
+    fn plan_combines_silences_fillers_and_repeats() {
+        let words = vec![w("I", 0.0, 0.2), w("I", 0.3, 0.5), w("think", 0.6, 1.0), w("uh", 1.2, 1.5), w("yes", 4.0, 4.5)];
+        let mut o = opts();
+        o.fillers = super::super::fillers::for_language(Some("en"));
+        o.repeats = true;
+        // silence between "uh" and "yes"
+        let k = plan_ranges(6.0, &[(1.5, 4.0)], &o, &words, &[]);
+        // the first "I" goes (from 0 to the middle of 0.2..0.3); "uh" goes from 1.1 to the middle of 1.5..4.0
+        assert!((k[0].0 - 0.25).abs() < 1e-9 && (k[0].1 - 1.1).abs() < 1e-9, "{k:?}");
+        // after the silence: 0.1 s of pause is left before "yes"
+        assert!((k[1].0 - 3.9).abs() < 1e-9 && (k[1].1 - 6.0).abs() < 1e-9, "{k:?}");
+        assert_eq!(k.len(), 2);
+        // without silence tightening, only the words go
+        o.silences = false;
+        o.fillers.clear();
+        o.repeats = false;
+        let k = plan_ranges(6.0, &[(1.5, 4.0)], &o, &words, &[false, false, false, false, true]);
+        assert_eq!(k, vec![(0.0, (1.5 + 4.0) / 2.0)]);
     }
 }

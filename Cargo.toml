@@ -44,3 +44,6 @@ inherits = "release"
 lto = false
 codegen-units = 16
 incremental = true
+
+[dev-dependencies]
+roxmltree = "0.21.1"
