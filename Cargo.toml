@@ -31,6 +31,7 @@ ureq = "2"
 tar = "0.4"
 serde_ignored = "0.1.14"
 resvg = "0.45"
+schemars = "1"
 
 [profile.release]
 opt-level = 3
@@ -44,3 +45,6 @@ inherits = "release"
 lto = false
 codegen-units = 16
 incremental = true
+
+[dev-dependencies]
+jsonschema = { version = "0.60.1", default-features = false }

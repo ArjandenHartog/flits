@@ -38,7 +38,10 @@ scene.json --(scene/)--> Scene --(compose/)--> Prepared (everything static pre-r
 - **Static work once.** Anything that doesn't change per frame belongs in `compose/` preparation,
   not in per-frame code.
 - **The scene format is the API.** Document new properties in [SPEC.md](SPEC.md); unknown fields are
-  reported as warnings automatically (`serde_ignored`).
+  reported as warnings automatically (`serde_ignored`). Give new fields a doc comment (it becomes the
+  description in the JSON Schema), regenerate `schema/scene.schema.json` with
+  `cargo run --profile fast -- schema -o schema/scene.schema.json` and add the field to
+  `bindings/typescript/scene.d.ts` and `bindings/python/flits/types.py` — `tests/schema.rs` fails until you do.
 - No new runtime dependencies without a good reason; ffmpeg is the only external tool for rendering.
 - English for code, comments, docs and CLI output.
 

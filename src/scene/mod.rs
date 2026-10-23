@@ -1,11 +1,15 @@
 //! Scene description (the JSON format) and validation.
+//!
+//! The doc comments on these structs end up as descriptions in the JSON Schema (`flits schema`).
 
 pub mod anim;
 pub mod color;
+pub mod schema;
 
 use anim::{Prop, Transition};
 use anyhow::{Context, Result};
 use color::Rgba;
+use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -15,24 +19,37 @@ fn default_fps() -> f64 {
     30.0
 }
 
-#[derive(Deserialize, Clone, Debug)]
+/// A flits scene: one video described as layers on a canvas. Units are pixels (origin top-left)
+/// and seconds; relative file paths resolve against the scene file's folder.
+#[derive(Deserialize, JsonSchema, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Scene {
+    /// canvas width in pixels
+    #[schemars(range(min = 1))]
     pub width: u32,
+    /// canvas height in pixels
+    #[schemars(range(min = 1))]
     pub height: u32,
+    /// frames per second
     #[serde(default = "default_fps")]
+    #[schemars(range(min = 1))]
     pub fps: f64,
+    /// length in seconds (default: the end of the last layer)
     #[serde(default)]
     pub duration: Option<f64>,
+    /// canvas colour behind all layers (default black)
     #[serde(default)]
     pub background: Option<Rgba>,
+    /// font aliases usable in a layer's `font`, e.g. {"brand": "fonts/Rubik-Black.ttf"}
     #[serde(default)]
     pub fonts: HashMap<String, String>,
+    /// soundtrack: music, voice-over, effects (audio of video layers is mixed in automatically)
     #[serde(default)]
     pub audio: Vec<AudioTrack>,
     /// normalize the final mix to this loudness (LUFS, e.g. -14 for social, -16 for podcasts)
     #[serde(default)]
     pub loudness: Option<f64>,
+    /// layers, drawn in order: the first is at the bottom
     #[serde(default)]
     pub layers: Vec<Layer>,
     /// Directory relative paths are resolved against (not part of the JSON).
@@ -40,23 +57,31 @@ pub struct Scene {
     pub base_dir: PathBuf,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+/// An audio file in the soundtrack.
+#[derive(Deserialize, JsonSchema, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioTrack {
+    /// audio (or video) file
     pub src: String,
+    /// scene time in seconds where the track starts
     #[serde(default)]
     pub start: f64,
+    /// seconds to skip at the start of the source
     #[serde(default)]
     pub trim: f64,
+    /// seconds to play (default: until the source ends)
     #[serde(default)]
     pub duration: Option<f64>,
     /// constant or keyframed (seconds from the track start)
     #[serde(default)]
     pub volume: Option<Prop>,
+    /// fade-in in seconds
     #[serde(default)]
     pub fade_in: f64,
+    /// fade-out in seconds
     #[serde(default)]
     pub fade_out: f64,
+    /// repeat the source to fill `duration` (or the scene)
     #[serde(default, rename = "loop")]
     pub looped: bool,
     /// duck under the other audio (voice, video sound): true or the level to duck to (0..1)
@@ -64,11 +89,12 @@ pub struct AudioTrack {
     pub duck: Option<Duck>,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+/// Ducking: `true` (duck to 0.25) or the volume level (0..1) to duck to while other audio plays.
+#[derive(Deserialize, JsonSchema, Clone, Debug)]
 #[serde(untagged)]
 pub enum Duck {
     On(bool),
-    Level(f64),
+    Level(#[schemars(range(min = 0.0, max = 1.0))] f64),
 }
 
 impl Duck {
@@ -81,8 +107,10 @@ impl Duck {
     }
 }
 
-#[derive(Deserialize, Clone, Debug)]
+/// Border drawn outside the box.
+#[derive(Deserialize, JsonSchema, Clone, Debug)]
 pub struct Border {
+    /// px
     pub width: f64,
     pub color: Rgba,
 }
@@ -97,25 +125,33 @@ fn shadow_y() -> f64 {
     12.0
 }
 
-#[derive(Deserialize, Clone, Debug)]
+/// Drop shadow (text: text shadow; other layers: box shadow).
+#[derive(Deserialize, JsonSchema, Clone, Debug)]
 pub struct Shadow {
+    /// default rgba(0,0,0,0.5)
     #[serde(default = "shadow_color")]
     pub color: Rgba,
+    /// blur radius in px
     #[serde(default = "shadow_blur")]
     pub blur: f64,
+    /// horizontal offset in px
     #[serde(default)]
     pub x: f64,
+    /// vertical offset in px
     #[serde(default = "shadow_y")]
     pub y: f64,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+/// Text outline.
+#[derive(Deserialize, JsonSchema, Clone, Debug)]
 pub struct StrokeSpec {
+    /// px
     pub width: f64,
     pub color: Rgba,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+/// Padding in px: one number or [horizontal, vertical].
+#[derive(Deserialize, JsonSchema, Clone, Debug)]
 #[serde(untagged)]
 pub enum Padding {
     Same(f64),
@@ -131,15 +167,19 @@ impl Padding {
     }
 }
 
-#[derive(Deserialize, Clone, Debug)]
+/// Box (or one pill per line) behind text.
+#[derive(Deserialize, JsonSchema, Clone, Debug)]
 pub struct TextBg {
     pub color: Rgba,
+    /// px: one number or [horizontal, vertical]
     #[serde(default)]
     pub padding: Option<Padding>,
+    /// corner radius in px (default: a quarter of the font size)
     #[serde(default)]
     pub radius: Option<f64>,
     /// "box" (one box around the block) or "lines" (one pill per line)
     #[serde(default)]
+    #[schemars(schema_with = "schema::text_bg_mode")]
     pub mode: Option<String>,
 }
 
@@ -148,16 +188,21 @@ fn neutral() -> f32 {
 }
 
 /// Colour grading for image and video layers.
-#[derive(Deserialize, Clone, Copy, Debug)]
+#[derive(Deserialize, JsonSchema, Clone, Copy, Debug)]
 pub struct Filter {
+    /// added brightness, e.g. 0.05 (0 = unchanged)
     #[serde(default)]
     pub brightness: f32,
+    /// contrast factor (1 = unchanged)
     #[serde(default = "neutral")]
     pub contrast: f32,
+    /// saturation factor (1 = unchanged, 0 = gray)
     #[serde(default = "neutral")]
     pub saturation: f32,
+    /// warm (positive) or cool (negative) tint, e.g. 0.3
     #[serde(default)]
     pub warmth: f32,
+    /// black and white
     #[serde(default)]
     pub grayscale: bool,
 }
@@ -168,46 +213,74 @@ impl Filter {
     }
 }
 
-#[derive(Deserialize, Clone, Debug)]
+/// Gradient fill for rect layers: `stops` ([offset 0..1, colour] pairs) or evenly spaced `colors`.
+#[derive(Deserialize, JsonSchema, Clone, Debug)]
 pub struct Gradient {
     #[serde(rename = "type", default)]
+    #[schemars(schema_with = "schema::gradient_type")]
     pub kind: Option<String>,
     /// CSS-style angle in degrees: 180 = top to bottom, 90 = left to right
     #[serde(default)]
     pub angle: Option<f64>,
+    /// [[offset 0..1, colour], ...]
     #[serde(default)]
     pub stops: Vec<(f64, Rgba)>,
+    /// colours spread evenly (alternative to `stops`)
     #[serde(default)]
     pub colors: Vec<Rgba>,
 }
 
-#[derive(Deserialize, Clone, Debug, Default)]
+/// One layer. All layer types share this flat set of properties; each type uses the ones that
+/// apply to it (see the descriptions). Positions and sizes are relative to the parent (canvas or group).
+#[derive(Deserialize, JsonSchema, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase", default)]
+#[schemars(transform = schema::layer_rules)]
 pub struct Layer {
     #[serde(rename = "type")]
+    #[schemars(schema_with = "schema::layer_type")]
     pub kind: String,
+    /// optional name (for your own bookkeeping)
     pub id: Option<String>,
+    /// start time in seconds (relative to the parent group)
     pub start: f64,
+    /// end time in seconds (alternative to `duration`)
     pub end: Option<f64>,
+    /// lifetime in seconds (videos default to their (re-timed) length)
     pub duration: Option<f64>,
 
+    /// x of the anchor point in px (default: centre of the parent)
     pub x: Option<Prop>,
+    /// y of the anchor point in px (default: centre of the parent)
     pub y: Option<Prop>,
+    /// box width in px (default: parent width; text sizes itself; image/video keep their aspect ratio when only one side is given)
     pub width: Option<f64>,
+    /// box height in px (see `width`)
     pub height: Option<f64>,
+    /// which point of the box sits at (x, y): [0.5, 0.5] = centre (default), [0, 0] = top-left, [1, 1] = bottom-right
     pub anchor: Option<[f64; 2]>,
+    /// uniform scale (1 = 100%)
     pub scale: Option<Prop>,
+    /// horizontal scale
     pub scale_x: Option<Prop>,
+    /// vertical scale
     pub scale_y: Option<Prop>,
+    /// rotation in degrees (clockwise)
     pub rotation: Option<Prop>,
+    /// 0..1
     pub opacity: Option<Prop>,
+    /// image/video: zoom inside the box (Ken Burns), 1 = fit
     pub zoom: Option<Prop>,
+    /// image/video: horizontal pan inside the box, -1..1
     pub pan_x: Option<Prop>,
+    /// image/video: vertical pan inside the box, -1..1
     pub pan_y: Option<Prop>,
+    /// enter transition
     #[serde(rename = "in")]
     pub enter: Option<Transition>,
+    /// exit transition
     #[serde(rename = "out")]
     pub exit: Option<Transition>,
+    /// corner radius in px (>= half the size gives a circle/pill)
     pub radius: f64,
     pub border: Option<Border>,
     pub shadow: Option<Shadow>,
@@ -217,62 +290,99 @@ pub struct Layer {
     pub clip: bool,
 
     // image / video / audio-carrying layers
+    /// image/video: media file (jpg/png/webp/gif/bmp/svg, HEIC/AVIF via ffmpeg, any video ffmpeg reads);
+    /// captions: transcript (.words.json/.srt/.vtt); waveform: audio or video file
     pub src: Option<String>,
+    #[schemars(schema_with = "schema::fit")]
     pub fit: Option<String>,
+    /// image: blur radius in px (done once, cheap)
     pub blur: f64,
+    /// video/captions/waveform: seconds to skip at the start of the source
     pub trim: f64,
+    /// video: audio volume (default 1, 0 = mute)
     pub volume: Option<Prop>,
+    /// video: loop the clip
     #[serde(rename = "loop")]
     pub looped: bool,
     /// playback speed for video (0.5 = slow motion, 2 = double speed)
     pub speed: Option<f64>,
+    /// video: audio fade-in in seconds
     pub fade_in: f64,
+    /// video: audio fade-out in seconds
     pub fade_out: f64,
 
     // rect
+    /// rect: fill colour; text/counter/captions: text colour (default white)
     pub color: Option<Rgba>,
+    /// rect: gradient fill (instead of `color`)
     pub gradient: Option<Gradient>,
 
     // text
+    /// text: the text (\n for line breaks; &shy; or U+00AD for soft hyphens)
     pub text: Option<String>,
+    /// installed font name ("Segoe UI Black"), a .ttf/.otf path or a `fonts` alias
     pub font: Option<String>,
+    /// font size in px (text 64, counter 96)
     pub size: Option<f64>,
+    /// weight for variable fonts / font families (e.g. 900)
     pub weight: Option<f64>,
+    #[schemars(schema_with = "schema::align")]
     pub align: Option<String>,
+    /// wrap text at this width in px
     pub max_width: Option<f64>,
+    /// line height as a multiple of the font size (default 1.15)
     pub line_height: Option<f64>,
+    /// extra space between letters in px
     pub letter_spacing: f64,
     pub stroke: Option<StrokeSpec>,
     pub background: Option<TextBg>,
     pub uppercase: bool,
+    #[schemars(schema_with = "schema::reveal")]
     pub reveal: Option<String>,
     /// "balance": even line lengths when wrapping (default: greedy)
+    #[schemars(schema_with = "schema::wrap")]
     pub wrap: Option<String>,
+    /// seconds over which the `reveal` pieces appear
     pub reveal_duration: Option<f64>,
 
     // captions
+    #[schemars(schema_with = "schema::caption_style")]
     pub style: Option<String>,
+    /// captions: colour of the active word (default yellow)
     pub highlight: Option<Rgba>,
+    /// captions: pill colour behind the active word
     pub highlight_bg: Option<Rgba>,
+    /// captions: words per chunk
     pub max_words: Option<usize>,
 
     // waveform
+    /// waveform: number of bars (default 48)
     pub bars: Option<usize>,
+    /// waveform: bars grow from the centre line
     pub mirror: bool,
+    /// waveform: gap between bars as a fraction of a slot (0..1)
     pub gap: Option<f64>,
+    /// waveform: amplification
     pub gain: Option<f64>,
 
     // counter
+    /// counter: the number (animate it, e.g. {"from": 0, "to": 12840, "ease": "out", "end": 2.5})
     pub value: Option<Prop>,
+    /// counter: digits after the decimal mark
     pub decimals: Option<usize>,
+    /// counter: text before the number
     pub prefix: Option<String>,
+    /// counter: text after the number
     pub suffix: Option<String>,
-    /// thousands separator, e.g. "." (default) or ","
+    /// counter: thousands separator: "," (default, 1,234.5), "." (1.234,5) or "none"
     pub separator: Option<String>,
 
     // group
+    /// group: child layers (positioned and timed relative to the group)
     pub children: Vec<Layer>,
+    /// group: play children one after another (each needs a duration; clips use their length)
     pub sequence: bool,
+    /// group with `sequence`: seconds consecutive children overlap (use with "in": "fade" for crossfades)
     pub overlap: f64,
 }
 

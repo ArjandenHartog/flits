@@ -149,6 +149,12 @@ enum Cmd {
     },
     /// Print the scene format reference
     Spec,
+    /// Print the JSON Schema of the scene format (for editors, validators, code generators and LLM agents)
+    Schema {
+        /// write to this file instead of stdout
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+    },
     /// Measure text: reads a JSON array of {text, font, size, maxWidth, lineHeight, balance, letterSpacing, weight}
     /// on stdin, prints [{width, height, lines}] (for scripts that place things next to text)
     Measure,
@@ -378,6 +384,14 @@ fn run(cli: Cli) -> Result<()> {
         Cmd::Measure => tools::measure(),
         Cmd::Spec => {
             print!("{}", include_str!("../../SPEC.md"));
+            Ok(())
+        }
+        Cmd::Schema { out } => {
+            let schema = flits::scene::schema::scene_schema_pretty();
+            match out {
+                Some(path) => std::fs::write(&path, schema)?,
+                None => print!("{schema}"),
+            }
             Ok(())
         }
         Cmd::Slideshow {
