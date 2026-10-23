@@ -136,6 +136,20 @@ pub fn serve(port: u16, token: Option<String>) -> Result<()> {
     flits::remote::serve(port, token)
 }
 
+pub fn preview(scene: &Path, port: u16, scale: f64, gpu: &str, open: bool) -> Result<()> {
+    if !scene.exists() {
+        anyhow::bail!("{} not found", scene.display());
+    }
+    let pv = flits::preview::Preview::start(scene, port, scale, flits::pick_gpu(gpu)?)?;
+    let url = pv.url();
+    eprintln!("flits: preview of {} at {url}  (watching for changes, Ctrl+C to stop)", scene.display());
+    if open && !flits::preview::open_browser(&url) {
+        eprintln!("flits: open {url} in your browser");
+    }
+    pv.wait();
+    Ok(())
+}
+
 pub fn remote(url: Option<String>, token: Option<String>) -> Result<()> {
     if let Some(url) = url {
         let p = flits::remote::save(&url, &token.unwrap_or_default())?;

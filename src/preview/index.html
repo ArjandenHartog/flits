@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>flits preview</title>
+<style>
+  :root {
+    --bg: #111114; --panel: #1b1b20; --line: #2c2c34; --text: #e6e6eb; --dim: #8b8b96;
+    --accent: #f26328; --warn: #f5c542; --err: #ff5d5d; --ok: #3ccf7a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { display: grid; grid-template-rows: auto 1fr auto; height: 100vh; }
+  header { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header .name { font-weight: 600; }
+  header .meta { color: var(--dim); }
+  header .spacer { flex: 1; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); display: inline-block; margin-right: 6px; }
+  .dot.on { background: var(--ok); }
+  .dot.off { background: var(--err); }
+  .flash { color: var(--ok); opacity: 0; transition: opacity .6s; }
+  .flash.show { opacity: 1; transition: none; }
+  main { display: grid; grid-template-columns: 1fr 300px; min-height: 0; }
+  .stage { position: relative; display: flex; align-items: center; justify-content: center; min-height: 0; min-width: 0; padding: 16px;
+    background: repeating-conic-gradient(#16161a 0 25%, #131316 0 50%) 0 0 / 24px 24px; }
+  .stage canvas { max-width: 100%; max-height: 100%; box-shadow: 0 8px 40px rgba(0,0,0,.5); background: #000; }
+  .stage canvas.stale { opacity: .35; }
+  .overlay { position: absolute; left: 24px; right: 24px; bottom: 24px; max-height: 60%; overflow: auto; display: none;
+    background: rgba(40, 10, 12, .95); border: 1px solid var(--err); border-radius: 8px; padding: 12px 14px; }
+  .overlay.show { display: block; }
+  .overlay h3 { margin: 0 0 6px; color: var(--err); font-size: 13px; }
+  .overlay pre { margin: 0; white-space: pre-wrap; font: 12px/1.45 ui-monospace, Consolas, monospace; }
+  .overlay .hint { color: var(--dim); margin-top: 8px; }
+  aside { border-left: 1px solid var(--line); background: var(--panel); overflow: auto; padding: 12px 14px; }
+  aside h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin: 14px 0 6px; }
+  aside h2:first-child { margin-top: 0; }
+  .issue { padding: 6px 8px; border-radius: 6px; margin-bottom: 6px; font: 12px/1.4 ui-monospace, Consolas, monospace; word-break: break-word; }
+  .issue.err { background: rgba(255, 93, 93, .12); border-left: 3px solid var(--err); }
+  .issue.warn { background: rgba(245, 197, 66, .1); border-left: 3px solid var(--warn); }
+  .none { color: var(--dim); }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0; }
+  dt { color: var(--dim); }
+  dd { margin: 0; font-variant-numeric: tabular-nums; }
+  footer { border-top: 1px solid var(--line); background: var(--panel); padding: 8px 14px 10px; }
+  .controls { display: flex; align-items: center; gap: 6px; }
+  button { background: #26262d; color: var(--text); border: 1px solid var(--line); border-radius: 6px; height: 30px; min-width: 34px;
+    padding: 0 8px; font: inherit; cursor: pointer; }
+  button:hover { background: #30303a; }
+  button:disabled { opacity: .4; cursor: default; }
+  button.play { min-width: 64px; background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .time { font-variant-numeric: tabular-nums; margin-left: 8px; min-width: 260px; }
+  .time .dim { color: var(--dim); }
+  label { color: var(--dim); display: flex; align-items: center; gap: 4px; margin-left: 8px; }
+  input[type=range] { width: 100%; margin: 8px 0 6px; accent-color: var(--accent); }
+  .thumbs { position: relative; display: flex; gap: 4px; overflow: hidden; height: 64px; }
+  .thumbs .t { flex: 1 1 0; min-width: 0; position: relative; cursor: pointer; border-radius: 4px; overflow: hidden; background: #000;
+    border: 2px solid transparent; }
+  .thumbs .t.cur { border-color: var(--accent); }
+  .thumbs .t img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumbs .t span { position: absolute; left: 3px; bottom: 2px; font-size: 10px; color: #fff; text-shadow: 0 1px 2px #000; }
+  .keys { color: var(--dim); font-size: 11px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <span class="name" id="name">flits preview</span>
+  <span class="meta" id="meta"></span>
+  <span class="spacer"></span>
+  <span class="flash" id="flash">reloaded</span>
+  <span><span class="dot" id="dot"></span><span id="conn">connecting</span></span>
+</header>
+<main>
+  <div class="stage">
+    <canvas id="view" width="16" height="9"></canvas>
+    <div class="overlay" id="overlay"><h3>Scene error</h3><pre id="overlay-text"></pre><div class="hint" id="overlay-hint"></div></div>
+  </div>
+  <aside>
+    <h2>Problems</h2>
+    <div id="issues"><span class="none">none</span></div>
+    <h2>Scene</h2>
+    <dl id="details"></dl>
+  </aside>
+</main>
+<footer>
+  <div class="controls">
+    <button id="first" title="First frame (Home)">|&lt;</button>
+    <button id="prev" title="Previous frame (Left, Shift = 1 s)">&lt;</button>
+    <button id="play" class="play" title="Play / pause (Space)">Play</button>
+    <button id="next" title="Next frame (Right, Shift = 1 s)">&gt;</button>
+    <button id="last" title="Last frame (End)">&gt;|</button>
+    <span class="time" id="time"></span>
+    <label><input type="checkbox" id="loop" checked> loop</label>
+    <span class="spacer" style="flex:1"></span>
+    <span class="time dim" id="stat" style="min-width:0;text-align:right"></span>
+  </div>
+  <input type="range" id="scrub" min="0" max="0" value="0" step="1">
+  <div class="thumbs" id="thumbs"></div>
+  <div class="keys">Space play/pause - Left/Right step a frame (Shift: 1 s) - Home/End - edit and save the scene file to reload</div>
+</footer>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const view = $("view"), ctx = view.getContext("2d");
+const THUMBS = 12;
+
+let info = null;          // last /api/info
+let frame = parseInt(location.hash.slice(1)) || 0;  // current frame (kept in the URL: #120)
+let playing = false, playStart = 0, playFrom = 0, playTimer = 0;
+let inflight = false, wanted = null;
+let frameError = null;
+let thumbGen = 0;         // bumped when the strip is rebuilt; older loaders stop
+
+const frames = () => (info ? info.frames : 0);
+const fps = () => (info && info.fps) || 30;
+
+function fmt(t) {
+  const m = Math.floor(t / 60), s = t - m * 60;
+  return String(m).padStart(2, "0") + ":" + s.toFixed(2).padStart(5, "0");
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+// ---------------------------------------------------------------- frames
+function request(f) {
+  wanted = f;
+  pump();
+}
+
+async function pump() {
+  if (inflight || wanted === null || !info || frames() === 0) return;
+  const f = wanted, v = info.version;
+  wanted = null;
+  inflight = true;
+  try {
+    const t0 = performance.now();
+    const r = await fetch(`/frame?f=${f}&v=${v}`);
+    if (!r.ok) throw new Error(await r.text());
+    const bmp = await createImageBitmap(await r.blob());
+    if (view.width !== bmp.width || view.height !== bmp.height) {
+      view.width = bmp.width;
+      view.height = bmp.height;
+    }
+    ctx.drawImage(bmp, 0, 0);
+    bmp.close();
+    const server = r.headers.get("X-Render-Ms");
+    $("stat").textContent = `frame ${f}: ${(performance.now() - t0).toFixed(0)} ms` + (server ? ` (render ${parseFloat(server).toFixed(0)} ms)` : "");
+    if (frameError) { frameError = null; renderIssues(); }
+  } catch (e) {
+    frameError = e.message || String(e);
+    renderIssues();
+  }
+  inflight = false;
+  pump();
+}
+
+function seek(f, keepPlaying) {
+  const n = frames();
+  if (n === 0) return;
+  frame = Math.max(0, Math.min(n - 1, Math.round(f)));
+  if (playing && keepPlaying) { playFrom = frame; playStart = performance.now(); }
+  else if (playing) setPlaying(false);
+  updateTime();
+  request(frame);
+}
+
+function setPlaying(p) {
+  playing = p && frames() > 0;
+  $("play").textContent = playing ? "Pause" : "Play";
+  clearTimeout(playTimer);
+  if (playing) {
+    if (frame >= frames() - 1) frame = 0;
+    playFrom = frame;
+    playStart = performance.now();
+    tick();
+  }
+}
+
+// a timer rather than requestAnimationFrame: keeps the clock running in embedded/offscreen views
+function tick() {
+  if (!playing) return;
+  const now = performance.now();
+  let f = playFrom + Math.floor(((now - playStart) / 1000) * fps());
+  if (f >= frames()) {
+    if ($("loop").checked) { playFrom = 0; playStart = now; f = 0; }
+    else { f = frames() - 1; setPlaying(false); }
+  }
+  if (f !== frame) {
+    frame = f;
+    updateTime();
+    request(frame); // only one request in flight: frames the server can't keep up with are skipped
+  }
+  if (playing) playTimer = setTimeout(tick, Math.max(4, 1000 / fps() / 2));
+}
+
+function updateTime() {
+  const n = frames();
+  $("scrub").value = frame;
+  if (!playing && n > 0) history.replaceState(null, "", "#" + frame);
+  $("time").innerHTML = n === 0 ? '<span class="dim">no frames</span>' :
+    `${fmt(frame / fps())} <span class="dim">/ ${fmt(info.duration)}</span> &nbsp; frame ${frame} <span class="dim">of ${n}</span>`;
+  const idx = n === 0 ? -1 : Math.min(THUMBS - 1, Math.floor((frame / n) * THUMBS));
+  document.querySelectorAll(".thumbs .t").forEach((el, i) => el.classList.toggle("cur", i === idx));
+}
+
+// ---------------------------------------------------------------- thumbnails
+async function loadThumbs(v) {
+  const gen = ++thumbGen;
+  const strip = $("thumbs");
+  strip.innerHTML = "";
+  const n = frames();
+  if (n === 0) return;
+  const tw = Math.max(96, Math.ceil(strip.clientWidth / THUMBS) * (window.devicePixelRatio || 1));
+  const items = [];
+  for (let i = 0; i < THUMBS; i++) {
+    const f = Math.min(n - 1, Math.floor(((i + 0.5) / THUMBS) * n));
+    const el = document.createElement("div");
+    el.className = "t";
+    el.title = `${fmt(f / fps())} (frame ${f})`;
+    el.innerHTML = `<img alt=""><span>${fmt(f / fps())}</span>`;
+    el.onclick = () => seek(f, true);
+    strip.appendChild(el);
+    items.push([el.querySelector("img"), f]);
+  }
+  updateTime();
+  // one at a time, so the main frame stays responsive
+  for (const [img, f] of items) {
+    if (gen !== thumbGen) return;
+    while (inflight) await new Promise((r) => setTimeout(r, 30));
+    await new Promise((res) => { img.onload = img.onerror = res; img.src = `/frame?f=${f}&w=${Math.round(tw)}&v=${v}`; });
+  }
+}
+
+// ---------------------------------------------------------------- info and problems
+function renderIssues() {
+  const out = [];
+  if (info && info.error) out.push(`<div class="issue err">${esc(info.error)}</div>`);
+  if (frameError) out.push(`<div class="issue err">${esc(frameError)}</div>`);
+  if (info) for (const w of info.warnings) out.push(`<div class="issue warn">${esc(w)}</div>`);
+  $("issues").innerHTML = out.length ? out.join("") : '<span class="none">none</span>';
+  const err = (info && info.error) || null;
+  $("overlay").classList.toggle("show", !!err);
+  view.classList.toggle("stale", !!err);
+  if (err) {
+    $("overlay-text").textContent = err;
+    $("overlay-hint").textContent = frames() > 0 ? "Showing the last version that loaded. Fix the file and save to reload." : "Fix the file and save to reload.";
+  }
+}
+
+function applyInfo(i) {
+  const first = !info;
+  const changed = info && info.version !== i.version;
+  info = i;
+  document.title = `${i.name} - flits preview`;
+  $("name").textContent = i.name;
+  $("meta").textContent = i.frames > 0 ? `${i.width}x${i.height} @ ${i.fps} fps, ${fmt(i.duration)}` : "";
+  const d = [
+    ["file", esc(i.scene)],
+    ["size", `${i.width} x ${i.height}`],
+    ["preview", i.previewWidth ? `${i.previewWidth} x ${i.previewHeight} (scale ${i.scale})` : "-"],
+    ["fps", i.fps ?? "-"],
+    ["duration", i.frames > 0 ? `${i.duration.toFixed(2)} s` : "-"],
+    ["frames", i.frames],
+    ["renderer", esc(i.renderer)],
+    ["prepared in", `${i.prepareSeconds.toFixed(2)} s`],
+    ["version", i.version],
+  ];
+  $("details").innerHTML = d.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+  $("scrub").max = Math.max(0, i.frames - 1);
+  for (const b of ["first", "prev", "play", "next", "last"]) $(b).disabled = i.frames === 0;
+  frame = Math.max(0, Math.min(Math.max(0, i.frames - 1), frame));
+  if (playing && i.frames === 0) setPlaying(false);
+  renderIssues();
+  updateTime();
+  request(frame);
+  loadThumbs(i.version);
+  if (changed && !first) {
+    const fl = $("flash");
+    fl.textContent = i.error ? "error" : "reloaded";
+    fl.style.color = i.error ? "var(--err)" : "var(--ok)";
+    fl.classList.add("show");
+    setTimeout(() => fl.classList.remove("show"), 50);
+  }
+}
+
+function setConnected(ok) {
+  $("dot").className = "dot " + (ok ? "on" : "off");
+  $("conn").textContent = ok ? "watching" : "disconnected";
+}
+
+async function watch() {
+  for (;;) {
+    try {
+      const r = await fetch(info ? `/api/wait?v=${info.version}` : "/api/info");
+      const i = await r.json();
+      setConnected(true);
+      if (!info || i.version !== info.version) applyInfo(i);
+    } catch (e) {
+      setConnected(false);
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+}
+
+// ---------------------------------------------------------------- input
+$("play").onclick = () => setPlaying(!playing);
+$("first").onclick = () => seek(0);
+$("last").onclick = () => seek(frames() - 1);
+$("prev").onclick = () => seek(frame - 1);
+$("next").onclick = () => seek(frame + 1);
+$("scrub").oninput = (e) => seek(+e.target.value, true);
+let resizeTimer = 0;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => info && loadThumbs(info.version), 300);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" && e.target.type !== "range" && e.target.type !== "checkbox") return;
+  const step = e.shiftKey ? Math.round(fps()) : 1;
+  switch (e.key) {
+    case " ": setPlaying(!playing); break;
+    case "ArrowLeft": seek(frame - step); break;
+    case "ArrowRight": seek(frame + step); break;
+    case "Home": seek(0); break;
+    case "End": seek(frames() - 1); break;
+    default: return;
+  }
+  e.preventDefault();
+});
+
+watch();
+</script>
+</body>
+</html>
