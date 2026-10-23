@@ -1,0 +1,18 @@
+# build context = sources only
+.git
+.github
+.claude
+target
+bench
+**/node_modules
+**/__pycache__
+**/*.egg-info
+.flits-*
+**/*.mp4
+**/*.mov
+**/*.mkv
+**/*.m4a
+**/*.mp3
+**/*.wav
+Dockerfile
+.dockerignore
