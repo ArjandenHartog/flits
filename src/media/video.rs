@@ -1,32 +1,28 @@
-//! Streaming decoded video frames out of ffmpeg.
+//! Streaming decoded video frames out of ffmpeg as planar YUV, decoded ahead on a
+//! background thread. Colour conversion and HDR tone mapping happen on the GPU.
 
+use super::colorspace::FrameFormat;
 use super::{ffmpeg, MediaInfo};
 use anyhow::{Context, Result};
-use std::io::{BufReader, Read};
+use std::io::Read;
 use std::path::Path;
-use std::process::{Child, ChildStdout, Command, Stdio};
-use std::sync::OnceLock;
+use std::process::{Child, Stdio};
+use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 
-static HAS_ZSCALE: OnceLock<bool> = OnceLock::new();
+/// Frames decoded ahead of the renderer.
+const AHEAD: usize = 6;
 
-fn has_zscale() -> bool {
-    *HAS_ZSCALE.get_or_init(|| {
-        Command::new("ffmpeg")
-            .args(["-hide_banner", "-filters"])
-            .output()
-            .map(|o| String::from_utf8_lossy(&o.stdout).contains(" zscale "))
-            .unwrap_or(false)
-    })
-}
-
-/// Streams decoded RGBA frames of a video, already scaled to the size it is drawn at.
+/// Streams decoded YUV 4:2:0 frames of a video, already scaled to the size it is drawn at.
 pub struct VideoReader {
     child: Child,
-    out: BufReader<ChildStdout>,
+    frames: Receiver<Vec<u8>>,
+    recycle: SyncSender<Vec<u8>>,
+    /// the current frame: Y plane, U plane, V plane (see `fmt`)
     pub frame: Vec<u8>,
+    pub fmt: FrameFormat,
     pub w: u32,
     pub h: u32,
-    /// layer-local frame index of the frame currently in `frame` (-1 = none yet)
+    /// layer-local frame index of the frame currently in `frame` (first - 1 = none yet)
     pub cur: i64,
     first: i64,
     eof: bool,
@@ -34,20 +30,30 @@ pub struct VideoReader {
 
 impl VideoReader {
     /// Start decoding so that the first frame read corresponds to layer-local frame `first`.
-    pub fn spawn(src: &Path, info: &MediaInfo, trim: f64, first: i64, fps: f64, w: u32, h: u32, looped: bool) -> Result<VideoReader> {
+    /// `high_bit`: deliver 10-bit samples for 10-bit/HDR sources (the consumer supports 16-bit planes).
+    #[allow(clippy::too_many_arguments)]
+    pub fn spawn(
+        src: &Path,
+        info: &MediaInfo,
+        trim: f64,
+        first: i64,
+        fps: f64,
+        w: u32,
+        h: u32,
+        looped: bool,
+        high_bit: bool,
+    ) -> Result<VideoReader> {
         let mut seek = trim + first as f64 / fps;
         if looped && info.duration > 0.0 {
             seek %= info.duration;
         }
-        // resample + scale first so the (expensive) tone mapping runs at the final, smaller size
-        let mut vf = format!("fps={fps},scale={w}:{h}:flags=bicubic");
-        if info.hdr && has_zscale() {
-            // HLG/PQ phone footage -> SDR, otherwise it looks washed out
-            vf.push_str(",zscale=t=linear:npl=203,format=gbrpf32le,zscale=p=bt709,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv");
-        }
-        vf.push_str(",format=rgba");
+        let mut fmt = info.color;
+        fmt.high_bit = high_bit && (fmt.high_bit || fmt.is_hdr());
+        let pix = if fmt.high_bit { "yuv420p10le" } else { "yuv420p" };
+        // keep the source colour encoding: only resample + scale here, the GPU converts
+        let vf = format!("fps={fps},scale={w}:{h}:flags=bicubic,format={pix}");
         let mut cmd = ffmpeg();
-        cmd.args(["-threads", "2"]);
+        cmd.args(["-threads", "2", "-filter_threads", "1"]);
         if looped {
             cmd.args(["-stream_loop", "-1"]);
         }
@@ -55,8 +61,27 @@ impl VideoReader {
         cmd.args(["-an", "-sn", "-vf", &vf, "-f", "rawvideo", "-"]);
         cmd.stdout(Stdio::piped()).stderr(Stdio::null()).stdin(Stdio::null());
         let mut child = cmd.spawn().context("starting ffmpeg decoder")?;
-        let out = BufReader::with_capacity(1 << 20, child.stdout.take().unwrap());
-        Ok(VideoReader { child, out, frame: vec![0; (w * h * 4) as usize], w, h, cur: first - 1, first, eof: false })
+        let mut out = child.stdout.take().unwrap();
+
+        let size = fmt.frame_size(w, h);
+        let (tx, frames) = sync_channel::<Vec<u8>>(AHEAD);
+        let (recycle, free) = sync_channel::<Vec<u8>>(AHEAD + 2);
+        std::thread::Builder::new()
+            .name("flits-video".into())
+            .spawn(move || loop {
+                let mut buf = free.try_recv().unwrap_or_else(|_| vec![0; size]);
+                if out.read_exact(&mut buf).is_err() || tx.send(buf).is_err() {
+                    return; // EOF, or the reader was dropped
+                }
+            })
+            .context("starting decoder thread")?;
+        let mut frame = vec![0; size];
+        // start as black (Y=16, U=V=128 in 8-bit; zeros are fine for 16-bit before the first frame)
+        if !fmt.high_bit {
+            frame[..(w * h) as usize].fill(16);
+            frame[(w * h) as usize..].fill(128);
+        }
+        Ok(VideoReader { child, frames, recycle, frame, fmt, w, h, cur: first - 1, first, eof: false })
     }
 
     pub fn first(&self) -> i64 {
@@ -66,18 +91,13 @@ impl VideoReader {
     /// Advance to layer-local frame `idx` (must be >= current). Holds the last frame at EOF.
     pub fn seek_forward(&mut self, idx: i64) -> Result<()> {
         while self.cur < idx && !self.eof {
-            match self.out.read_exact(&mut self.frame) {
-                Ok(()) => {
-                    // ffmpeg's rgba is straight alpha; video is opaque so force alpha
+            match self.frames.recv() {
+                Ok(buf) => {
+                    let old = std::mem::replace(&mut self.frame, buf);
+                    let _ = self.recycle.try_send(old);
                     self.cur += 1;
                 }
-                Err(_) => {
-                    self.eof = true;
-                    if self.cur < self.first {
-                        // nothing decoded at all: leave black
-                        self.frame.fill(0);
-                    }
-                }
+                Err(_) => self.eof = true, // keep showing the last frame (black if none)
             }
         }
         Ok(())

@@ -2,6 +2,7 @@
 
 use super::{Op, Painter, Src};
 use crate::gfx::rounded_rect;
+use crate::media::colorspace::frame_to_rgba;
 use tiny_skia::{FillRule, FilterQuality, Mask, Paint, PathBuilder, Pattern, Pixmap, PixmapRef, Rect, SpreadMode, Transform};
 
 pub struct CpuPainter<'a> {
@@ -20,14 +21,18 @@ impl<'a> Painter<'a> for CpuPainter<'_> {
             m.fill_path(&PathBuilder::from_rect(r), FillRule::Winding, true, c.ts);
             Some(m)
         });
+        let rgba: Vec<u8>;
         let mut paint = Paint { anti_alias: true, ..Paint::default() };
         match &op.src {
             Src::Solid(c) => paint.set_color(c.skia(op.opacity)),
             Src::Image(pm) => paint.shader = pattern(pm.as_ref(), op.ts, op.uv, op.opacity),
-            Src::Frame { data, w, h, .. } => match PixmapRef::from_bytes(data, *w, *h) {
-                Some(r) => paint.shader = pattern(r, op.ts, op.uv, op.opacity),
-                None => return,
-            },
+            Src::Frame { data, w, h, fmt, .. } => {
+                rgba = frame_to_rgba(data, *w, *h, fmt);
+                match PixmapRef::from_bytes(&rgba, *w, *h) {
+                    Some(r) => paint.shader = pattern(r, op.ts, op.uv, op.opacity),
+                    None => return,
+                }
+            }
         }
         if op.radius > 0.0 {
             if let Some(path) = rounded_rect(x0, y0, x1 - x0, y1 - y0, op.radius) {

@@ -36,8 +36,12 @@ pub use scene::Scene;
 pub struct Options {
     /// parallel workers (None = automatic)
     pub workers: Option<usize>,
-    /// "auto" | "nvenc" | "qsv" | "vaapi" | "x264"
+    /// "auto" | "nvenc" | "qsv" | "vaapi" | "cpu" | "null"
     pub encoder: String,
+    /// "h264" | "hevc" | "av1"
+    pub codec: String,
+    /// "fast" | "balanced" | "quality"
+    pub speed: String,
     /// CRF/CQ quality, lower is better (18..28)
     pub quality: u32,
     /// render scale (0.5 = half resolution preview)
@@ -45,11 +49,23 @@ pub struct Options {
     /// compositor: "auto" | "gpu" | "cpu"
     pub compositor: String,
     pub keep_temp: bool,
+    /// no progress output
+    pub quiet: bool,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { workers: None, encoder: "auto".into(), quality: 21, scale: 1.0, compositor: "auto".into(), keep_temp: false }
+        Options {
+            workers: None,
+            encoder: "auto".into(),
+            codec: "h264".into(),
+            speed: "balanced".into(),
+            quality: 21,
+            scale: 1.0,
+            compositor: "auto".into(),
+            keep_temp: false,
+            quiet: false,
+        }
     }
 }
 
@@ -73,23 +89,22 @@ pub fn pick_gpu(choice: &str) -> Result<Option<Arc<paint::gpu::Gpu>>> {
     }
 }
 
-pub fn default_workers(enc: media::Encoder, gpu: bool) -> usize {
+pub fn default_workers(enc: &media::encode::Settings, gpu: bool) -> usize {
     let n = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+    // with a GPU compositor the CPU mostly feeds pipes and decoders
     let w = if gpu { (n * 3 / 4).max(2) } else { n.max(1) };
-    match enc {
-        media::Encoder::Nvenc => w.min(8),
-        media::Encoder::Vaapi | media::Encoder::Qsv => w.min(4),
-        _ => w,
-    }
+    w.min(enc.max_sessions())
 }
 
 /// Render an already prepared scene.
 pub fn render_prepared(p: &Prepared, out: &Path, o: &Options) -> Result<Stats> {
     let t = std::time::Instant::now();
-    let encoder = media::encode::pick_encoder(&o.encoder)?;
+    let codec = media::encode::Codec::parse(&o.codec)?;
+    let speed = media::encode::Speed::parse(&o.speed)?;
+    let encode = media::encode::pick(&o.encoder, codec, speed, o.quality)?;
     let gpu = pick_gpu(&o.compositor)?;
-    let workers = o.workers.unwrap_or_else(|| default_workers(encoder, gpu.is_some()));
-    render::render(p, out, &render::RenderOpts { workers, encoder, quality: o.quality, keep_temp: o.keep_temp, gpu })?;
+    let workers = o.workers.unwrap_or_else(|| default_workers(&encode, gpu.is_some()));
+    render::render(p, out, &render::RenderOpts { workers, encode, keep_temp: o.keep_temp, gpu, quiet: o.quiet })?;
     Ok(Stats { frames: p.frames, seconds: t.elapsed().as_secs_f64() })
 }
 

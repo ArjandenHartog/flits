@@ -23,6 +23,7 @@ fn gpu_matches_cpu() {
     let dir = common::tmp("parity");
     let img = common::photo(&dir, "a.png", 1200, 800);
     let tr = common::transcript(&dir);
+    let clip = common::clip(&dir, "c.mp4", 3.0);
     let scene = json!({
         "width": 1280, "height": 720, "fps": 30, "duration": 3, "background": "#202024",
         "layers": [
@@ -30,6 +31,7 @@ fn gpu_matches_cpu() {
             {"type": "rect", "gradient": {"type": "radial", "colors": ["#00000000", "#000000aa"]}},
             {"type": "image", "src": img, "height": 420, "x": 820, "y": 360, "radius": 18, "rotation": 4,
              "border": {"width": 10, "color": "#fffaf3"}, "shadow": {"blur": 24, "y": 16}, "zoom": 1.05, "panX": 0.4},
+            {"type": "video", "src": clip, "x": 200, "y": 470, "height": 180, "radius": 12, "volume": 0, "zoom": 1.1},
             {"type": "rect", "x": 60, "y": 640, "anchor": [0, 0.5], "width": 500, "height": 14, "radius": 7, "color": "#f26328",
              "scaleX": {"from": 0.2, "to": 1}},
             {"type": "text", "text": "Pariteit tussen\nGPU en CPU", "x": 330, "y": 200, "size": 54, "align": "left",

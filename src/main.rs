@@ -16,9 +16,18 @@ struct RenderArgs {
     /// parallel render workers (default: logical cores / 2, max 8 for NVENC)
     #[arg(long, short = 'j')]
     workers: Option<usize>,
-    /// auto | nvenc | qsv | vaapi | x264
+    /// auto | nvenc | qsv | vaapi | cpu | null (benchmark: discard frames)
     #[arg(long, default_value = "auto")]
     encoder: String,
+    /// h264 | hevc | av1
+    #[arg(long, default_value = "h264")]
+    codec: String,
+    /// encoder preset: fast | balanced | quality
+    #[arg(long, default_value = "balanced")]
+    speed: String,
+    /// no progress output
+    #[arg(long, short = 'q')]
+    quiet: bool,
     /// quality: lower = better (CRF/CQ), 18..28
     #[arg(long, default_value_t = 21)]
     quality: u32,
@@ -218,10 +227,13 @@ fn do_render(p: &Prepared, out: &Path, r: &RenderArgs) -> Result<()> {
     let o = flits::Options {
         workers: r.workers,
         encoder: r.encoder.clone(),
+        codec: r.codec.clone(),
+        speed: r.speed.clone(),
         quality: r.quality,
         scale: r.scale,
         compositor: r.gpu.clone(),
         keep_temp: r.keep_temp,
+        quiet: r.quiet,
     };
     flits::render_prepared(p, out, &o).map(|_| ())
 }

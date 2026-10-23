@@ -6,6 +6,7 @@ pub mod cpu;
 pub mod gpu;
 
 use crate::gfx::Sprite;
+use crate::media::colorspace::FrameFormat;
 use crate::scene::color::Rgba;
 use tiny_skia::{Pixmap, Transform};
 
@@ -13,13 +14,14 @@ pub enum Src<'a> {
     Solid(Rgba),
     /// static bitmap; its address is used as a cache key by the GPU backend
     Image(&'a Pixmap),
-    /// a decoded video frame (opaque RGBA), `ver` changes whenever the content does
+    /// a decoded planar YUV video frame; `ver` changes whenever the content does
     Frame {
         key: usize,
         ver: i64,
         data: &'a [u8],
         w: u32,
         h: u32,
+        fmt: FrameFormat,
     },
 }
 

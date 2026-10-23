@@ -1,5 +1,6 @@
 //! ffprobe: size, duration, rotation, HDR, streams.
 
+use super::colorspace::FrameFormat;
 use anyhow::{bail, Context, Result};
 use serde_json::Value;
 use std::path::Path;
@@ -14,6 +15,8 @@ pub struct MediaInfo {
     pub has_video: bool,
     pub has_audio: bool,
     pub hdr: bool,
+    /// colour description of the video stream (bit depth, transfer, matrix, range)
+    pub color: FrameFormat,
 }
 
 pub fn probe(path: &Path) -> Result<MediaInfo> {
@@ -57,7 +60,12 @@ pub fn probe(path: &Path) -> Result<MediaInfo> {
                     (it.next().and_then(|x| x.parse().ok()).unwrap_or(0.0), it.next().and_then(|x| x.parse().ok()).unwrap_or(1.0));
                 info.fps = if d > 0.0 { n / d } else { 0.0 };
                 let trc = s["color_transfer"].as_str().unwrap_or("");
-                info.hdr = trc == "arib-std-b67" || trc == "smpte2084";
+                let mut color =
+                    FrameFormat::from_probe(trc, s["color_space"].as_str().unwrap_or(""), s["color_range"].as_str().unwrap_or(""));
+                let pix = s["pix_fmt"].as_str().unwrap_or("");
+                color.high_bit = pix.contains("10") || pix.contains("12") || pix.contains("16");
+                info.hdr = color.is_hdr();
+                info.color = color;
                 if info.duration == 0.0 {
                     info.duration = s["duration"].as_str().and_then(|x| x.parse().ok()).unwrap_or(0.0);
                 }

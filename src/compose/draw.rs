@@ -13,6 +13,8 @@ use tiny_skia::{GradientStop, LinearGradient, Paint, Pixmap, Point, RadialGradie
 #[derive(Default)]
 pub struct VideoState {
     readers: HashMap<usize, (f64, VideoReader)>,
+    /// decode 10-bit sources at full precision (the GPU path supports 16-bit planes)
+    pub high_bit: bool,
 }
 
 pub struct FrameCtx<'a> {
@@ -60,7 +62,7 @@ fn advance_videos(n: &Node, t: f64, frame: i64, fps: f64, vs: &mut VideoState) -
             Some((_, r)) => lf < r.cur || lf > r.cur + (fps * 2.0) as i64 || lf < r.first(),
         };
         if need_new {
-            let r = VideoReader::spawn(src, info, *trim, lf.max(0), fps, *dw, *dh, *looped)?;
+            let r = VideoReader::spawn(src, info, *trim, lf.max(0), fps, *dw, *dh, *looped, vs.high_bit)?;
             vs.readers.insert(n.id, (n.end, r));
         }
         vs.readers.get_mut(&n.id).unwrap().1.seek_forward(lf)?;
@@ -249,7 +251,7 @@ fn draw_node<'a>(
             if let Some((_, r)) = ctx.videos.readers.get(&n.id) {
                 let zoom = n.zoom.eval(lt, dur) as f32;
                 let pan = (n.pan_x.eval(lt, dur) as f32, n.pan_y.eval(lt, dur) as f32);
-                let src = Src::Frame { key: n.id, ver: r.cur, data: &r.frame, w: r.w, h: r.h };
+                let src = Src::Frame { key: n.id, ver: r.cur, data: &r.frame, w: r.w, h: r.h, fmt: r.fmt };
                 if let Some(o) = media_op(src, r.w as f32, r.h as f32, *fit, w, h, zoom, pan, n.radius, ts, op, clip) {
                     painter.draw(o);
                 }

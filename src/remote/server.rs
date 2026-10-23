@@ -22,7 +22,7 @@ fn safe(s: &str) -> String {
 
 pub fn serve(port: u16, token: String) -> Result<()> {
     let server = tiny_http::Server::http(("0.0.0.0", port)).map_err(|e| anyhow!("cannot listen on port {port}: {e}"))?;
-    let gpu_name = crate::paint::gpu::Gpu::new().map(|g| g.name).ok();
+    let gpu_name = crate::paint::gpu::Gpu::new().map(|g| g.name.clone()).ok();
     eprintln!("flits: serving on http://0.0.0.0:{port}  (GPU: {})", gpu_name.as_deref().unwrap_or("none"));
     let job = Arc::new(Mutex::new(()));
     let gpu_name = Arc::new(gpu_name);
