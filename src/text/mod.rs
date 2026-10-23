@@ -1,13 +1,15 @@
 //! Text layout and rasterization (glyph outlines -> tiny-skia paths).
 
+pub mod color;
 pub mod fonts;
 
-pub use fonts::{FontDb, FontRef, DEFAULT_FONT};
+pub use fonts::{Face, FaceRef, FontDb, FontRef, DEFAULT_FONT};
 
 use crate::gfx::{rounded_rect, with_shadow, Sprite};
 use crate::scene::color::Rgba;
-use ab_glyph::{Font, OutlineCurve};
+use ab_glyph::{Font, GlyphId, OutlineCurve};
 use anyhow::{anyhow, bail, Result};
+use std::sync::Arc;
 use tiny_skia::{FillRule, LineCap, LineJoin, Paint, PathBuilder, Pixmap, Stroke, Transform};
 
 #[derive(Clone, Copy, PartialEq)]
@@ -53,20 +55,99 @@ impl TextStyle {
     }
 
     pub fn measure(&self, word: &str) -> f32 {
-        let k = self.k();
-        let mut x = 0.0;
-        let mut prev = None;
-        let mut n = 0;
-        for ch in word.chars().filter(|c| *c != SHY) {
-            let id = self.font.glyph_id(ch);
-            if let Some(p) = prev {
-                x += self.font.kern_unscaled(p, id) * k;
+        if !self.needs_fallback(word) {
+            // the common case, without allocating: every character is in the layer's font
+            let k = self.k();
+            let mut x = 0.0;
+            let mut prev = None;
+            let mut n = 0;
+            for ch in word.chars().filter(|c| *c != SHY) {
+                let id = self.font.glyph_id(ch);
+                if let Some(p) = prev {
+                    x += self.font.kern_unscaled(p, id) * k;
+                }
+                x += self.font.h_advance_unscaled(id) * k;
+                prev = Some(id);
+                n += 1;
             }
-            x += self.font.h_advance_unscaled(id) * k;
-            prev = Some(id);
-            n += 1;
+            return x + self.letter_spacing * (n.max(1) - 1) as f32;
         }
-        x + self.letter_spacing * (n.max(1) - 1) as f32
+        let (glyphs, width) = self.glyphs(word);
+        let _ = glyphs;
+        width
+    }
+
+    /// Whether `word` has characters the layer's font lacks, or emoji.
+    fn needs_fallback(&self, word: &str) -> bool {
+        let mut chars = word.chars().filter(|c| *c != SHY).peekable();
+        while let Some(c) = chars.next() {
+            if is_emoji(c, chars.peek().copied()) || needs_shaping(c) || (!self.font.face.covers(c) && !is_invisible(c)) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// The glyphs of one word, positioned in px from the word's origin on the baseline, and its
+    /// advance width. Runs in the layer's font use its kerning; runs in fallback fonts (emoji,
+    /// other scripts) are shaped, so emoji sequences (ZWJ, flags, skin tones, keycaps) join up.
+    fn glyphs(&self, word: &str) -> (Vec<Glyph>, f32) {
+        let chars: Vec<char> = word.chars().filter(|c| *c != SHY).collect();
+        let fast = !self.needs_fallback(word);
+        // face per character; marks, joiners and modifiers stay with the character before them
+        let mut faces: Vec<(FaceRef, bool)> = Vec::with_capacity(chars.len());
+        for (i, &c) in chars.iter().enumerate() {
+            let emoji = !fast && is_emoji(c, chars.get(i + 1).copied());
+            let joins = i > 0 && (is_joiner(c) || (is_regional(c) && is_regional(chars[i - 1]) && pairs_open(&chars[..i])));
+            let face = if fast {
+                (self.font.face.clone(), false)
+            } else if joins || (i > 0 && is_invisible(c)) {
+                faces[i - 1].clone()
+            } else {
+                (self.font.face_for(c, emoji), emoji)
+            };
+            faces.push(face);
+        }
+        let mut out = Vec::with_capacity(chars.len());
+        let mut x = 0.0f32;
+        let mut i = 0;
+        while i < chars.len() {
+            let (face, emoji) = faces[i].clone();
+            let mut j = i + 1;
+            while j < chars.len() && Arc::ptr_eq(&faces[j].0, &face) && faces[j].1 == emoji {
+                j += 1;
+            }
+            let k = self.size / face.ab.units_per_em().unwrap_or(1000.0);
+            if Arc::ptr_eq(&face, &self.font.face) && !emoji && !chars[i..j].iter().any(|c| needs_shaping(*c)) {
+                let mut prev = None;
+                for &ch in &chars[i..j] {
+                    if is_invisible(ch) && !face.covers(ch) {
+                        continue;
+                    }
+                    let id = face.ab.glyph_id(ch);
+                    if let Some(p) = prev {
+                        x += face.ab.kern_unscaled(p, id) * k;
+                    }
+                    if !out.is_empty() {
+                        x += self.letter_spacing;
+                    }
+                    out.push(Glyph { face: face.clone(), id, x, dy: 0.0 });
+                    x += face.ab.h_advance_unscaled(id) * k;
+                    prev = Some(id);
+                }
+            } else {
+                let run: String = chars[i..j].iter().collect();
+                for (id, dx, dy, adv) in shape(&face, &run) {
+                    if !out.is_empty() {
+                        x += self.letter_spacing;
+                    }
+                    out.push(Glyph { face: face.clone(), id: GlyphId(id), x: x + dx * k, dy: dy * k });
+                    x += adv * k;
+                }
+            }
+            i = j;
+        }
+        (out, x)
     }
 
     pub fn space(&self) -> f32 {
@@ -85,17 +166,19 @@ impl TextStyle {
         (self.line_px() - (asc - desc)) / 2.0 + asc
     }
 
-    fn append_glyphs(&self, word: &str, x0: f32, baseline: f32, pb: &mut PathBuilder) {
-        let k = self.k();
-        let mut x = x0;
-        let mut prev = None;
-        for ch in word.chars().filter(|c| *c != SHY) {
-            let id = self.font.glyph_id(ch);
-            if let Some(p) = prev {
-                x += self.font.kern_unscaled(p, id) * k;
+    /// Outlines of `word` into `pb`; colour glyphs (emoji) are collected in `color` instead.
+    fn append_glyphs(&self, word: &str, x0: f32, baseline: f32, pb: &mut PathBuilder, color: &mut Vec<(Glyph, f32, f32)>) {
+        let (glyphs, _) = self.glyphs(word);
+        for g in glyphs {
+            if g.face.color && g.face.parsed().is_some_and(|f| color::has_color(&f, g.id.0)) {
+                let (gx, gy) = (x0 + g.x, baseline - g.dy);
+                color.push((g, gx, gy));
+                continue;
             }
-            if let Some(ol) = self.font.outline(id) {
-                let tp = |p: ab_glyph::Point| (x + p.x * k, baseline - p.y * k);
+            let k = self.size / g.face.ab.units_per_em().unwrap_or(1000.0);
+            let (x, base) = (x0 + g.x, baseline - g.dy);
+            if let Some(ol) = g.face.ab.outline(g.id) {
+                let tp = |p: ab_glyph::Point| (x + p.x * k, base - p.y * k);
                 let mut last: Option<(f32, f32)> = None;
                 let mut open = false;
                 for c in &ol.curves {
@@ -126,10 +209,70 @@ impl TextStyle {
                     pb.close();
                 }
             }
-            x += self.font.h_advance_unscaled(id) * k + self.letter_spacing;
-            prev = Some(id);
         }
     }
+}
+
+/// A positioned glyph: `x` from the word origin, `dy` up from the baseline (px).
+#[derive(Clone)]
+struct Glyph {
+    face: FaceRef,
+    id: GlyphId,
+    x: f32,
+    dy: f32,
+}
+
+/// Shape `text` with `face`: (glyph id, x offset, y offset, advance) in font units.
+fn shape(face: &Face, text: &str) -> Vec<(u16, f32, f32, f32)> {
+    let Some(rb) = rustybuzz::Face::from_slice(face.ab.font_data(), face.index) else {
+        return text.chars().map(|c| (face.ab.glyph_id(c).0, 0.0, 0.0, face.ab.h_advance_unscaled(face.ab.glyph_id(c)))).collect();
+    };
+    let mut buf = rustybuzz::UnicodeBuffer::new();
+    buf.push_str(text);
+    let shaped = rustybuzz::shape(&rb, &[], buf);
+    shaped
+        .glyph_infos()
+        .iter()
+        .zip(shaped.glyph_positions())
+        .map(|(i, p)| (i.glyph_id as u16, p.x_offset as f32, p.y_offset as f32, p.x_advance as f32))
+        .collect()
+}
+
+/// Scripts that need shaping (right-to-left, joining or reordering marks): Hebrew, Arabic, Syriac,
+/// Thaana, N'Ko, the Indic scripts, Thai, Lao, Myanmar, Khmer.
+fn needs_shaping(c: char) -> bool {
+    matches!(c as u32, 0x0590..=0x0DFF | 0x0E00..=0x0EFF | 0x1000..=0x109F | 0x1780..=0x17FF | 0xFB1D..=0xFDFF | 0xFE70..=0xFEFF)
+}
+
+/// Right-to-left letters (Hebrew, Arabic, Syriac, Thaana, N'Ko and their presentation forms).
+fn is_rtl(c: char) -> bool {
+    matches!(c as u32, 0x0590..=0x07FF | 0x0860..=0x08FF | 0xFB1D..=0xFDFF | 0xFE70..=0xFEFF)
+}
+
+/// Emoji presentation: pictographs, or any character followed by VS16 or the keycap mark.
+fn is_emoji(c: char, next: Option<char>) -> bool {
+    matches!(c as u32, 0x1F000..=0x1FAFF) || matches!(next, Some('\u{FE0F}' | '\u{20E3}'))
+}
+
+/// Characters that attach to the one before them: ZWJ, variation selectors, skin tones, tags, keycap.
+fn is_joiner(c: char) -> bool {
+    matches!(c as u32, 0x200D | 0xFE0E | 0xFE0F | 0x1F3FB..=0x1F3FF | 0xE0020..=0xE007F | 0x20E3)
+        || (is_invisible(c) && c != '\u{200B}')
+        || matches!(c as u32, 0x0300..=0x036F)
+}
+
+/// Zero-width characters that need no glyph of their own.
+fn is_invisible(c: char) -> bool {
+    matches!(c as u32, 0x200B..=0x200D | 0x2060 | 0xFE00..=0xFE0F | 0xE0020..=0xE007F)
+}
+
+fn is_regional(c: char) -> bool {
+    matches!(c as u32, 0x1F1E6..=0x1F1FF)
+}
+
+/// Whether the regional indicators ending `before` leave a flag half-open.
+fn pairs_open(before: &[char]) -> bool {
+    before.iter().rev().take_while(|c| is_regional(**c)).count() % 2 == 1
 }
 
 pub struct PlacedWord {
@@ -227,19 +370,24 @@ pub fn layout(style: &TextStyle, tokens: &[String]) -> TextLayout {
     }
     let widths: Vec<f32> = lines.iter().map(|l| l.iter().map(|(_, w)| *w).sum::<f32>() + space * (l.len().max(1) - 1) as f32).collect();
     let block_w = widths.iter().cloned().fold(0.0, f32::max);
+    // a paragraph whose first letter is Hebrew/Arabic/... runs right to left: words keep their
+    // (logical) order in `words`, only their positions are mirrored within the line
+    let rtl = tokens.iter().flat_map(|t| t.chars()).find(|c| c.is_alphabetic()).is_some_and(is_rtl);
     let mut words = Vec::new();
     let mut line_boxes = Vec::new();
     for (li, l) in lines.iter().enumerate() {
         let lw = widths[li];
-        let mut x = match style.align {
+        let x0 = match style.align {
             Align::Left => 0.0,
             Align::Center => (block_w - lw) / 2.0,
             Align::Right => block_w - lw,
         };
         let y = li as f32 * lh;
-        line_boxes.push((x, y, lw));
+        line_boxes.push((x0, y, lw));
+        let mut x = x0;
         for (t, w) in l {
-            words.push(PlacedWord { text: t.clone(), line: li, x, y, w: *w });
+            let wx = if rtl { x0 + lw - (x - x0) - w } else { x };
+            words.push(PlacedWord { text: t.clone(), line: li, x: wx, y, w: *w });
             x += w + space;
         }
     }
@@ -289,13 +437,14 @@ pub fn render(style: &TextStyle, lay: &TextLayout, only: Option<&[usize]>, color
 
     let baseline = style.baseline();
     let mut pb = PathBuilder::new();
+    let mut color_glyphs = Vec::new();
     for (i, w) in lay.words.iter().enumerate() {
         if let Some(sel) = only {
             if !sel.contains(&i) {
                 continue;
             }
         }
-        style.append_glyphs(&w.text, tx + w.x, ty + w.y + baseline, &mut pb);
+        style.append_glyphs(&w.text, tx + w.x, ty + w.y + baseline, &mut pb, &mut color_glyphs);
     }
     if let Some(path) = pb.finish() {
         if let Some((sw, sc)) = style.stroke {
@@ -309,6 +458,11 @@ pub fn render(style: &TextStyle, lay: &TextLayout, only: Option<&[usize]>, color
         paint.set_color(color.unwrap_or(style.color).skia(1.0));
         paint.anti_alias = true;
         pm.fill_path(&path, &paint, FillRule::Winding, Transform::identity(), None);
+    }
+    for (g, x, y) in color_glyphs {
+        if let Some(face) = g.face.parsed() {
+            color::draw(&mut pm, &face, g.id.0, x, y, style.size, color.unwrap_or(style.color));
+        }
     }
     let sprite = Sprite { pm, ox, oy, w: box_w, h: box_h, ppu: 1.0 };
     Ok(match style.shadow {
@@ -375,6 +529,62 @@ mod tests {
         assert!(lay.width <= 200.0 + 1.0);
         assert_eq!(lay.words.last().unwrap().line, lay.lines.len() - 1, "explicit break starts a new line");
         assert!((lay.height - lay.lines.len() as f32 * 48.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn emoji_sequences_stay_together() {
+        let flag: Vec<char> = "🇳🇱🇧🇪".chars().collect();
+        assert!(!pairs_open(&flag[..0]) && pairs_open(&flag[..1]) && !pairs_open(&flag[..2]) && pairs_open(&flag[..3]));
+        for c in ['\u{200D}', '\u{FE0F}', '\u{1F3FD}', '\u{20E3}', '\u{E0067}'] {
+            assert!(is_joiner(c), "{c:?}");
+        }
+        assert!(is_emoji('😀', None) && is_emoji('1', Some('\u{FE0F}')) && !is_emoji('1', None) && !is_emoji('a', Some('b')));
+        assert!(is_rtl('ש') && is_rtl('م') && !is_rtl('a') && !is_rtl('日'));
+    }
+
+    #[test]
+    fn latin_text_takes_the_fast_path() {
+        let st = style(None);
+        assert!(!st.needs_fallback("Hallo,") && st.needs_fallback("hi😀") && st.needs_fallback("שלום"));
+        // measuring through the glyph list gives the same width as the fast path
+        let (glyphs, w) = st.glyphs("Kerning AV");
+        assert_eq!(glyphs.len(), 10);
+        assert!((w - st.measure("Kerning AV")).abs() < 1e-3);
+    }
+
+    #[test]
+    fn missing_characters_fall_back_to_another_font() {
+        let st = style(None);
+        // some installed font has Greek, CJK or the check mark
+        for ch in ['λ', '日', '✓'] {
+            let face = st.font.face_for(ch, false);
+            if !Arc::ptr_eq(&face, &st.font.face) {
+                assert!(face.covers(ch), "{ch}");
+            }
+        }
+    }
+
+    #[test]
+    fn emoji_are_drawn_in_colour() {
+        let st = style(None);
+        let face = st.font.face_for('😀', true);
+        if !face.color {
+            eprintln!("no colour emoji font installed: skipping");
+            return;
+        }
+        let lay = layout(&st, &tokenize("😀"));
+        let s = render(&st, &lay, None, None).unwrap();
+        let colourful = s.pm.pixels().iter().filter(|p| p.alpha() == 255 && (p.red() as i32 - p.blue() as i32).abs() > 80).count();
+        assert!(colourful > 50, "white text colour would give grey pixels only ({colourful})");
+    }
+
+    #[test]
+    fn right_to_left_paragraphs_run_right_to_left() {
+        let st = style(None);
+        let lay = layout(&st, &tokenize("שלום עולם"));
+        assert!(lay.words[0].x > lay.words[1].x, "first word on the right");
+        let lay = layout(&st, &tokenize("hello world"));
+        assert!(lay.words[0].x < lay.words[1].x);
     }
 
     #[test]

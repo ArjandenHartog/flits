@@ -40,11 +40,21 @@ lowercase only (flits ignores case), and it cannot see files, fonts or media len
   "duration": 60,                      // optional: defaults to the end of the last layer
   "background": "#101014",
   "fonts": { "brand": "fonts/Rubik-Black.ttf" },   // aliases usable in "font"
+  "fontFallback": ["Noto Color Emoji"],  // optional: fonts for characters a layer's font lacks
   "loudness": -14,                     // optional: normalize the final mix (LUFS; -14 social, -16 podcast)
   "audio": [ { "src": "music.mp3", "volume": 0.6, "fadeIn": 1, "fadeOut": 3, "duck": true } ],
   "layers": [ ... ]                    // drawn in order: first = bottom
 }
 ```
+
+**Emoji and other scripts.** Characters a layer's font lacks are drawn with the first font that has them:
+the scene's `fontFallback` (names, files or aliases), then the system's fallback fonts (Windows: Segoe UI Emoji,
+Segoe UI Symbol, Nirmala UI, Microsoft YaHei, Yu Gothic, Malgun Gothic, ...; macOS: Apple Color Emoji, PingFang,
+Hiragino; Linux: DejaVu Sans, Noto Sans, Noto Color Emoji, Noto Sans CJK, ...), then any installed font that has
+the character. Emoji are drawn in colour (COLR v0/v1 and CBDT/sbix bitmap fonts) and shaped, so sequences such as
+👍🏽, 🇳🇱, 1️⃣ and 👨‍👩‍👧 come out as one emoji. Hebrew, Arabic and the Indic scripts are shaped too; a text whose first
+letter is right-to-left is laid out right to left. Colour glyphs keep their own colours (no `color`/`stroke`), the
+text shadow applies to them.
 
 Audio track: `src`, `start` (scene time), `trim` (skip seconds of the source),
 `duration`, `volume` (number or keyframes, see Animation), `fadeIn`, `fadeOut`, `loop`,

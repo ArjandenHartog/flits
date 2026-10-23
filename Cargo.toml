@@ -32,6 +32,7 @@ tar = "0.4"
 serde_ignored = "0.1.14"
 resvg = "0.45"
 schemars = "1"
+rustybuzz = "0.20"
 
 [profile.release]
 opt-level = 3

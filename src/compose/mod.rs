@@ -252,8 +252,18 @@ impl Prepared {
         media.dedup();
         let probes: HashMap<PathBuf, MediaInfo> =
             media.par_iter().map(|p| media::probe(p).map(|i| (p.clone(), i))).collect::<Result<_>>()?;
-        let aliases = scene.fonts.iter().map(|(k, v)| (k.clone(), scene.resolve(v))).collect();
-        let mut ctx = Ctx { scene, fonts: FontDb::new(aliases), probes, next_id: 0, audio: vec![], render_scale };
+        let aliases: HashMap<String, PathBuf> = scene.fonts.iter().map(|(k, v)| (k.clone(), scene.resolve(v))).collect();
+        // font files relative to the scene; anything else is an alias or an installed font name
+        let fallback: Vec<String> = scene
+            .font_fallback
+            .iter()
+            .map(|f| match scene.resolve(f) {
+                p if p.is_file() => p.to_string_lossy().into_owned(),
+                _ => f.clone(),
+            })
+            .collect();
+        let fonts = FontDb::new(aliases).with_fallback(&fallback)?;
+        let mut ctx = Ctx { scene, fonts, probes, next_id: 0, audio: vec![], render_scale };
 
         let (cw, ch) = (scene.width as f32, scene.height as f32);
         let default_end = scene.duration.unwrap_or(f64::INFINITY);

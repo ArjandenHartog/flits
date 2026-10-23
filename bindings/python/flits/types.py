@@ -357,6 +357,7 @@ Scene = TypedDict(
         "duration": float,  # default: end of the last layer
         "background": Color,
         "fonts": Dict[str, str],  # alias -> font name or file
+        "fontFallback": List[str],  # fonts for characters a layer's font lacks (emoji, other scripts)
         "audio": List[AudioTrack],
         "loudness": float,  # LUFS, e.g. -14
         "layers": List[Layer],

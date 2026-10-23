@@ -1008,6 +1008,14 @@
       "description": "length in seconds (default: the end of the last layer)",
       "type": "number"
     },
+    "fontFallback": {
+      "default": [],
+      "description": "fonts for characters a layer's font lacks (emoji, other scripts), tried in order before the system's fallback fonts: names, .ttf/.otf/.ttc paths or `fonts` aliases, e.g. [\"Noto Color Emoji\"]",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "fonts": {
       "additionalProperties": {
         "type": "string"

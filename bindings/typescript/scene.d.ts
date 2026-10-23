@@ -427,6 +427,8 @@ export interface Scene {
   background?: Color;
   /** font aliases usable in a layer's `font`, e.g. { brand: "fonts/Rubik-Black.ttf" } */
   fonts?: Record<string, string>;
+  /** fonts for characters a layer's font lacks (emoji, other scripts), tried before the system's fallback fonts */
+  fontFallback?: string[];
   /** soundtrack: music, voice-over, effects (audio of video layers is mixed in automatically) */
   audio?: AudioTrack[];
   /** normalize the final mix to this loudness (LUFS, e.g. -14 for social, -16 for podcasts) */

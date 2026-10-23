@@ -557,6 +557,7 @@ dependencies = [
  "resvg",
  "roxmltree 0.21.1",
  "rustfft",
+ "rustybuzz",
  "schemars",
  "serde",
  "serde_ignored",

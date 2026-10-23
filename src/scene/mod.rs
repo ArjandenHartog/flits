@@ -44,6 +44,10 @@ pub struct Scene {
     /// font aliases usable in a layer's `font`, e.g. {"brand": "fonts/Rubik-Black.ttf"}
     #[serde(default)]
     pub fonts: HashMap<String, String>,
+    /// fonts for characters a layer's font lacks (emoji, other scripts), tried in order before the
+    /// system's fallback fonts: names, .ttf/.otf/.ttc paths or `fonts` aliases, e.g. ["Noto Color Emoji"]
+    #[serde(default)]
+    pub font_fallback: Vec<String>,
     /// soundtrack: music, voice-over, effects (audio of video layers is mixed in automatically)
     #[serde(default)]
     pub audio: Vec<AudioTrack>,
