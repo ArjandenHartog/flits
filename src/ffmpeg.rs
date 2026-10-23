@@ -134,12 +134,13 @@ impl VideoReader {
         if looped && info.duration > 0.0 {
             seek %= info.duration;
         }
-        let mut vf = String::new();
+        // resample + scale first so the (expensive) tone mapping runs at the final, smaller size
+        let mut vf = format!("fps={fps},scale={w}:{h}:flags=bicubic");
         if info.hdr && has_zscale() {
             // HLG/PQ phone footage -> SDR, otherwise it looks washed out
-            vf.push_str("zscale=t=linear:npl=203,format=gbrpf32le,zscale=p=bt709,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p,");
+            vf.push_str(",zscale=t=linear:npl=203,format=gbrpf32le,zscale=p=bt709,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv");
         }
-        vf.push_str(&format!("fps={fps},scale={w}:{h}:flags=bicubic,format=rgba"));
+        vf.push_str(",format=rgba");
         let mut cmd = ffmpeg();
         cmd.args(["-threads", "2"]);
         if looped {

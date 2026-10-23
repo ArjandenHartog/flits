@@ -419,7 +419,7 @@ impl Gpu {
         }
         let size = (tg.w * tg.h * 3 / 2) as u64;
         enc.copy_buffer_to_buffer(&tg.yuv_buf, 0, &tg.read_buf, 0, size);
-        self.queue.submit([enc.finish()]);
+        let idx = self.queue.submit([enc.finish()]);
 
         let slice = tg.read_buf.slice(..);
         let (tx, rx) = std::sync::mpsc::channel();
@@ -427,7 +427,7 @@ impl Gpu {
             let _ = tx.send(r);
         });
         loop {
-            self.device.poll(wgpu::PollType::Wait).map_err(|e| anyhow!("GPU poll failed: {e}"))?;
+            self.device.poll(wgpu::PollType::WaitForSubmissionIndex(idx.clone())).map_err(|e| anyhow!("GPU poll failed: {e}"))?;
             match rx.try_recv() {
                 Ok(r) => {
                     r.map_err(|e| anyhow!("GPU readback failed: {e}"))?;

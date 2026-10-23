@@ -106,18 +106,22 @@ pub fn render(p: &Prepared, out: &Path, opts: &RenderOpts) -> Result<()> {
     let tmp = ffmpeg::tmp_dir_for(out);
     std::fs::create_dir_all(&tmp)?;
     let workers = opts.workers.clamp(1, total.max(1) as usize);
-    // split frames into contiguous chunks
-    let chunks: Vec<(i64, i64)> = (0..workers)
-        .map(|i| (total * i as i64 / workers as i64, total * (i as i64 + 1) / workers as i64))
+    // more chunks than workers: workers pull the next chunk when done, so slow parts
+    // (e.g. video clips) don't leave the other workers idle
+    let n_chunks = (workers * 4).min((total / 60).max(1) as usize).max(workers.min(total as usize));
+    let chunks: Vec<(i64, i64)> = (0..n_chunks)
+        .map(|i| (total * i as i64 / n_chunks as i64, total * (i as i64 + 1) / n_chunks as i64))
         .filter(|(a, b)| b > a)
         .collect();
+    let workers = workers.min(chunks.len());
     eprintln!(
-        "flits: {}x{} @ {} fps, {} frames ({}), {} workers, compositor {}, encoder {}",
+        "flits: {}x{} @ {} fps, {} frames ({}), {} workers / {} chunks, compositor {}, encoder {}",
         p.width,
         p.height,
         p.fps,
         total,
         fmt_time(p.duration),
+        workers,
         chunks.len(),
         opts.gpu.as_ref().map(|g| format!("GPU {}", g.name)).unwrap_or_else(|| "CPU".into()),
         opts.encoder.name()
@@ -149,45 +153,59 @@ pub fn render(p: &Prepared, out: &Path, opts: &RenderOpts) -> Result<()> {
                 }
             })
         };
-        let handles: Vec<_> = chunks
-            .iter()
-            .enumerate()
-            .map(|(ci, &(a, b))| {
-                let seg = tmp.join(format!("seg{ci:03}.mp4"));
+        let next = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let failed = Arc::new(AtomicBool::new(false));
+        let handles: Vec<_> = (0..workers)
+            .map(|_| {
                 let done = done.clone();
+                let next = next.clone();
+                let failed = failed.clone();
+                let chunks = &chunks;
+                let tmp = &tmp;
                 s.spawn(move || -> Result<()> {
-                    let mut enc = ffmpeg::spawn_encoder(opts.encoder, p.width, p.height, p.fps, opts.quality, &seg)?;
-                    let mut stdin = enc.stdin.take().unwrap();
                     let mut canvas = Pixmap::new(p.width, p.height).ok_or_else(|| anyhow!("bad output size"))?;
-                    let mut vs = VideoState::default();
                     let mut yuv = Vec::new();
                     let mut target = opts.gpu.as_ref().map(|g| g.target(p.width, p.height));
-                    let mut res = Ok(());
-                    for f in a..b {
-                        let step = match (&opts.gpu, &mut target) {
-                            (Some(g), Some(tg)) => advance(p, f, &mut vs).and_then(|_| {
-                                let mut gp = GpuPainter::default();
-                                draw_frame(p, f, &mut gp, &vs);
-                                g.render(tg, p.background, gp, &mut yuv)
-                            }),
-                            _ => render_frame(p, f, &mut canvas, &mut vs).map(|_| rgba_to_yuv420(canvas.data(), p.width as usize, p.height as usize, &mut yuv)),
-                        };
-                        if let Err(e) = step {
-                            res = Err(e.context(format!("frame {f}")));
-                            break;
+                    loop {
+                        let ci = next.fetch_add(1, Ordering::Relaxed);
+                        if ci >= chunks.len() || failed.load(Ordering::Relaxed) {
+                            return Ok(());
                         }
-                        if let Err(e) = stdin.write_all(&yuv) {
-                            res = Err(anyhow!("encoder stopped: {e}"));
-                            break;
+                        let (a, b) = chunks[ci];
+                        let seg = tmp.join(format!("seg{ci:04}.mp4"));
+                        let mut enc = ffmpeg::spawn_encoder(opts.encoder, p.width, p.height, p.fps, opts.quality, &seg)?;
+                        let mut stdin = enc.stdin.take().unwrap();
+                        let mut vs = VideoState::default();
+                        let mut res = Ok(());
+                        for f in a..b {
+                            let step = match (&opts.gpu, &mut target) {
+                                (Some(g), Some(tg)) => advance(p, f, &mut vs).and_then(|_| {
+                                    let mut gp = GpuPainter::default();
+                                    draw_frame(p, f, &mut gp, &vs);
+                                    g.render(tg, p.background, gp, &mut yuv)
+                                }),
+                                _ => render_frame(p, f, &mut canvas, &mut vs).map(|_| rgba_to_yuv420(canvas.data(), p.width as usize, p.height as usize, &mut yuv)),
+                            };
+                            if let Err(e) = step {
+                                res = Err(e.context(format!("frame {f}")));
+                                break;
+                            }
+                            if let Err(e) = stdin.write_all(&yuv) {
+                                res = Err(anyhow!("encoder stopped: {e}"));
+                                break;
+                            }
+                            done.fetch_add(1, Ordering::Relaxed);
                         }
-                        done.fetch_add(1, Ordering::Relaxed);
+                        drop(stdin);
+                        let out = enc.wait_with_output()?;
+                        if res.is_ok() && !out.status.success() {
+                            res = Err(anyhow!("encoder failed: {}", String::from_utf8_lossy(&out.stderr)));
+                        }
+                        if res.is_err() {
+                            failed.store(true, Ordering::Relaxed);
+                            return res;
+                        }
                     }
-                    drop(stdin);
-                    let out = enc.wait_with_output()?;
-                    if !out.status.success() {
-                        bail!("encoder failed: {}", String::from_utf8_lossy(&out.stderr));
-                    }
-                    res
                 })
             })
             .collect();
@@ -225,7 +243,7 @@ pub fn render(p: &Prepared, out: &Path, opts: &RenderOpts) -> Result<()> {
 
     // join segments (stream copy) + audio
     let list = tmp.join("segments.txt");
-    let body: String = (0..chunks.len()).map(|i| format!("file 'seg{i:03}.mp4'\n")).collect();
+    let body: String = (0..chunks.len()).map(|i| format!("file 'seg{i:04}.mp4'\n")).collect();
     std::fs::write(&list, body)?;
     let mut cmd = ffmpeg::ffmpeg();
     cmd.args(["-y", "-f", "concat", "-safe", "0"]).arg("-i").arg(&list);
