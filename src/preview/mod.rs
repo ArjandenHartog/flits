@@ -329,7 +329,7 @@ impl State {
 
 fn encode_jpeg(pm: &tiny_skia::Pixmap, width: u32) -> Result<Vec<u8>> {
     // frames are opaque (the background is filled), so dropping alpha is enough
-    let rgb: Vec<u8> = pm.data().chunks_exact(4).flat_map(|px| [px[0], px[1], px[2]]).collect();
+    let rgb: Vec<u8> = pm.data().as_chunks::<4>().0.iter().flat_map(|px| [px[0], px[1], px[2]]).collect();
     let mut img = image::RgbImage::from_raw(pm.width(), pm.height(), rgb).ok_or_else(|| anyhow!("bad frame size"))?;
     if width > 0 {
         let h = ((pm.height() as f64 * width as f64 / pm.width() as f64).round() as u32).max(1);
