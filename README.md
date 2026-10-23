@@ -5,8 +5,8 @@
 
 **Blazing-fast video and podcast rendering with built-in transcription.** Rust library + CLI.
 
-Describe a video as JSON (layers, keyframe animation, transitions, word-by-word captions, audio
-waveforms, counters) and flits composites it on the GPU, encodes it in parallel with hardware
+Describe a video as JSON (layers, keyframe animation, 22 transitions, word-by-word captions with
+ready-made looks, audio waveforms, counters) and flits composites it on the GPU, encodes it in parallel with hardware
 encoders and joins the pieces without re-encoding. On top of that: Whisper transcription on the
 GPU, beat-synced slideshows, silence and filler-word removal, podcast videos and animated captions.
 
@@ -35,12 +35,14 @@ flits render scene.json -o video.mp4          # render (--scale 0.5 = quick prev
 flits sheet scene.json -o sheet.png           # contact sheet: check the whole video in one image
 flits still scene.json --at 12.5 -o frame.png
 flits check scene.json                        # validate (typos are reported) + print the timeline
-flits new [intro|quote|stats|lower-third|countdown]   # starter scenes
+flits new kinetic-typography                  # starter scenes: intro, quote, stats, lower-third, countdown, youtube-intro,
+                                              # podcast-quote, product-promo, news-headline, end-screen, kinetic-typography
 flits spec                                    # full scene format reference
 
 # ready-made
 flits slideshow photos/ --music song.mp3 --beats --title "Summer 2026" --format 9:16
-flits captions clip.mp4 --style pop           # burn in animated word-by-word captions
+flits captions clip.mp4 --preset tiktok       # burn in animated word-by-word captions; presets: tiktok, karaoke-box,
+                                              # bounce, minimal, neon, highlighter, subtitle, word-pop-big
 flits podcast episode.mp3 --cover cover.jpg --title "Episode 12" --format 9:16 --from 12:30 --to 13:30
 flits cut recording.mp4 --fillers             # remove silences (and uh/um) from audio or video
 flits transcribe recording.m4a --lang en      # -> .words.json + .srt + .vtt + .txt

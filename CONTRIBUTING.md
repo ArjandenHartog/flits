@@ -52,7 +52,7 @@ scene.json --(scene/)--> Scene --(compose/)--> Prepared (everything static pre-r
 
 ## Good first ideas
 
-- More transitions (e.g. zoom-blur, slide-push) and starters (`flits new`).
+- More transitions (e.g. zoom-blur, which needs a per-frame blur on both backends), caption presets and starters (`flits new`).
 - A `path`/`shape` layer (lines, arrows, progress rings) without an SVG file.
 - Linux/macOS: test VAAPI/QSV/Metal paths and document the results.
 - A faster CPU backend for machines without a GPU.

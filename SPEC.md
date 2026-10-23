@@ -8,6 +8,8 @@ A scene is one JSON file. flits renders it to MP4 (H.264/HEVC/AV1 + AAC):
     flits still scene.json --at 12.5 -o f.png # single frame(s)
     flits check scene.json                    # validate (typos are reported) + print the resolved timeline
     flits new                                 # list example scenes; `flits new intro -o intro.json`
+                                              # (intro, quote, stats, lower-third, countdown, youtube-intro, podcast-quote,
+                                              #  product-promo, news-headline, end-screen, kinetic-typography)
 
 Units: pixels (canvas coordinates, origin top-left) and seconds. Relative file
 paths resolve against the scene file's folder.
@@ -62,8 +64,25 @@ Eases: `linear`, `in`, `out`, `in-out` (default), `smooth`, `back-in`, `back-out
 ### Transitions (`in` / `out`)
 
 `"in": "fade"`, `"in": "pop 0.4"`, or `{ "type": "slide-up", "duration": 0.6, "ease": "out", "distance": 200 }`.
-Types: `fade`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `zoom-in`, `zoom-out`, `pop`,
-`wipe-left`, `wipe-right`, `wipe-up`, `wipe-down`. Crossfade = overlap two layers and give the top one `"in": "fade"`.
+As `out`, every transition plays mirrored (it leaves the way it came, continuing the motion).
+
+| type | effect |
+|---|---|
+| `fade` | opacity |
+| `slide-up`, `slide-down`, `slide-left`, `slide-right` | moves `distance` px (default 120) while fading |
+| `slide-fade` | a soft rise: `distance` (default 40) px up with the opacity following the ease; nice for text |
+| `zoom-in`, `zoom-out` | scales from 85% / 115% while fading |
+| `zoom-fade` | scales from 125% (exit: to 125%) while crossfading, like flying through the layer |
+| `pop` | scales up from 0 with overshoot (default ease `back-out`) |
+| `push-left`, `push-right`, `push-up`, `push-down` | slides in from fully outside the **parent box** (moves exactly one parent width/height, no fade). An `out` and an `in` of the same length line up seamlessly: in a `sequence` with `"overlap"` equal to the duration, the next layer pushes the previous one out |
+| `rotate-in` | turns from `-angle` degrees (default 90; exit: to `+angle`) while scaling up from 50% and fading |
+| `flip-x`, `flip-y` | card flip: `scaleX` (`scaleY`) grows from 0 |
+| `wipe-left`, `wipe-right`, `wipe-up`, `wipe-down` | reveal from one edge (clip) |
+| `iris` | circular reveal growing from the centre until it covers the corners (exit: shrinks to the centre) |
+
+Defaults: duration 0.5 s (`pop` 0.45, `push-*` and `iris` 0.6), ease `out` (`wipe-*`, `push-*` and `iris`: `in-out`, a
+symmetric curve). Crossfade = overlap two layers and give the top one `"in": "fade"`. Transitions only change transform,
+opacity and clip, so they work identically on the GPU and CPU renderers.
 
 ## Layer types
 
@@ -90,10 +109,37 @@ Default duration = the (re-timed) clip length. iPhone HDR (HLG/PQ, 10-bit) is to
 plus the text styling keys. Digits are tabular, so the number doesn't jitter.
 
 **captions** — animated word-by-word subtitles from a transcript (`flits transcribe` output, or any
-faster-whisper JSON / .srt / .vtt): `src`, `trim` (transcript time that maps to the layer start),
-`style`: `karaoke` (active word highlighted) | `pop` (words pop in as spoken, TikTok-style) | `word` (one big word at a time) | `line` (plain),
-`highlight` (color, default yellow), `highlightBg` (pill behind the active word), `maxWords` per chunk,
-`size`, `font` (default Segoe UI Black), `color`, `stroke`, `shadow`, `uppercase`, `width` (wrap width).
+faster-whisper / WhisperX JSON / .srt / .vtt): `src`, `trim` (transcript time that maps to the layer start),
+`style`: `karaoke` (active word highlighted) | `pop` (words pop in as spoken, TikTok-style) | `bounce` (words drop in
+with a bounce as spoken) | `word` (one big word at a time) | `line` (plain),
+`highlight` (active word colour, default yellow), `colors` (list of active-word colours, cycled word by word),
+`activeScale` (size of the active word: default 1.12 for `pop`, 1 otherwise),
+`highlightBg` (box behind the active word) with `highlightBox`: `pill` (default; glides from word to word) | `marker`
+(a highlighter stroke that wipes in), `background` (box behind the whole chunk, same keys as for text:
+`{ "color", "padding", "radius", "mode": "box" | "lines" }`, `lines` = one box per line),
+`maxWords` per chunk, `maxLines` per chunk (default 2; a chunk ends before it would wrap further),
+`speakerColors` (`{ "SPEAKER_00": "#ffffff", "SPEAKER_01": "#ffd60a" }`: word colour per diarization speaker; a
+`speaker` field on words or segments is read from WhisperX-style transcripts, and a new speaker starts a new chunk),
+`size`, `font` (default Segoe UI Black), `color`, `stroke`, `shadow`, `uppercase`, `lineHeight`, `wrap: "balance"`,
+`width` (wrap width).
+
+`preset` picks a ready-made look; any property set on the layer overrides the preset's value (objects such as
+`stroke` merge key by key), and outline/shadow sizes follow the layer's own `size`:
+
+| preset | look |
+|---|---|
+| `tiktok` | bold uppercase words that pop in, yellow active word, thick black outline |
+| `karaoke-box` | white words, the active word on a purple pill that glides along |
+| `bounce` | uppercase words that drop in with a bounce, active word in cycling colours |
+| `minimal` | clean white sentence-case lines (balanced) with a soft shadow |
+| `neon` | glowing cyan uppercase words, the active word lights up pink |
+| `highlighter` | white words, the active word turns dark on a yellow marker stroke |
+| `subtitle` | classic two-line subtitles on semi-transparent boxes per line (set `y` near the bottom) |
+| `word-pop-big` | one huge word at a time, colours cycling |
+
+```json
+{ "type": "captions", "src": "talk.words.json", "preset": "tiktok", "y": 1400, "highlight": "#4ade80" }
+```
 
 **waveform** — live audio spectrum bars: `src` (audio/video file), `trim`, `bars` (48), `color`, `mirror`
 (bars grow from the centre line), `gap` (0..1 of a slot), `gain`, `radius`.
@@ -129,7 +175,7 @@ transitions apply to all children. `"clip": true` hides everything outside the g
 ## Ready-made commands
 
     flits slideshow fotos/ --music liedje.mp3 --beats --title "Zomer 2026" --format 9:16
-    flits captions clip.mp4 --style pop              # burn animated captions into a video
+    flits captions clip.mp4 --preset tiktok          # burn animated captions into a video (or --style pop)
     flits podcast aflevering.mp3 --cover cover.jpg --title "Titel" --format 9:16 --from 12:30 --to 13:30
     flits cut opname.mp4 --fillers                   # remove silences (and uh/uhm) from audio or video
     flits transcribe opname.m4a --lang nl            # -> .words.json + .srt + .vtt + .txt
