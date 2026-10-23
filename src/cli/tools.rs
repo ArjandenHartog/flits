@@ -170,3 +170,62 @@ pub fn bench(scene: &Path, at: f64, frames: i64) -> Result<()> {
     }
     Ok(())
 }
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MeasureReq {
+    text: String,
+    font: Option<String>,
+    #[serde(default = "default_size")]
+    size: f32,
+    weight: Option<f64>,
+    max_width: Option<f32>,
+    #[serde(default = "default_lh")]
+    line_height: f32,
+    #[serde(default)]
+    letter_spacing: f32,
+    #[serde(default)]
+    balance: bool,
+    #[serde(default)]
+    uppercase: bool,
+}
+
+fn default_size() -> f32 {
+    64.0
+}
+fn default_lh() -> f32 {
+    1.15
+}
+
+pub fn measure() -> Result<()> {
+    use std::io::Read;
+    let mut input = String::new();
+    std::io::stdin().read_to_string(&mut input)?;
+    let reqs: Vec<MeasureReq> = serde_json::from_str(&input)?;
+    let fonts = flits::text::FontDb::new(Default::default());
+    let mut out = vec![];
+    for r in reqs {
+        let style = flits::text::TextStyle {
+            font: fonts.get(r.font.as_deref(), r.weight)?,
+            size: r.size,
+            color: flits::scene::color::Rgba::WHITE,
+            line_height: r.line_height,
+            letter_spacing: r.letter_spacing,
+            align: flits::text::Align::Left,
+            max_width: r.max_width,
+            stroke: None,
+            balance: r.balance,
+            shadow: None,
+            bg: None,
+        };
+        let text = if r.uppercase { r.text.to_uppercase() } else { r.text.clone() };
+        let lay = flits::text::layout(&style, &flits::text::tokenize(&text.replace("&shy;", "\u{ad}")));
+        let lines: Vec<String> = (0..lay.lines.len())
+            .map(|li| lay.words.iter().filter(|w| w.line == li).map(|w| w.text.as_str()).collect::<Vec<_>>().join(" "))
+            .collect();
+        let widths: Vec<f32> = lay.lines.iter().map(|l| l.2).collect();
+        out.push(serde_json::json!({"width": lay.width, "height": lay.height, "lines": lines, "lineWidths": widths}));
+    }
+    println!("{}", serde_json::to_string(&out)?);
+    Ok(())
+}

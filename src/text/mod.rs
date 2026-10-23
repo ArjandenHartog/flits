@@ -38,6 +38,8 @@ pub struct TextStyle {
     pub align: Align,
     pub max_width: Option<f32>,
     pub stroke: Option<(f32, Rgba)>,
+    /// even out line lengths when wrapping
+    pub balance: bool,
     pub shadow: Option<(Rgba, f32, f32, f32)>,
     /// (color, pad x, pad y, radius, per-line)
     pub bg: Option<(Rgba, f32, f32, f32, bool)>,
@@ -53,7 +55,7 @@ impl TextStyle {
         let mut x = 0.0;
         let mut prev = None;
         let mut n = 0;
-        for ch in word.chars() {
+        for ch in word.chars().filter(|c| *c != SHY) {
             let id = self.font.glyph_id(ch);
             if let Some(p) = prev {
                 x += self.font.kern_unscaled(p, id) * k;
@@ -85,7 +87,7 @@ impl TextStyle {
         let k = self.k();
         let mut x = x0;
         let mut prev = None;
-        for ch in word.chars() {
+        for ch in word.chars().filter(|c| *c != SHY) {
             let id = self.font.glyph_id(ch);
             if let Some(p) = prev {
                 x += self.font.kern_unscaled(p, id) * k;
@@ -144,29 +146,82 @@ pub struct TextLayout {
 }
 
 /// Greedy word wrap. `tokens` are words; "\n" tokens force a line break.
-pub fn layout(style: &TextStyle, tokens: &[String]) -> TextLayout {
+const SHY: char = '\u{ad}';
+
+/// Greedy line breaking at `maxw`. Words with soft hyphens (U+00AD) are split there
+/// (with a visible hyphen) when they don't fit.
+fn break_lines(style: &TextStyle, tokens: &[String], maxw: Option<f32>) -> Vec<Vec<(String, f32)>> {
     let space = style.space();
-    let lh = style.line_px();
     let mut lines: Vec<Vec<(String, f32)>> = vec![vec![]];
     let mut cur_w = 0.0f32;
-    for t in tokens {
+    let mut queue: std::collections::VecDeque<String> = tokens.iter().cloned().collect();
+    while let Some(t) = queue.pop_front() {
         if t == "\n" {
             lines.push(vec![]);
             cur_w = 0.0;
             continue;
         }
-        let w = style.measure(t);
+        let w = style.measure(&t);
         let line = lines.last_mut().unwrap();
         let needed = if line.is_empty() { w } else { cur_w + space + w };
-        if let Some(maxw) = style.max_width {
-            if needed > maxw && !line.is_empty() {
-                lines.push(vec![(t.clone(), w)]);
-                cur_w = w;
-                continue;
+        if let Some(maxw) = maxw {
+            if needed > maxw {
+                // try a soft-hyphen split that fits on the current line
+                let room = if line.is_empty() { maxw } else { maxw - cur_w - space };
+                let split = t
+                    .char_indices()
+                    .filter(|(_, c)| *c == SHY)
+                    .map(|(k, _)| k)
+                    .rev()
+                    .find(|&k| style.measure(&format!("{}-", &t[..k])) <= room);
+                if let Some(k) = split {
+                    let head = format!("{}-", &t[..k]);
+                    let hw = style.measure(&head);
+                    line.push((head, hw));
+                    lines.push(vec![]);
+                    cur_w = 0.0;
+                    queue.push_front(t[k + SHY.len_utf8()..].to_string());
+                    continue;
+                }
+                if !line.is_empty() {
+                    lines.push(vec![(t.clone(), w)]);
+                    cur_w = w;
+                    continue;
+                }
             }
         }
         line.push((t.clone(), w));
         cur_w = needed;
+    }
+    lines
+}
+
+fn widest(style: &TextStyle, lines: &[Vec<(String, f32)>]) -> f32 {
+    let space = style.space();
+    lines.iter().map(|l| l.iter().map(|(_, w)| *w).sum::<f32>() + space * (l.len().max(1) - 1) as f32).fold(0.0, f32::max)
+}
+
+/// Lay out tokens; "\n" tokens force a line break. With `style.balance`, lines are made
+/// as even as possible (like CSS `text-wrap: balance`): no lonely word on the last line.
+pub fn layout(style: &TextStyle, tokens: &[String]) -> TextLayout {
+    let space = style.space();
+    let lh = style.line_px();
+    let mut lines = break_lines(style, tokens, style.max_width);
+    if let (true, Some(maxw)) = (style.balance, style.max_width) {
+        let n = lines.len();
+        if n > 1 {
+            // narrowest width that still needs the same number of lines
+            let (mut lo, mut hi) = (widest(style, &lines) / n as f32, maxw);
+            for _ in 0..16 {
+                let mid = (lo + hi) / 2.0;
+                if break_lines(style, tokens, Some(mid)).len() > n {
+                    lo = mid;
+                } else {
+                    hi = mid;
+                }
+            }
+            lines = break_lines(style, tokens, Some(hi));
+        }
     }
     let widths: Vec<f32> = lines.iter().map(|l| l.iter().map(|(_, w)| *w).sum::<f32>() + space * (l.len().max(1) - 1) as f32).collect();
     let block_w = widths.iter().cloned().fold(0.0, f32::max);
@@ -286,9 +341,27 @@ mod tests {
             align: Align::Center,
             max_width,
             stroke: None,
+            balance: false,
             shadow: None,
             bg: None,
         }
+    }
+
+    #[test]
+    fn balances_lines_and_uses_soft_hyphens() {
+        let mut st = style(Some(400.0));
+        let toks = tokenize("dit is een zin die net niet op twee regels past");
+        let greedy = layout(&st, &toks);
+        st.balance = true;
+        let bal = layout(&st, &toks);
+        assert_eq!(greedy.lines.len(), bal.lines.len());
+        let spread =
+            |l: &TextLayout| l.lines.iter().map(|x| x.2).fold(0.0, f32::max) - l.lines.iter().map(|x| x.2).fold(f32::MAX, f32::min);
+        assert!(spread(&bal) <= spread(&greedy) + 0.5);
+        let st = style(Some(200.0));
+        let lay = layout(&st, &tokenize("beleids\u{ad}coördinator"));
+        assert_eq!(lay.words[0].text, "beleids-");
+        assert_eq!(lay.lines.len(), 2);
     }
 
     #[test]

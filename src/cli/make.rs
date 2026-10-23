@@ -181,13 +181,29 @@ pub fn cut(
     write_scene_and_render(scene, &out, r)
 }
 
-pub fn transcribe(input: &Path, out: Option<PathBuf>, w: &WhisperArgs) -> Result<()> {
-    let out = out.unwrap_or_else(|| transcribe::default_json(input));
+pub fn transcribe(inputs: &[PathBuf], out: Option<PathBuf>, outdir: Option<PathBuf>, w: &WhisperArgs) -> Result<()> {
+    if out.is_some() && inputs.len() > 1 {
+        bail!("-o works with one input; use --outdir for several");
+    }
+    let jobs: Vec<(PathBuf, PathBuf)> = inputs
+        .iter()
+        .map(|i| {
+            let o = match (&out, &outdir) {
+                (Some(o), _) => o.clone(),
+                (None, Some(d)) => d.join(transcribe::default_json(i).file_name().unwrap()),
+                (None, None) => transcribe::default_json(i),
+            };
+            (i.clone(), o)
+        })
+        .collect();
+    if let Some(d) = &outdir {
+        std::fs::create_dir_all(d)?;
+    }
     let t = Instant::now();
-    transcribe::transcribe(input, &out, &w.opts())?;
-    eprintln!("flits: transcribed in {:.1}s", t.elapsed().as_secs_f64());
-    for ext in ["json", "srt", "vtt", "txt"] {
-        println!("{}", out.with_extension(ext).display());
+    transcribe::transcribe_many(&jobs, &w.opts())?;
+    eprintln!("flits: transcribed {} file(s) in {:.1}s", jobs.len(), t.elapsed().as_secs_f64());
+    for (_, o) in &jobs {
+        println!("{}", o.display());
     }
     Ok(())
 }

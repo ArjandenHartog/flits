@@ -1,5 +1,13 @@
 # flits ⚡
 
+[![ci](https://github.com/ArjandenHartog/flits/actions/workflows/ci.yml/badge.svg)](https://github.com/ArjandenHartog/flits/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+> *Blazing-fast video and podcast renderer with built-in transcription: describe a video as JSON,
+> flits composites it on the GPU and encodes it in parallel with hardware encoders. 10,000 frames
+> of 1080p montage in well under a minute. Rust library + CLI. Docs are mostly Dutch; issues and
+> PRs in English are welcome.*
+
 Bliksemsnelle video- en podcastrenderer met ingebouwde transcriptie. Rust-bibliotheek + CLI.
 
 Je beschrijft een video als JSON (lagen, animaties, overgangen, ondertitels, audiogolf, tellers)
@@ -99,3 +107,15 @@ tests/            pariteit CPU=GPU, end-to-end renders, audio
 cargo build --release      # binary: target/release/flits
 cargo test --release       # unit-, pariteits- en pipelinetests (GPU-tests slaan over zonder GPU)
 ```
+
+Zelf meten: `python examples/benchmark.py && flits render bench/scene.json -o bench/out.mp4`
+(synthetisch materiaal, alleen ffmpeg nodig).
+
+## Meedoen
+
+Bijdragen zijn welkom: zie [CONTRIBUTING.md](CONTRIBUTING.md) voor de opzet, de huisregels
+(CPU = GPU, snelheid meten) en ideeën om mee te beginnen.
+
+## Licentie
+
+[MIT](LICENSE)

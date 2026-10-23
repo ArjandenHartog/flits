@@ -7,10 +7,39 @@ use anyhow::{anyhow, bail, Context, Result};
 use fast_image_resize::{images::Image as FrImage, FilterType, PixelType, ResizeAlg, ResizeOptions, Resizer};
 use image::{DynamicImage, ImageDecoder, ImageReader};
 use std::path::Path;
-use tiny_skia::{IntSize, Pixmap};
+use tiny_skia::{IntSize, Pixmap, Transform};
+
+/// SVG files are rasterized (resvg) at exactly the size they are shown at.
+pub fn is_vector(path: &Path) -> bool {
+    matches!(path.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).as_deref(), Some("svg"))
+}
+
+fn svg_tree(path: &Path) -> Result<resvg::usvg::Tree> {
+    let data = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+    let mut opt = resvg::usvg::Options { resources_dir: path.parent().map(Path::to_path_buf), ..Default::default() };
+    opt.fontdb_mut().load_system_fonts();
+    resvg::usvg::Tree::from_data(&data, &opt).with_context(|| format!("parsing SVG {}", path.display()))
+}
+
+fn load_svg(path: &Path, max_w: f64, max_h: f64, blur_sigma: f64) -> Result<Pixmap> {
+    let tree = svg_tree(path)?;
+    let size = tree.size();
+    let f = (max_w / size.width() as f64).max(max_h / size.height() as f64);
+    let (w, h) = (((size.width() as f64 * f).ceil() as u32).max(1), ((size.height() as f64 * f).ceil() as u32).max(1));
+    let mut pm = Pixmap::new(w, h).ok_or_else(|| anyhow!("bad SVG size"))?;
+    resvg::render(&tree, Transform::from_scale(f as f32, f as f32), &mut pm.as_mut());
+    if blur_sigma > 0.0 {
+        blur(&mut pm, blur_sigma as f32);
+    }
+    Ok(pm)
+}
 
 /// Natural (orientation-corrected) size of an image without fully decoding it.
 pub fn image_size(path: &Path) -> Result<(u32, u32)> {
+    if is_vector(path) {
+        let s = svg_tree(path)?.size();
+        return Ok((s.width().ceil() as u32, s.height().ceil() as u32));
+    }
     if let Ok(r) = ImageReader::open(path).and_then(|r| r.with_guessed_format()) {
         if let Ok(mut dec) = r.into_decoder() {
             let (w, h) = dec.dimensions();
@@ -77,6 +106,9 @@ pub fn resize_rgba(w: u32, h: u32, data: Vec<u8>, nw: u32, nh: u32) -> Result<Ve
 
 /// Load an image so its largest on-screen size is (max_w, max_h); blur in px at that size.
 pub fn load_image(path: &Path, max_w: f64, max_h: f64, blur_sigma: f64, adj: &Adjust) -> Result<Pixmap> {
+    if is_vector(path) {
+        return load_svg(path, max_w, max_h, blur_sigma);
+    }
     let (w, h, mut data) = decode(path).with_context(|| format!("loading image {}", path.display()))?;
     adjust_rgba8(&mut data, adj);
     premultiply(&mut data);

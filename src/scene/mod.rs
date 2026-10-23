@@ -246,6 +246,8 @@ pub struct Layer {
     pub background: Option<TextBg>,
     pub uppercase: bool,
     pub reveal: Option<String>,
+    /// "balance": even line lengths when wrapping (default: greedy)
+    pub wrap: Option<String>,
     pub reveal_duration: Option<f64>,
 
     // captions

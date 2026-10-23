@@ -149,6 +149,9 @@ enum Cmd {
     },
     /// Print the scene format reference
     Spec,
+    /// Measure text: reads a JSON array of {text, font, size, maxWidth, lineHeight, balance, letterSpacing, weight}
+    /// on stdin, prints [{width, height, lines}] (for scripts that place things next to text)
+    Measure,
 
     // ------------------------------------------------ ready-made videos
     /// Montage from photos/clips (folders or files), optionally cut on the beat of music
@@ -278,12 +281,16 @@ enum Cmd {
         #[command(flatten)]
         r: RenderArgs,
     },
-    /// Transcribe audio/video to word-timed JSON + SRT + VTT + TXT
+    /// Transcribe audio/video to word-timed JSON + SRT + VTT + TXT (several files: one model load)
     Transcribe {
-        input: PathBuf,
-        /// output JSON (default: <input>.words.json)
+        #[arg(required = true)]
+        inputs: Vec<PathBuf>,
+        /// output JSON (one input only; default: <input>.words.json)
         #[arg(short, long)]
         out: Option<PathBuf>,
+        /// folder for the outputs (default: next to each input)
+        #[arg(long)]
+        outdir: Option<PathBuf>,
         #[command(flatten)]
         w: WhisperArgs,
     },
@@ -368,6 +375,7 @@ fn run(cli: Cli) -> Result<()> {
         Cmd::Sheet { scene, out, count, cols, thumb } => make::sheet(&scene, &out, count, cols, thumb),
         Cmd::Check { scene } => tools::check(&scene),
         Cmd::New { starter, out } => make::new(starter, out),
+        Cmd::Measure => tools::measure(),
         Cmd::Spec => {
             print!("{}", include_str!("../../SPEC.md"));
             Ok(())
@@ -417,7 +425,7 @@ fn run(cli: Cli) -> Result<()> {
         Cmd::Cut { input, out, threshold, min, keep, fillers, dry_run, transcript, w, r } => {
             make::cut(&input, out, threshold, min, keep, fillers, dry_run, transcript, &w, &r)
         }
-        Cmd::Transcribe { input, out, w } => make::transcribe(&input, out, &w),
+        Cmd::Transcribe { inputs, out, outdir, w } => make::transcribe(&inputs, out, outdir, &w),
         Cmd::Info { file } => tools::info(&file),
         Cmd::Doctor => tools::doctor(),
         Cmd::Serve { port, token } => tools::serve(port, token),

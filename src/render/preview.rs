@@ -58,6 +58,7 @@ pub fn sheet(p: &Prepared, gpu: Option<Arc<Gpu>>, count: usize, cols: usize, out
         align: Align::Left,
         max_width: None,
         stroke: None,
+        balance: false,
         shadow: None,
         bg: None,
     };

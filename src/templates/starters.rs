@@ -59,8 +59,8 @@ pub fn starter(name: &str) -> Result<Value> {
                 {"type": "group", "x": 140, "y": 860, "anchor": [0, 0.5], "width": 760, "height": 150, "clip": true,
                  "in": {"type": "wipe-right", "duration": 0.6}, "out": {"type": "wipe-left", "duration": 0.5}, "children": [
                     {"type": "rect", "color": "#f26328", "radius": 8},
-                    {"type": "text", "text": "Arjan den Hartog", "x": 40, "y": 55, "anchor": [0, 0.5], "align": "left", "size": 52, "font": "Segoe UI Black"},
-                    {"type": "text", "text": "Bedenker van flits", "x": 40, "y": 108, "anchor": [0, 0.5], "align": "left", "size": 32, "color": "rgba(255,255,255,0.85)"}
+                    {"type": "text", "text": "Sam de Vries", "x": 40, "y": 55, "anchor": [0, 0.5], "align": "left", "size": 52, "font": "Segoe UI Black"},
+                    {"type": "text", "text": "Functie of rol", "x": 40, "y": 108, "anchor": [0, 0.5], "align": "left", "size": 32, "color": "rgba(255,255,255,0.85)"}
                 ]}
             ]
         }),

@@ -407,6 +407,7 @@ fn text_style(l: &Layer, ctx: &Ctx, default_font: Option<&str>, default_size: f6
         align: Align::parse(l.align.as_deref())?,
         max_width: l.max_width.map(|m| m as f32 * q),
         stroke: l.stroke.as_ref().map(|s| (s.width as f32 * q, s.color)),
+        balance: l.wrap.as_deref() == Some("balance"),
         shadow: l.shadow.as_ref().map(|s| (s.color, s.blur as f32 * q, s.x as f32 * q, s.y as f32 * q)),
         bg,
     })
@@ -473,8 +474,10 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
                 Fit::Fill => (bw / iw as f64).max(bh / ih as f64),
             };
             let s = s0 * zoom.max_abs().max(1.0) * max_scale * rs;
-            let tw = (iw as f64 * s).ceil().min(iw as f64) as u32;
-            let th = (ih as f64 * s).ceil().min(ih as f64) as u32;
+            // bitmaps are never upscaled; vectors are rasterized at their on-screen size
+            let cap = if assets::is_vector(&src) { f64::INFINITY } else { 1.0 };
+            let tw = (iw as f64 * s.min(cap)).ceil() as u32;
+            let th = (ih as f64 * s.min(cap)).ceil() as u32;
             // blur is specified in screen px; convert to the loaded image's px
             let blur_px = if l.blur > 0.0 { l.blur * (tw as f64 / (iw as f64 * s0 * rs)).min(1.0) * rs } else { 0.0 };
             let adj = l.filter.map(|f| f.adjust()).unwrap_or(NO_ADJUST).map(|v| (v * 1000.0).round() as i32);
@@ -538,6 +541,8 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
         "text" => {
             let raw = l.text.clone().ok_or_else(|| anyhow!("text needs \"text\""))?;
             let raw = if l.uppercase { raw.to_uppercase() } else { raw };
+            // HTML-style soft hyphen as used in existing copy
+            let raw = raw.replace("&shy;", "\u{ad}");
             let style = text_style(l, ctx, None, 64.0, q)?;
             let lay = text::layout(&style, &text::tokenize(&raw));
             let sprite = rescale(text::render(&style, &lay, None, None)?, q);

@@ -27,40 +27,56 @@ pub struct TranscribeOpts {
 /// Transcribe `input`; returns the path of the JSON transcript (also writes .srt/.vtt/.txt).
 /// Uses a configured `flits serve` GPU machine when reachable, otherwise runs locally.
 pub fn transcribe(input: &Path, out_json: &Path, o: &TranscribeOpts) -> Result<PathBuf> {
-    if !input.exists() {
-        bail!("file not found: {}", input.display());
-    }
-    let remote = match o.remote.as_deref() {
+    transcribe_many(&[(input.to_path_buf(), out_json.to_path_buf())], o)?;
+    Ok(out_json.to_path_buf())
+}
+
+fn remote_for(o: &TranscribeOpts) -> Option<crate::remote::Remote> {
+    match o.remote.as_deref() {
         Some("off") => None,
         Some(url) => Some(crate::remote::Remote {
             url: url.trim_end_matches('/').to_string(),
             token: std::env::var("FLITS_TOKEN").ok().or_else(|| crate::remote::configured().map(|r| r.token)).unwrap_or_default(),
         }),
         None => crate::remote::configured(),
-    };
-    if let Some(r) = remote {
+    }
+}
+
+/// Transcribe several files with one model load: (input, output JSON) pairs.
+pub fn transcribe_many(jobs: &[(PathBuf, PathBuf)], o: &TranscribeOpts) -> Result<()> {
+    for (input, _) in jobs {
+        if !input.exists() {
+            bail!("file not found: {}", input.display());
+        }
+    }
+    if let Some(r) = remote_for(o) {
         match r.health() {
             Ok(h) => {
                 eprintln!("flits: using GPU server {} ({})", r.url, h["gpu"].as_str().unwrap_or("no GPU"));
-                match r.transcribe(input, out_json, &o.language, &o.model) {
-                    Ok(()) => {
-                        let words = load_transcript(out_json)?;
-                        write_subtitles(out_json, &words)?;
-                        return Ok(out_json.to_path_buf());
+                let mut ok = true;
+                for (input, out) in jobs {
+                    if let Err(e) = r.transcribe(input, out, &o.language, &o.model) {
+                        eprintln!("flits: remote transcription failed ({e:#}); transcribing locally");
+                        ok = false;
+                        break;
                     }
-                    Err(e) => eprintln!("flits: remote transcription failed ({e:#}); transcribing locally"),
+                    write_subtitles(out, &load_transcript(out)?)?;
+                }
+                if ok {
+                    return Ok(());
                 }
             }
             Err(e) => eprintln!("flits: GPU server {} not reachable ({e}); transcribing locally", r.url),
         }
     }
-    transcribe_local(input, out_json, o)
+    transcribe_local(jobs, o)
 }
 
-fn transcribe_local(input: &Path, out_json: &Path, o: &TranscribeOpts) -> Result<PathBuf> {
+fn transcribe_local(jobs: &[(PathBuf, PathBuf)], o: &TranscribeOpts) -> Result<()> {
+    use rayon::prelude::*;
     let dir = std::env::temp_dir().join("flits");
     std::fs::create_dir_all(&dir)?;
-    let script = dir.join("transcribe.py");
+    let script = dir.join("whisper.py");
     std::fs::write(&script, SCRIPT)?;
 
     let use_cuda = o.device != "cpu" && has_nvidia();
@@ -80,23 +96,31 @@ fn transcribe_local(input: &Path, out_json: &Path, o: &TranscribeOpts) -> Result
             "transcription needs either `uv` (https://docs.astral.sh/uv/) or --python pointing at a Python with faster-whisper installed"
         );
     };
-    // decode with ffmpeg (fast, any format) to raw 16 kHz mono float32
-    let pcm = dir.join(format!("audio-{}.f32", std::process::id()));
+    // decode everything with ffmpeg in parallel (fast, any format) to raw 16 kHz mono float32
     let t = std::time::Instant::now();
-    crate::media::run(
-        crate::media::ffmpeg().arg("-y").arg("-i").arg(input).args(["-vn", "-ac", "1", "-ar", "16000", "-f", "f32le"]).arg(&pcm),
-        "audio decode",
-    )?;
-    eprintln!("flits: decoded audio in {:.1}s", t.elapsed().as_secs_f64());
-    cmd.arg("-I").arg(&script).arg(&pcm).arg(out_json).arg(&o.model).arg(&o.language).arg(&device);
+    let pcms: Vec<PathBuf> = (0..jobs.len()).map(|i| dir.join(format!("audio-{}-{i}.f32", std::process::id()))).collect();
+    jobs.par_iter().zip(&pcms).try_for_each(|((input, _), pcm)| {
+        crate::media::run(
+            crate::media::ffmpeg().arg("-y").arg("-i").arg(input).args(["-vn", "-ac", "1", "-ar", "16000", "-f", "f32le"]).arg(pcm),
+            "audio decode",
+        )
+    })?;
+    eprintln!("flits: decoded {} file(s) in {:.1}s", jobs.len(), t.elapsed().as_secs_f64());
+    let job_file = dir.join(format!("jobs-{}.json", std::process::id()));
+    let list: Vec<serde_json::Value> = jobs.iter().zip(&pcms).map(|((_, out), pcm)| serde_json::json!({"pcm": pcm, "out": out})).collect();
+    std::fs::write(&job_file, serde_json::json!({"model": o.model, "lang": o.language, "device": device, "jobs": list}).to_string())?;
+    cmd.arg("-I").arg(&script).arg(&job_file);
     let status = cmd.status().context("starting the transcription helper");
-    let _ = std::fs::remove_file(&pcm);
+    for p in pcms.iter().chain(std::iter::once(&job_file)) {
+        let _ = std::fs::remove_file(p);
+    }
     if !status?.success() {
         bail!("transcription failed");
     }
-    let words = load_transcript(out_json)?;
-    write_subtitles(out_json, &words)?;
-    Ok(out_json.to_path_buf())
+    for (_, out) in jobs {
+        write_subtitles(out, &load_transcript(out)?)?;
+    }
+    Ok(())
 }
 
 fn ts(t: f64, sep: char) -> String {

@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2021"
 description = "Bliksemsnelle video- en podcastrenderer met ingebouwde transcriptie"
 license = "MIT"
+authors = ["Arjan den Hartog", "flits contributors"]
+repository = "https://github.com/ArjandenHartog/flits"
+readme = "README.md"
+keywords = ["video", "rendering", "gpu", "podcast", "transcription"]
+categories = ["multimedia::video", "multimedia::audio", "command-line-utilities", "rendering"]
+rust-version = "1.88"
 
 [dependencies]
 anyhow = "1"
@@ -24,6 +30,7 @@ tiny_http = "0.12"
 ureq = "2"
 tar = "0.4"
 serde_ignored = "0.1.14"
+resvg = "0.45"
 
 [profile.release]
 opt-level = 3
