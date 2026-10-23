@@ -5,9 +5,17 @@ import json, os, sys, time, glob, site
 
 def add_cuda_dlls():
     # pip wheels nvidia-cublas-cu12 / nvidia-cudnn-cu12 ship the DLLs ctranslate2 needs
-    roots = list(site.getsitepackages()) + [site.getusersitepackages()]
-    for r in roots:
-        for d in glob.glob(os.path.join(r, "nvidia", "*", "bin")) + glob.glob(os.path.join(r, "nvidia", "*", "lib")):
+    dirs = []
+    try:
+        import nvidia  # namespace package from nvidia-cublas-cu12 / nvidia-cudnn-cu12
+        for p in nvidia.__path__:
+            dirs += glob.glob(os.path.join(p, "*", "bin")) + glob.glob(os.path.join(p, "*", "lib"))
+    except ImportError:
+        pass
+    for r in list(site.getsitepackages()) + [site.getusersitepackages()]:
+        dirs += glob.glob(os.path.join(r, "nvidia", "*", "bin")) + glob.glob(os.path.join(r, "nvidia", "*", "lib"))
+    for d in dirs:
+        if True:
             os.environ["PATH"] = d + os.pathsep + os.environ.get("PATH", "")
             if hasattr(os, "add_dll_directory"):
                 try:
@@ -21,12 +29,16 @@ def main():
     lang = None if lang == "auto" else lang
     add_cuda_dlls()
     from faster_whisper import WhisperModel, BatchedInferencePipeline
+    import numpy as np
+
+    # flits hands us raw 16 kHz mono float32 decoded by ffmpeg
+    audio = np.fromfile(src, dtype=np.float32) if src.endswith(".f32") else src
 
     tried = []
     devices = ["cuda", "cpu"] if device == "auto" else [device]
     for dev in devices:
         try:
-            compute = "float16" if dev == "cuda" else "int8"
+            compute = os.environ.get("FLITS_COMPUTE") or ("int8_float16" if dev == "cuda" else "int8")
             name = model_name
             if name == "default":
                 name = "large-v3-turbo" if dev == "cuda" else "small"
@@ -35,10 +47,10 @@ def main():
             model = WhisperModel(name, device=dev, compute_type=compute)
             pipe = BatchedInferencePipeline(model=model)
             segments, info = pipe.transcribe(
-                src,
+                audio,
                 language=lang,
-                word_timestamps=True,
-                batch_size=16 if dev == "cuda" else 8,
+                word_timestamps=os.environ.get("FLITS_WORDS", "1") == "1",
+                batch_size=int(os.environ.get("FLITS_BATCH") or (16 if dev == "cuda" else 8)),
                 vad_filter=True,
             )
             segs = []

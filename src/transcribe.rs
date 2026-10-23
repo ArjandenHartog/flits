@@ -47,9 +47,18 @@ pub fn transcribe(input: &Path, out_json: &Path, o: &TranscribeOpts) -> Result<P
     } else {
         bail!("transcription needs either `uv` (https://docs.astral.sh/uv/) or --python pointing at a Python with faster-whisper installed");
     };
-    cmd.arg("-I").arg(&script).arg(input).arg(out_json).arg(&o.model).arg(&o.language).arg(&device);
-    let status = cmd.status().context("starting the transcription helper")?;
-    if !status.success() {
+    // decode with ffmpeg (fast, any format) to raw 16 kHz mono float32
+    let pcm = dir.join(format!("audio-{}.f32", std::process::id()));
+    let t = std::time::Instant::now();
+    crate::ffmpeg::run(
+        crate::ffmpeg::ffmpeg().arg("-y").arg("-i").arg(input).args(["-vn", "-ac", "1", "-ar", "16000", "-f", "f32le"]).arg(&pcm),
+        "audio decode",
+    )?;
+    eprintln!("flits: decoded audio in {:.1}s", t.elapsed().as_secs_f64());
+    cmd.arg("-I").arg(&script).arg(&pcm).arg(out_json).arg(&o.model).arg(&o.language).arg(&device);
+    let status = cmd.status().context("starting the transcription helper");
+    let _ = std::fs::remove_file(&pcm);
+    if !status?.success() {
         bail!("transcription failed");
     }
     let words = load_transcript(out_json)?;

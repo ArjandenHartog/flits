@@ -1,23 +1,7 @@
-mod anim;
-mod assets;
-mod captions;
-mod color;
-mod effects;
-mod ffmpeg;
-mod gpu;
-mod layers;
-mod paint;
-mod render;
-mod scene;
-mod templates;
-mod text;
-mod transcribe;
-mod waveform;
 
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
-use layers::Prepared;
-use scene::Scene;
+use flits::{gpu, layers, render, templates, transcribe, Prepared, Scene};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -33,7 +17,7 @@ struct RenderArgs {
     /// parallel render workers (default: logical cores / 2, max 8 for NVENC)
     #[arg(long, short = 'j')]
     workers: Option<usize>,
-    /// auto | nvenc | qsv | x264
+    /// auto | nvenc | qsv | vaapi | x264
     #[arg(long, default_value = "auto")]
     encoder: String,
     /// quality: lower = better (CRF/CQ), 18..28
@@ -50,25 +34,6 @@ struct RenderArgs {
     gpu: String,
 }
 
-fn pick_gpu(choice: &str, width: u32) -> Result<Option<std::sync::Arc<gpu::Gpu>>> {
-    if choice == "cpu" || choice == "off" {
-        return Ok(None);
-    }
-    if width % 8 != 0 {
-        if choice == "gpu" {
-            bail!("GPU compositing needs an output width divisible by 8");
-        }
-        return Ok(None);
-    }
-    match gpu::Gpu::new() {
-        Ok(g) => Ok(Some(std::sync::Arc::new(g))),
-        Err(e) if choice == "auto" => {
-            eprintln!("flits: GPU not available ({e:#}), using CPU");
-            Ok(None)
-        }
-        Err(e) => Err(e),
-    }
-}
 
 #[derive(Args, Clone)]
 struct WhisperArgs {
@@ -213,14 +178,6 @@ fn parse_time(s: &str) -> Result<f64, String> {
     Ok(t)
 }
 
-fn default_workers(enc: ffmpeg::Encoder) -> usize {
-    let n = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8);
-    let w = (n * 3 / 4).max(2);
-    match enc {
-        ffmpeg::Encoder::Nvenc => w.min(8),
-        _ => w,
-    }
-}
 
 fn load(scene_path: &Path, scale: f64) -> Result<Prepared> {
     let t = Instant::now();
@@ -234,10 +191,8 @@ fn load(scene_path: &Path, scale: f64) -> Result<Prepared> {
 }
 
 fn do_render(p: &Prepared, out: &Path, r: &RenderArgs) -> Result<()> {
-    let encoder = ffmpeg::pick_encoder(&r.encoder)?;
-    let gpu = pick_gpu(&r.gpu, p.width)?;
-    let opts = render::RenderOpts { workers: r.workers.unwrap_or_else(|| default_workers(encoder)), encoder, quality: r.quality, keep_temp: r.keep_temp, gpu };
-    render::render(p, out, &opts)
+    let o = flits::Options { workers: r.workers, encoder: r.encoder.clone(), quality: r.quality, scale: r.scale, compositor: r.gpu.clone(), keep_temp: r.keep_temp };
+    flits::render_prepared(p, out, &o).map(|_| ())
 }
 
 fn with_suffix(p: &Path, suffix: &str) -> PathBuf {
@@ -347,7 +302,7 @@ fn run() -> Result<()> {
         }
         Cmd::Bench { scene, at, frames } => {
             let p = load(&scene, 1.0)?;
-            if let Some(g) = pick_gpu("auto", p.width)? {
+            if let Some(g) = flits::pick_gpu("auto", p.width)? {
                 let mut tg = g.target(p.width, p.height);
                 let mut vs = layers::VideoState::default();
                 let mut yuv = Vec::new();
