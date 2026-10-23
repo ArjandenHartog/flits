@@ -35,6 +35,8 @@ pub struct TextStyle {
     pub color: Rgba,
     pub line_height: f32,
     pub letter_spacing: f32,
+    /// extra space between words (captions widen it so outlines don't touch)
+    pub word_spacing: f32,
     pub align: Align,
     pub max_width: Option<f32>,
     pub stroke: Option<(f32, Rgba)>,
@@ -68,7 +70,7 @@ impl TextStyle {
     }
 
     pub fn space(&self) -> f32 {
-        self.measure(" ").max(self.size * 0.25) + self.letter_spacing
+        self.measure(" ").max(self.size * 0.25) + self.letter_spacing + self.word_spacing
     }
 
     pub fn line_px(&self) -> f32 {
@@ -338,6 +340,7 @@ mod tests {
             color: Rgba::WHITE,
             line_height: 1.2,
             letter_spacing: 0.0,
+            word_spacing: 0.0,
             align: Align::Center,
             max_width,
             stroke: None,

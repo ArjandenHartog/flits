@@ -15,7 +15,7 @@ use crate::scene::color::Rgba;
 use crate::scene::{Layer, Scene};
 use crate::text::{self, Align, FontDb, TextStyle};
 use anyhow::{anyhow, bail, Context, Result};
-use captions::{CapKind, CapOptions, Captions};
+use captions::{CapKind, CapOptions, Captions, HiBox};
 use draw::gradient_pixmap;
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -144,6 +144,8 @@ pub struct Node {
     pub end: f64,
     pub w: f32,
     pub h: f32,
+    /// size of the parent box (push transitions travel this far)
+    area: (f32, f32),
     x: Prop,
     y: Prop,
     anchor: (f32, f32),
@@ -232,6 +234,7 @@ fn collect_media(layers: &[Layer], scene: &Scene, out: &mut Vec<PathBuf>) {
 
 fn transition_scale(t: &Option<Transition>) -> f64 {
     match t.as_ref().map(|t| t.kind) {
+        Some(TKind::ZoomFade) => 1.25,
         Some(TKind::ZoomOut) | Some(TKind::ZoomIn) => 1.15,
         Some(TKind::Pop) => 1.1,
         _ => 1.0,
@@ -404,6 +407,7 @@ fn text_style(l: &Layer, ctx: &Ctx, default_font: Option<&str>, default_size: f6
         color: l.color.unwrap_or(Rgba::WHITE),
         line_height: l.line_height.unwrap_or(1.15) as f32,
         letter_spacing: l.letter_spacing as f32 * q,
+        word_spacing: 0.0,
         align: Align::parse(l.align.as_deref())?,
         max_width: l.max_width.map(|m| m as f32 * q),
         stroke: l.stroke.as_ref().map(|s| (s.width as f32 * q, s.color)),
@@ -676,13 +680,18 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
                 style,
                 highlight: l.highlight.unwrap_or(Rgba::rgba8(255, 214, 10, 1.0)),
                 highlight_bg: l.highlight_bg,
+                highlight_box: HiBox::parse(l.highlight_box.as_deref())?,
                 max_words: l.max_words.unwrap_or(match kind {
-                    CapKind::Pop => 3,
+                    CapKind::Pop | CapKind::Bounce => 3,
                     CapKind::Karaoke => 5,
                     CapKind::Word => 1,
                     CapKind::Line => 9,
                 }),
+                max_lines: l.max_lines.unwrap_or(2),
                 uppercase: l.uppercase,
+                colors: l.colors.clone().unwrap_or_default(),
+                active_scale: l.active_scale.map(|v| v as f32),
+                speaker_colors: l.speaker_colors.clone().unwrap_or_default(),
                 box_w: bw * q,
                 box_h: bh * q,
                 q,
@@ -769,6 +778,7 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
         end,
         w,
         h,
+        area: pbox,
         x: prop(&l.x, pbox.0 as f64 / 2.0),
         y: prop(&l.y, pbox.1 as f64 / 2.0),
         anchor: l.anchor.map(|a| (a[0] as f32, a[1] as f32)).unwrap_or((0.5, 0.5)),

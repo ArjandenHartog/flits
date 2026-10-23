@@ -64,14 +64,19 @@ pub fn slideshow(o: slideshow::SlideshowOpts, out: Option<PathBuf>, r: &RenderAr
     write_scene_and_render(scene, &out, r)
 }
 
-#[allow(clippy::too_many_arguments)]
+/// How `flits captions` should look.
+pub struct CaptionLook {
+    pub preset: Option<String>,
+    pub style: Option<String>,
+    pub highlight: Option<String>,
+    pub uppercase: bool,
+    pub position: f64,
+}
+
 pub fn captions(
     video: &Path,
     out: Option<PathBuf>,
-    style: String,
-    highlight: String,
-    uppercase: bool,
-    position: f64,
+    look: CaptionLook,
     transcript: Option<PathBuf>,
     w: &WhisperArgs,
     r: &RenderArgs,
@@ -80,8 +85,14 @@ pub fn captions(
     if out == video {
         bail!("output would overwrite the input");
     }
+    if let Some(p) = &look.preset {
+        // fail before transcribing
+        flits::scene::presets::caption_preset(p, (1920.0, 1080.0), None)?;
+    }
     let tr = transcribe::ensure(video, transcript.as_deref(), &w.opts())?;
-    let scene = templates::captioned_video(&templates::CaptionOpts { video, transcript: &tr, style, highlight, uppercase, position })?;
+    let CaptionLook { preset, style, highlight, uppercase, position } = look;
+    let opts = templates::CaptionOpts { video, transcript: &tr, preset, style, highlight, uppercase, position };
+    let scene = templates::captioned_video(&opts)?;
     write_scene_and_render(scene, &out, r)
 }
 

@@ -2,6 +2,7 @@
 
 pub mod anim;
 pub mod color;
+pub mod presets;
 
 use anim::{Prop, Transition};
 use anyhow::{Context, Result};
@@ -251,10 +252,20 @@ pub struct Layer {
     pub reveal_duration: Option<f64>,
 
     // captions
+    /// named caption look (see `presets`); merged into the layer before parsing
+    pub preset: Option<String>,
     pub style: Option<String>,
     pub highlight: Option<Rgba>,
     pub highlight_bg: Option<Rgba>,
+    /// "pill" (default) or "marker"
+    pub highlight_box: Option<String>,
     pub max_words: Option<usize>,
+    pub max_lines: Option<usize>,
+    /// active-word colours, cycled word by word
+    pub colors: Option<Vec<Rgba>>,
+    pub active_scale: Option<f64>,
+    /// word colour per diarization speaker label
+    pub speaker_colors: Option<HashMap<String, Rgba>>,
 
     // waveform
     pub bars: Option<usize>,
@@ -302,8 +313,12 @@ impl Scene {
         Scene::from_value(value, base)
     }
 
-    pub fn from_value(value: Value, base_dir: PathBuf) -> Result<(Scene, Vec<String>)> {
+    pub fn from_value(mut value: Value, base_dir: PathBuf) -> Result<(Scene, Vec<String>)> {
         let mut warnings = Vec::new();
+        let canvas = (value["width"].as_f64().unwrap_or(1920.0), value["height"].as_f64().unwrap_or(1080.0));
+        if let Some(Value::Array(layers)) = value.get_mut("layers") {
+            presets::apply(layers, canvas, "layers", &mut warnings)?;
+        }
         if let Some(Value::Array(layers)) = value.get("layers") {
             for (i, l) in layers.iter().enumerate() {
                 check_types(l, &format!("layers.{i}"), &mut warnings);

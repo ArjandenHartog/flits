@@ -242,6 +242,16 @@ pub enum TKind {
     WipeRight,
     WipeUp,
     WipeDown,
+    PushLeft,
+    PushRight,
+    PushUp,
+    PushDown,
+    ZoomFade,
+    SlideFade,
+    RotateIn,
+    FlipX,
+    FlipY,
+    Iris,
 }
 
 #[derive(Clone, Debug)]
@@ -250,6 +260,8 @@ pub struct Transition {
     pub dur: f64,
     pub ease: Ease,
     pub dist: f64,
+    /// rotate-in: degrees turned during the transition
+    pub angle: f64,
 }
 
 impl Transition {
@@ -267,63 +279,88 @@ impl Transition {
             "wipe-right" | "wipe" => TKind::WipeRight,
             "wipe-up" => TKind::WipeUp,
             "wipe-down" => TKind::WipeDown,
+            "push-left" => TKind::PushLeft,
+            "push-right" | "push" => TKind::PushRight,
+            "push-up" => TKind::PushUp,
+            "push-down" => TKind::PushDown,
+            "zoom-fade" => TKind::ZoomFade,
+            "slide-fade" | "rise" => TKind::SlideFade,
+            "rotate-in" | "rotate" => TKind::RotateIn,
+            "flip-x" | "flip" => TKind::FlipX,
+            "flip-y" => TKind::FlipY,
+            "iris" | "circle" => TKind::Iris,
             other => {
-                bail!("unknown transition '{other}' (fade, slide-up/down/left/right, zoom-in, zoom-out, pop, wipe-left/right/up/down)")
+                bail!(
+                    "unknown transition '{other}' (fade, slide-up/down/left/right, slide-fade, zoom-in, zoom-out, zoom-fade, pop, \
+                     wipe-left/right/up/down, push-left/right/up/down, rotate-in, flip-x, flip-y, iris)"
+                )
             }
         })
     }
 
     pub fn from_json(v: &Value) -> Result<Transition> {
-        let (kind, dur, ease, dist) = match v {
+        let (kind, dur, ease, dist, angle) = match v {
             Value::String(s) => {
                 // "fade" or "fade 0.4"
                 let mut it = s.split_whitespace();
                 let k = Self::parse_kind(it.next().unwrap_or("fade"))?;
                 let d = it.next().map(|x| x.trim_end_matches('s').parse::<f64>()).transpose()?;
-                (k, d, None, None)
+                (k, d, None, None, None)
             }
             Value::Object(o) => {
                 let k = Self::parse_kind(o.get("type").and_then(Value::as_str).unwrap_or("fade"))?;
                 let d = o.get("duration").and_then(Value::as_f64);
                 let e = o.get("ease").and_then(Value::as_str).map(Ease::parse).transpose()?;
                 let dist = o.get("distance").and_then(Value::as_f64);
-                (k, d, e, dist)
+                let angle = o.get("angle").and_then(Value::as_f64);
+                (k, d, e, dist, angle)
             }
-            _ => bail!("transition must be a string like \"fade\" or an object {{type,duration,ease,distance}}"),
+            _ => bail!("transition must be a string like \"fade\" or an object {{type,duration,ease,distance,angle}}"),
         };
+        let push = matches!(kind, TKind::PushLeft | TKind::PushRight | TKind::PushUp | TKind::PushDown);
         let default_ease = match kind {
             TKind::Pop => Ease::BackOut,
-            TKind::WipeLeft | TKind::WipeRight | TKind::WipeUp | TKind::WipeDown => Ease::InOut,
+            // symmetric curves: an exit and an enter of the same length line up seamlessly
+            TKind::WipeLeft | TKind::WipeRight | TKind::WipeUp | TKind::WipeDown | TKind::Iris => Ease::InOut,
+            _ if push => Ease::InOut,
             _ => Ease::Out,
+        };
+        let default_dur = match kind {
+            TKind::Pop => 0.45,
+            TKind::Iris => 0.6,
+            _ if push => 0.6,
+            _ => 0.5,
         };
         Ok(Transition {
             kind,
-            dur: dur.unwrap_or(if kind == TKind::Pop { 0.45 } else { 0.5 }).max(0.001),
+            dur: dur.unwrap_or(default_dur).max(0.001),
             ease: ease.unwrap_or(default_ease),
-            dist: dist.unwrap_or(120.0),
+            dist: dist.unwrap_or(if kind == TKind::SlideFade { 40.0 } else { 120.0 }),
+            angle: angle.unwrap_or(90.0),
         })
     }
 
-    /// Apply as an enter transition; `t` = seconds since layer start.
-    pub fn apply_in(&self, t: f64, fx: &mut Fx) {
+    /// Apply as an enter transition; `t` = seconds since layer start, `area` = parent box size
+    /// (push transitions travel exactly that far, so the layer starts fully outside it).
+    pub fn apply_in(&self, t: f64, area: (f64, f64), fx: &mut Fx) {
         if t >= self.dur {
             return;
         }
         let raw = (t / self.dur).clamp(0.0, 1.0);
-        self.apply(self.ease.apply(raw), raw, false, fx);
+        self.apply(self.ease.apply(raw), raw, false, area, fx);
     }
 
     /// Apply as an exit transition; `remaining` = seconds until layer end.
-    pub fn apply_out(&self, remaining: f64, fx: &mut Fx) {
+    pub fn apply_out(&self, remaining: f64, area: (f64, f64), fx: &mut Fx) {
         if remaining >= self.dur {
             return;
         }
         let raw = (remaining / self.dur).clamp(0.0, 1.0);
         // exit uses the mirrored curve so "out" motion accelerates away
-        self.apply(self.ease.apply(raw), raw, true, fx);
+        self.apply(self.ease.apply(raw), raw, true, area, fx);
     }
 
-    fn apply(&self, p: f64, raw: f64, exit: bool, fx: &mut Fx) {
+    fn apply(&self, p: f64, raw: f64, exit: bool, area: (f64, f64), fx: &mut Fx) {
         let q = 1.0 - p; // remaining distance
         let dir = if exit { -1.0 } else { 1.0 };
         let fade = (raw * 1.6).min(1.0) as f32;
@@ -361,6 +398,33 @@ impl Transition {
             TKind::WipeRight => fx.clip = Some(Clip { side: if exit { Side::Left } else { Side::Right }, frac: p }),
             TKind::WipeUp => fx.clip = Some(Clip { side: if exit { Side::Bottom } else { Side::Top }, frac: p }),
             TKind::WipeDown => fx.clip = Some(Clip { side: if exit { Side::Top } else { Side::Bottom }, frac: p }),
+            // push: enters from (or leaves past) the parent's edge, without fading
+            TKind::PushLeft => fx.dx += dir * q * area.0,
+            TKind::PushRight => fx.dx -= dir * q * area.0,
+            TKind::PushUp => fx.dy += dir * q * area.1,
+            TKind::PushDown => fx.dy -= dir * q * area.1,
+            TKind::ZoomFade => {
+                fx.scale *= 1.0 + 0.25 * q;
+                fx.opacity *= p.clamp(0.0, 1.0) as f32;
+            }
+            TKind::SlideFade => {
+                fx.dy += dir * q * self.dist;
+                fx.opacity *= p.clamp(0.0, 1.0) as f32;
+            }
+            TKind::RotateIn => {
+                fx.rot -= dir * q * self.angle;
+                fx.scale *= 0.5 + 0.5 * p;
+                fx.opacity *= fade;
+            }
+            TKind::FlipX => {
+                fx.sx *= p;
+                fx.opacity *= (raw * 4.0).min(1.0) as f32;
+            }
+            TKind::FlipY => {
+                fx.sy *= p;
+                fx.opacity *= (raw * 4.0).min(1.0) as f32;
+            }
+            TKind::Iris => fx.clip = Some(Clip { side: Side::Center, frac: p }),
         }
     }
 }
@@ -372,13 +436,14 @@ impl<'de> Deserialize<'de> for Transition {
     }
 }
 
-/// Which edge a wipe reveals toward.
+/// Which edge a wipe reveals toward (`Center`: a circle growing from the middle).
 #[derive(Clone, Copy, Debug)]
 pub enum Side {
     Left,
     Right,
     Top,
     Bottom,
+    Center,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -396,6 +461,18 @@ impl Clip {
             Side::Left => (w * (1.0 - f), 0.0, w * f, h),
             Side::Bottom => (0.0, 0.0, w, h * f),
             Side::Top => (0.0, h * (1.0 - f), w, h * f),
+            Side::Center => {
+                let r = self.radius(w, h);
+                (w / 2.0 - r, h / 2.0 - r, r * 2.0, r * 2.0)
+            }
+        }
+    }
+
+    /// Corner radius of the visible part (a circle for iris reveals).
+    pub fn radius(&self, w: f64, h: f64) -> f64 {
+        match self.side {
+            Side::Center => (w * w + h * h).sqrt() / 2.0 * self.frac.clamp(0.0, 1.0),
+            _ => 0.0,
         }
     }
 }
@@ -407,12 +484,17 @@ pub struct Fx {
     pub dx: f64,
     pub dy: f64,
     pub scale: f64,
+    /// extra horizontal / vertical scale (flips)
+    pub sx: f64,
+    pub sy: f64,
+    /// extra rotation in degrees
+    pub rot: f64,
     pub clip: Option<Clip>,
 }
 
 impl Default for Fx {
     fn default() -> Self {
-        Fx { opacity: 1.0, dx: 0.0, dy: 0.0, scale: 1.0, clip: None }
+        Fx { opacity: 1.0, dx: 0.0, dy: 0.0, scale: 1.0, sx: 1.0, sy: 1.0, rot: 0.0, clip: None }
     }
 }
 
@@ -464,17 +546,67 @@ mod tests {
         assert_eq!(t.kind, TKind::SlideUp);
         assert!((t.dur - 0.4).abs() < 1e-9);
         let mut fx = Fx::default();
-        t.apply_in(0.0, &mut fx);
+        t.apply_in(0.0, (100.0, 100.0), &mut fx);
         assert!(fx.dy > 0.0 && fx.opacity == 0.0);
         let mut fx = Fx::default();
-        t.apply_in(1.0, &mut fx);
+        t.apply_in(1.0, (100.0, 100.0), &mut fx);
         assert_eq!(fx.dy, 0.0);
         assert!(Transition::from_json(&json!("explode")).is_err());
+    }
+
+    #[test]
+    fn push_travels_the_parent_box_and_lines_up() {
+        let t = Transition::from_json(&json!("push-left")).unwrap();
+        let area = (1920.0, 1080.0);
+        let mut fx = Fx::default();
+        t.apply_in(0.0, area, &mut fx);
+        assert_eq!(fx.dx, 1920.0, "starts one parent width to the right");
+        assert_eq!(fx.opacity, 1.0, "push does not fade");
+        // an exit and an enter of the same length stay exactly one box apart
+        for k in 1..10 {
+            let s = k as f64 * t.dur / 10.0;
+            let (mut a, mut b) = (Fx::default(), Fx::default());
+            t.apply_out(t.dur - s, area, &mut a);
+            t.apply_in(s, area, &mut b);
+            assert!((b.dx - a.dx - 1920.0).abs() < 1e-6, "at {s}: {} vs {}", a.dx, b.dx);
+        }
+        let mut fx = Fx::default();
+        Transition::from_json(&json!("push-up")).unwrap().apply_in(0.0, area, &mut fx);
+        assert_eq!(fx.dy, 1080.0);
+    }
+
+    #[test]
+    fn new_transitions_settle_at_identity() {
+        for name in ["zoom-fade", "slide-fade", "rotate-in", "flip-x", "flip-y", "iris"] {
+            let t = Transition::from_json(&json!(name)).unwrap();
+            let mut start = Fx::default();
+            t.apply_in(0.0, (100.0, 100.0), &mut start);
+            let mut end = Fx::default();
+            t.apply_in(t.dur * 0.999_999, (100.0, 100.0), &mut end);
+            assert!((end.scale - 1.0).abs() < 1e-3 && (end.sx - 1.0).abs() < 1e-3 && end.rot.abs() < 1e-3, "{name}");
+            assert!(end.opacity > 0.99, "{name}");
+            let moved = start.opacity < 1.0 || start.scale != 1.0 || start.sx != 1.0 || start.sy != 1.0 || start.clip.is_some();
+            assert!(moved, "{name} does something at the start");
+        }
+        let t = Transition::from_json(&json!({"type": "rotate-in", "angle": 30})).unwrap();
+        let mut fx = Fx::default();
+        t.apply_in(0.0, (1.0, 1.0), &mut fx);
+        assert_eq!(fx.rot, -30.0);
     }
 
     #[test]
     fn wipe_reveals_from_side() {
         let c = Clip { side: Side::Right, frac: 0.25 };
         assert_eq!(c.rect(100.0, 50.0), (0.0, 0.0, 25.0, 50.0));
+        assert_eq!(c.radius(100.0, 50.0), 0.0);
+    }
+
+    #[test]
+    fn iris_is_a_circle_that_covers_the_box() {
+        let c = Clip { side: Side::Center, frac: 1.0 };
+        assert_eq!(c.rect(60.0, 80.0), (-20.0, -10.0, 100.0, 100.0));
+        assert_eq!(c.radius(60.0, 80.0), 50.0, "radius reaches the corners");
+        let c = Clip { side: Side::Center, frac: 0.0 };
+        assert_eq!(c.rect(60.0, 80.0).2, 0.0);
     }
 }
