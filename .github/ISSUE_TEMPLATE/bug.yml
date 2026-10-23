@@ -1,20 +1,20 @@
 name: Bug
-description: Iets werkt niet zoals verwacht / something is broken
+description: Something doesn't work as expected
 labels: [bug]
 body:
   - type: textarea
     attributes:
-      label: Wat gebeurde er? / What happened?
-      description: Commando, foutmelding en wat je verwachtte.
+      label: What happened?
+      description: Command, error message and what you expected instead.
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Scene of stappen om het na te doen / Steps or scene to reproduce
+      label: Scene or steps to reproduce
       render: json
   - type: textarea
     attributes:
-      label: Uitvoer van `flits doctor`
+      label: Output of `flits doctor`
       render: text
     validations:
       required: true

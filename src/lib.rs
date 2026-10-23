@@ -1,9 +1,9 @@
 //! # flits
 //!
-//! Bliksemsnelle video- en podcastrenderer. Een scene (JSON) beschrijft lagen
-//! (beeld, video, tekst, ondertitels, audiogolf, vormen) met animaties; flits
-//! rendert die op de GPU (wgpu), codeert parallel met hardware-encoders en
-//! plakt de stukken zonder hercodering aan elkaar.
+//! Blazing-fast video and podcast rendering. A scene (JSON) describes layers (images,
+//! video, text, captions, audio waveforms, shapes) with animation; flits composites it on
+//! the GPU (wgpu), encodes in parallel with hardware encoders and joins the pieces without
+//! re-encoding.
 //!
 //! ```no_run
 //! let stats = flits::render_file("scene.json".as_ref(), "out.mp4".as_ref(), &flits::Options::default())?;

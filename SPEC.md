@@ -86,7 +86,7 @@ Default duration = the (re-timed) clip length. iPhone HDR (HLG/PQ, 10-bit) is to
 `reveal`: `"words"` | `"lines"` | `"chars"` | `"typewriter"` with `revealDuration` (seconds over which the pieces appear).
 
 **counter** — an animated number: `value` (animatable, e.g. `{"from": 0, "to": 12840, "ease": "out", "end": 2.5}`),
-`decimals`, `prefix`, `suffix`, `separator` (thousands, default `"."`; `","` switches the decimal mark to `"."`),
+`decimals`, `prefix`, `suffix`, `separator` (thousands, default `","` → `1,234.5`; `"."` gives `1.234,5`; `"none"` gives `1234,5`),
 plus the text styling keys. Digits are tabular, so the number doesn't jitter.
 
 **captions** — animated word-by-word subtitles from a transcript (`flits transcribe` output, or any

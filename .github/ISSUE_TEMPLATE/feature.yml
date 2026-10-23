@@ -1,14 +1,14 @@
-name: Idee / feature
-description: Iets nieuws dat flits zou moeten kunnen
+name: Feature idea
+description: Something flits should be able to do
 labels: [enhancement]
 body:
   - type: textarea
     attributes:
-      label: Wat wil je kunnen maken? / What do you want to make?
-      description: Beschrijf het resultaat (een voorbeeldvideo of plaatje helpt).
+      label: What do you want to make?
+      description: Describe the result (an example video or image helps).
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Hoe zou het in de scene eruit kunnen zien? / Proposed scene syntax
+      label: How could it look in a scene?
       render: json

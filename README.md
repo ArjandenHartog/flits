@@ -3,119 +3,120 @@
 [![ci](https://github.com/ArjandenHartog/flits/actions/workflows/ci.yml/badge.svg)](https://github.com/ArjandenHartog/flits/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> *Blazing-fast video and podcast renderer with built-in transcription: describe a video as JSON,
-> flits composites it on the GPU and encodes it in parallel with hardware encoders. 10,000 frames
-> of 1080p montage in well under a minute. Rust library + CLI. Docs are mostly Dutch; issues and
-> PRs in English are welcome.*
+**Blazing-fast video and podcast rendering with built-in transcription.** Rust library + CLI.
 
-Bliksemsnelle video- en podcastrenderer met ingebouwde transcriptie. Rust-bibliotheek + CLI.
+Describe a video as JSON (layers, keyframe animation, transitions, word-by-word captions, audio
+waveforms, counters) and flits composites it on the GPU, encodes it in parallel with hardware
+encoders and joins the pieces without re-encoding. On top of that: Whisper transcription on the
+GPU, beat-synced slideshows, silence and filler-word removal, podcast videos and animated captions.
 
-Je beschrijft een video als JSON (lagen, animaties, overgangen, ondertitels, audiogolf, tellers)
-en flits rendert hem op de GPU, codeert parallel met de hardware-encoder en plakt de stukken
-zonder hercoderen aan elkaar. Daarnaast: transcriptie (Whisper op de GPU), slideshows op de beat,
-stiltes en stopwoorden wegknippen, podcast-video's en geanimeerde ondertitels.
+## Speed (laptop: i7-11800H + RTX 3050 Ti)
 
-## Snelheid (laptop: i7-11800H + RTX 3050 Ti)
-
-| taak | voorheen | flits |
+| task | before | flits |
 |---|---|---|
-| 10.000 frames 1080p, 104 shots met foto's, 26 HDR-videoclips, tekst, schaduwen, muziek | ~30 min (Remotion) | **33–45 s** |
-| dezelfde scene zonder videoclips | | **10 s** (~1000 fps) |
-| transcriptie 1 u 33 min (Nederlands, large-v3-turbo) | ~30 min (CPU) | **3,5 min** |
-| stiltes uit een podcast van 68 min knippen | | **28 s** |
-| slideshow 2,5 min (9:16, 18 foto's/clips, op de beat) | | **20 s** |
+| 10,000 frames 1080p montage: 104 shots of photos, 26 HDR clips, text, shadows, music | ~30 min (Remotion) | **33–45 s** |
+| the same scene without video clips | | **10 s** (~1,000 fps) |
+| transcribing 1 h 33 min of Dutch speech (large-v3-turbo) | ~30 min (CPU) | **3.5 min** |
+| removing silences from a 68 min podcast | | **28 s** |
+| 2.5 min beat-synced 9:16 slideshow (18 photos/clips) | | **20 s** |
 
-## Commando's
+Measure it yourself with synthetic media (only ffmpeg needed):
+
+```sh
+python examples/benchmark.py && flits render bench/scene.json -o bench/out.mp4
+FLITS_PROFILE=1 flits render bench/scene.json --encoder null   # renderer only, per-stage timings
+```
+
+## Commands
 
 ```sh
 # scenes
-flits render scene.json -o video.mp4          # renderen (--scale 0.5 = snelle preview, --speed fast, --codec hevc)
-flits sheet scene.json -o sheet.png           # contactsheet: hele video in één plaatje checken
+flits render scene.json -o video.mp4          # render (--scale 0.5 = quick preview, --speed fast, --codec hevc)
+flits sheet scene.json -o sheet.png           # contact sheet: check the whole video in one image
 flits still scene.json --at 12.5 -o frame.png
-flits check scene.json                        # valideren (typfouten worden gemeld) + tijdlijn
-flits new [intro|quote|stats|lower-third|countdown]   # voorbeeldscène om mee te beginnen
-flits spec                                    # volledige beschrijving van het scene-formaat
+flits check scene.json                        # validate (typos are reported) + print the timeline
+flits new [intro|quote|stats|lower-third|countdown]   # starter scenes
+flits spec                                    # full scene format reference
 
-# kant-en-klaar
-flits slideshow fotos/ --music liedje.mp3 --beats --title "Zomer 2026" --format 9:16
-flits captions clip.mp4 --style pop           # geanimeerde woord-voor-woord ondertitels inbranden
-flits podcast aflevering.mp3 --cover cover.jpg --title "Aflevering 12" --format 9:16 --from 12:30 --to 13:30
-flits cut opname.mp4 --fillers                # stiltes (en uh/uhm/eh) eruit, audio of video
-flits transcribe opname.m4a --lang nl         # -> .words.json + .srt + .vtt + .txt
+# ready-made
+flits slideshow photos/ --music song.mp3 --beats --title "Summer 2026" --format 9:16
+flits captions clip.mp4 --style pop           # burn in animated word-by-word captions
+flits podcast episode.mp3 --cover cover.jpg --title "Episode 12" --format 9:16 --from 12:30 --to 13:30
+flits cut recording.mp4 --fillers             # remove silences (and uh/um) from audio or video
+flits transcribe recording.m4a --lang en      # -> .words.json + .srt + .vtt + .txt
 
-# hulpmiddelen
-flits doctor                                  # wat werkt er op deze pc (GPU, encoders, whisper, ...)
-flits info bestand.mp4
-flits serve --token geheim                    # deze (GPU-)pc als server voor andere pc's
-flits remote http://laptop:7777 --token geheim   # op een andere pc: werk naar de GPU-pc sturen
+# tools
+flits doctor                                  # what works on this machine (GPU, encoders, whisper, ...)
+flits info file.mp4
+flits measure < texts.json                    # text metrics for scripts that lay things out
+flits serve --token secret                    # make this (GPU) machine a render/transcription server
+flits remote http://gpu-box:7777 --token secret   # on another machine: offload work to it
 ```
 
-Als bibliotheek:
+As a library:
 
 ```rust
 let stats = flits::render_file("scene.json".as_ref(), "out.mp4".as_ref(), &flits::Options::default())?;
 ```
 
-## Hoe het snel is
+The scene format is documented in [SPEC.md](SPEC.md) (`flits spec`).
 
-* **Statisch werk één keer**: foto's worden eenmalig gedecodeerd, EXIF-gedraaid en verkleind tot hun
-  schermgrootte; blur, schaduwen, tekst en verlopen worden vooraf gerasterd. Per frame blijven alleen
-  transformaties over.
-* **GPU-compositing (wgpu: Vulkan/D3D12/Metal)**: elke laag is één quad; afgeronde hoeken en
-  anti-aliasing via een SDF in de shader. Video komt als YUV-vlakken binnen: kleurconversie en
-  HDR→SDR-tonemapping gebeuren in de shader. RGB→YUV 4:2:0 voor de encoder doet een compute-shader.
-  Een aparte poll-thread voorkomt dat workers elkaar blokkeren op de GPU.
-* **Parallel**: de tijdlijn wordt in chunks verdeeld die workers oppakken (work stealing); elke worker
-  heeft een eigen hardware-encoder (NVENC, QSV, VAAPI) of x264. Segmenten worden zonder hercoderen
-  samengevoegd; de audiomix (ducking, loudness) loopt tegelijk.
-* **Video-decoding** loopt vooruit in een eigen thread en levert direct op doelresolutie.
-* Zonder GPU valt flits terug op een CPU-rasterizer (tiny-skia) die exact dezelfde beelden maakt
-  (getest: gemiddeld < 0,2/255 verschil).
+## Why it is fast
 
-`FLITS_PROFILE=1 flits render ...` laat zien waar de tijd heen gaat.
+* **Static work happens once.** Photos are decoded, EXIF-rotated and downscaled to their on-screen
+  size once; blur, shadows, text, gradients and SVGs are pre-rasterized. Per frame only transforms remain.
+* **GPU compositing (wgpu: Vulkan / D3D12 / Metal).** Every layer is one instanced quad; rounded
+  corners and anti-aliasing come from a signed-distance function in the shader. Video arrives as YUV
+  planes; colour conversion and HDR→SDR tone mapping happen in the shader, and a compute shader produces
+  the YUV 4:2:0 frames for the encoder. A dedicated poll thread keeps workers from blocking each other.
+* **Hardware video decoding** (NVDEC, VAAPI) for HEVC/AV1/VP9/H.264 sources, including rotated phone
+  footage, with automatic software fallback; decoders run ahead in their own threads and are reused across
+  cuts of the same clip.
+* **Parallel encoding.** The timeline is split into chunks that workers pull (work stealing); each worker
+  has its own hardware encoder (NVENC, QSV, VAAPI) or x264. Segments are joined without re-encoding while
+  the soundtrack (ducking, loudness normalization) is mixed in parallel.
+* **No GPU? Same pixels.** A CPU rasterizer (tiny-skia) produces matching frames (tested: < 0.2/255 mean difference).
 
-## Structuur
+## Project layout
 
 ```
 src/
-  lib.rs          publieke API (Options, render_file, render_json, pick_gpu)
-  cli/            de flits-CLI (make.rs: commando's die media maken, tools.rs: doctor/info/serve/...)
-  scene/          het JSON-formaat: structs, animatie/easing/overgangen, kleuren
-  compose/        scene -> boom van voorbereide nodes (alles statisch vooraf gerasterd);
-                  draw.rs loopt per frame door de boom; captions, waveform
-  paint/          tekeninterface (Op/Painter) met CPU-backend (tiny-skia) en GPU-backend (wgpu + WGSL)
-  render/         pijplijn (chunks, workers, encoders, samenvoegen), FrameRenderer, stills/sheets, profiler
-  media/          alles via ffmpeg: probe, video-decoder, encoders, audiomix, kleurruimtes, beat-detectie
-  text/           fonts zoeken/laden, layout, glyphs -> paden
-  gfx.rs          sprites, blur, schaduwen, afgeronde vormen
-  transcribe/     faster-whisper via uv (CUDA als die er is), SRT/VTT/TXT
-  remote/         `flits serve` en offloaden naar een GPU-pc
+  lib.rs          public API (Options, render_file, render_json, pick_gpu)
+  cli/            the flits CLI (make.rs: commands that produce media, tools.rs: doctor/info/serve/...)
+  scene/          the JSON format: structs, animation/easing/transitions, colours
+  compose/        scene -> tree of prepared nodes (static content pre-rasterized);
+                  draw.rs walks the tree per frame; captions, waveform
+  paint/          drawing interface (Op/Painter) with CPU (tiny-skia) and GPU (wgpu + WGSL) backends
+  render/         pipeline (chunks, workers, encoders, joining), FrameRenderer, stills/sheets, profiler
+  media/          everything ffmpeg: probing, video decoding, encoders, audio mix, colour spaces, beat detection
+  text/           font lookup/loading, layout (balanced wrapping, soft hyphens), glyphs -> paths
+  gfx.rs          sprites, blur, shadows, rounded shapes
+  transcribe/     faster-whisper via uv (CUDA when available), SRT/VTT/TXT
+  remote/         `flits serve` and offloading to a GPU machine
   templates/      podcast, captions, slideshow, cut, starters
-tests/            pariteit CPU=GPU, end-to-end renders, audio
+tests/            CPU = GPU parity, end-to-end renders, audio
+examples/         reproducible benchmark
 ```
 
-## Vereisten
+## Requirements
 
-* `ffmpeg`/`ffprobe` op PATH
-* voor transcriptie: [`uv`](https://docs.astral.sh/uv/) (installeert faster-whisper automatisch in een cache)
-  of `--python` naar een Python met faster-whisper. Met een NVIDIA-GPU wordt CUDA gebruikt; zonder GPU
-  kan een andere pc het werk doen (`flits serve` / `flits remote`).
+* `ffmpeg` / `ffprobe` on PATH
+* for transcription: [`uv`](https://docs.astral.sh/uv/) (installs faster-whisper into a cache automatically)
+  or `--python` pointing at a Python with faster-whisper. CUDA is used when an NVIDIA GPU is present;
+  machines without one can offload to another machine (`flits serve` / `flits remote`).
 
-## Bouwen en testen
+## Building and testing
 
 ```sh
 cargo build --release      # binary: target/release/flits
-cargo test --release       # unit-, pariteits- en pipelinetests (GPU-tests slaan over zonder GPU)
+cargo test --release       # unit, parity and pipeline tests (GPU tests skip themselves without a GPU)
 ```
 
-Zelf meten: `python examples/benchmark.py && flits render bench/scene.json -o bench/out.mp4`
-(synthetisch materiaal, alleen ffmpeg nodig).
+## Contributing
 
-## Meedoen
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the setup, the house rules
+(CPU = GPU, measure speed) and ideas to start with.
 
-Bijdragen zijn welkom: zie [CONTRIBUTING.md](CONTRIBUTING.md) voor de opzet, de huisregels
-(CPU = GPU, snelheid meten) en ideeën om mee te beginnen.
-
-## Licentie
+## License
 
 [MIT](LICENSE)

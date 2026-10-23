@@ -350,7 +350,7 @@ mod tests {
     #[test]
     fn balances_lines_and_uses_soft_hyphens() {
         let mut st = style(Some(400.0));
-        let toks = tokenize("dit is een zin die net niet op twee regels past");
+        let toks = tokenize("this is a sentence that just does not fit on two lines");
         let greedy = layout(&st, &toks);
         st.balance = true;
         let bal = layout(&st, &toks);
@@ -367,7 +367,7 @@ mod tests {
     #[test]
     fn wraps_and_breaks() {
         let st = style(Some(200.0));
-        let lay = layout(&st, &tokenize("een twee drie vier vijf zes zeven acht\nnegen"));
+        let lay = layout(&st, &tokenize("one two three four five six seven eight\nnine"));
         assert!(lay.lines.len() >= 3, "wraps into several lines");
         assert!(lay.width <= 200.0 + 1.0);
         assert_eq!(lay.words.last().unwrap().line, lay.lines.len() - 1, "explicit break starts a new line");

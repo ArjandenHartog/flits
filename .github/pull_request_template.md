@@ -1,6 +1,6 @@
-## Wat en waarom
+## What and why
 
-## Hoe getest
+## How it was tested
 - [ ] `cargo fmt`, `cargo clippy --all-targets -- -D warnings`, `cargo test`
-- [ ] visueel gecontroleerd (`flits sheet`), bij tekenwijzigingen ook CPU en GPU
-- [ ] snelheid gemeten (`examples/benchmark.py` + `FLITS_PROFILE=1`) als het de render raakt
+- [ ] checked visually (`flits sheet`), on CPU and GPU for drawing changes
+- [ ] speed measured (`examples/benchmark.py` + `FLITS_PROFILE=1`) if it touches rendering

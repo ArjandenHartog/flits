@@ -1,62 +1,58 @@
-# Bijdragen aan flits / Contributing
+# Contributing to flits
 
-Fijn dat je wilt helpen! Issues en pull requests zijn welkom, in het Nederlands of Engels.
-*Issues and pull requests are welcome in Dutch or English.*
+Thanks for helping! Issues and pull requests are welcome.
 
-## Ontwikkelomgeving
+## Development setup
 
-1. [Rust](https://rustup.rs) (stable) en `ffmpeg`/`ffprobe` op je PATH.
-2. Optioneel: een GPU met Vulkan/D3D12/Metal (anders draait alles op de CPU-backend en slaan
-   de GPU-tests zichzelf over), en [`uv`](https://docs.astral.sh/uv/) voor transcriptie.
-3. Bouwen en testen:
+1. [Rust](https://rustup.rs) (stable) and `ffmpeg`/`ffprobe` on your PATH.
+2. Optional: a GPU with Vulkan/D3D12/Metal (otherwise everything runs on the CPU backend and the
+   GPU tests skip themselves), and [`uv`](https://docs.astral.sh/uv/) for transcription.
+3. Build and test:
 
 ```sh
-cargo build --profile fast        # snelle iteratie (geen LTO)
-cargo test --profile fast         # unit-, pariteits- en pipelinetests
+cargo build --profile fast        # quick iteration (no LTO)
+cargo test --profile fast         # unit, parity and pipeline tests
 cargo clippy --all-targets -- -D warnings
 cargo fmt
-flits doctor                      # wat werkt er op jouw machine
+flits doctor                      # what works on your machine
 ```
 
-`cargo build --release` maakt de geoptimaliseerde binary (fat LTO, duurt een paar minuten).
+`cargo build --release` produces the optimized binary (fat LTO, takes a few minutes).
 
-## Waar zit wat
+## Where things live
 
-Zie het overzicht onder **Structuur** in de [README](README.md). De belangrijkste stroom:
+See **Project layout** in the [README](README.md). The main flow:
 
 ```
-scene.json --(scene/)--> Scene --(compose/)--> Prepared (alles statisch voor-gerasterd)
-   per frame: compose/draw.rs --> paint::Op --> paint/gpu.rs (wgpu) of paint/cpu.rs (tiny-skia)
-   render/: chunks -> workers -> encoders (media/encode.rs) -> samenvoegen + audiomix (media/audio.rs)
+scene.json --(scene/)--> Scene --(compose/)--> Prepared (everything static pre-rasterized)
+   per frame: compose/draw.rs --> paint::Op --> paint/gpu.rs (wgpu) or paint/cpu.rs (tiny-skia)
+   render/: chunks -> workers -> encoders (media/encode.rs) -> join + audio mix (media/audio.rs)
 ```
 
-## Regels van het huis
+## House rules
 
-- **CPU en GPU tekenen hetzelfde.** Elke nieuwe visuele feature werkt op beide backends;
-  `tests/parity.rs` vergelijkt de pixels. Breid die test uit als je iets nieuws tekent.
-- **Snelheid is een feature.** Meet voor en na met `examples/benchmark.py` en
-  `FLITS_PROFILE=1 flits render bench/scene.json --encoder null`. Zet de cijfers in je PR.
-- **Statisch werk één keer.** Alles wat niet per frame verandert, hoort in `compose/` voorbereid
-  te worden, niet in de per-frame-code.
-- **Het scene-formaat is de API.** Nieuwe properties documenteer je in [SPEC.md](SPEC.md);
-  onbekende velden worden automatisch als waarschuwing gemeld (`serde_ignored`).
-- Geen nieuwe runtime-afhankelijkheden zonder goede reden; ffmpeg is de enige externe tool
-  voor renderen.
-- Code en commentaar in het Engels, gebruikersteksten (CLI-uitvoer, docs) mogen Nederlands zijn.
+- **CPU and GPU draw the same.** Every visual feature works on both backends; `tests/parity.rs`
+  compares the pixels. Extend that test when you draw something new.
+- **Speed is a feature.** Measure before and after with `examples/benchmark.py` and
+  `FLITS_PROFILE=1 flits render bench/scene.json --encoder null`, and put the numbers in your PR.
+- **Static work once.** Anything that doesn't change per frame belongs in `compose/` preparation,
+  not in per-frame code.
+- **The scene format is the API.** Document new properties in [SPEC.md](SPEC.md); unknown fields are
+  reported as warnings automatically (`serde_ignored`).
+- No new runtime dependencies without a good reason; ffmpeg is the only external tool for rendering.
+- English for code, comments, docs and CLI output.
 
 ## Pull requests
 
-1. Fork en maak een branch (`feature/…` of `fix/…`).
-2. Houd PR's klein en gericht; één onderwerp per PR.
-3. Zorg dat `cargo fmt`, `cargo clippy -- -D warnings` en `cargo test` slagen (CI controleert dit
-   op Linux en Windows).
-4. Beschrijf wat je veranderde, waarom, en hoe je het getest hebt (bij visuele wijzigingen graag
-   een `flits sheet`-plaatje).
+1. Fork and create a branch (`feature/…` or `fix/…`).
+2. Keep PRs small and focused; one topic per PR.
+3. Make sure `cargo fmt`, `cargo clippy -- -D warnings` and `cargo test` pass (CI checks this on
+   Linux and Windows).
+4. Describe what changed, why, and how you tested it (for visual changes, attach a `flits sheet` image).
 
-## Ideeën om mee te beginnen
+## Good first ideas
 
-- Meer overgangen (bijv. zoom-blur, slide-push) en starters (`flits new`).
-- Een `path`/`shape`-laag (lijnen, pijlen, voortgangscirkels) zonder SVG-bestand.
-- Hardware-decoding voor videoclips waar het formaat dat toelaat (NVDEC/VAAPI).
-- Linux/macOS: testen met VAAPI/QSV en Metal en de bevindingen documenteren.
-- Snellere CPU-backend voor machines zonder GPU.
+- More transitions (e.g. zoom-blur, slide-push) and starters (`flits new`).
+- A `path`/`shape` layer (lines, arrows, progress rings) without an SVG file.
+- Linux/macOS: test VAAPI/QSV/Metal paths and document the results.
+- A faster CPU backend for machines without a GPU.

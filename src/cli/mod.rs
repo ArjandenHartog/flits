@@ -14,8 +14,8 @@ use std::time::Instant;
 #[command(
     name = "flits",
     version,
-    about = "Bliksemsnelle video- en podcastrenderer (JSON-scene -> MP4) met ingebouwde transcriptie",
-    after_help = "Start met `flits new intro -o intro.json && flits render intro.json`, of `flits spec` voor het scene-formaat.\nControleer je systeem met `flits doctor`."
+    about = "Blazing-fast GPU video and podcast renderer (JSON scene -> MP4) with built-in transcription",
+    after_help = "Start with `flits new intro -o intro.json && flits render intro.json`, or `flits spec` for the scene format.\nCheck your system with `flits doctor`."
 )]
 pub struct Cli {
     #[command(subcommand)]

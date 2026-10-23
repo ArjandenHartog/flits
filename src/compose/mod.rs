@@ -606,7 +606,7 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
             let value = l.value.clone().ok_or_else(|| anyhow!("counter needs \"value\", e.g. {{\"from\": 0, \"to\": 1500}}"))?;
             let decimals = l.decimals.unwrap_or(0).min(6);
             let separator = match l.separator.as_deref() {
-                None => Some('.'),
+                None => Some(','),
                 Some("") | Some("none") => None,
                 Some(s) => s.chars().next(),
             };

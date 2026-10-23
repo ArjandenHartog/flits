@@ -20,11 +20,11 @@ pub fn starter(name: &str) -> Result<Value> {
                 {"type": "rect", "gradient": {"type": "linear", "angle": 135, "colors": ["#4b1b51", "#0f0b16", "#123a44"]}},
                 {"type": "rect", "x": 1500, "y": 300, "width": 700, "height": 700, "radius": 350, "color": "#f2632822",
                  "scale": {"from": 0.9, "to": 1.15}},
-                {"type": "text", "text": "Jouw titel hier", "y": 500, "size": 120, "font": "Segoe UI Black",
+                {"type": "text", "text": "Your title here", "y": 500, "size": 120, "font": "Segoe UI Black",
                  "in": {"type": "slide-up", "duration": 0.8}, "out": {"type": "fade", "duration": 0.6}},
                 {"type": "rect", "y": 600, "width": 260, "height": 10, "radius": 5, "color": "#f26328",
                  "scaleX": [[0.4, 0], [1.1, 1, "out"]], "out": "fade"},
-                {"type": "text", "text": "Een ondertitel of datum", "y": 670, "size": 46, "color": "rgba(255,255,255,0.8)",
+                {"type": "text", "text": "A subtitle or date", "y": 670, "size": 46, "color": "rgba(255,255,255,0.8)",
                  "start": 0.6, "in": "fade", "out": "fade"}
             ]
         }),
@@ -33,7 +33,7 @@ pub fn starter(name: &str) -> Result<Value> {
             "layers": [
                 {"type": "rect", "gradient": {"type": "radial", "colors": ["#2b1d3b", "#0d0b10"]}},
                 {"type": "text", "text": "\u{201C}", "y": 620, "size": 300, "color": "#f26328", "in": "pop"},
-                {"type": "text", "text": "Snelheid is geen luxe, het is wat het verschil maakt tussen een idee en een video.",
+                {"type": "text", "text": "Speed is not a luxury, it is what turns an idea into a video.",
                  "y": 960, "size": 72, "maxWidth": 880, "lineHeight": 1.25, "font": "Segoe UI Black",
                  "reveal": "words", "revealDuration": 2.5},
                 {"type": "text", "text": "\u{2014} flits", "y": 1330, "size": 44, "color": "rgba(255,255,255,0.7)", "start": 3, "in": "fade"}
@@ -42,14 +42,14 @@ pub fn starter(name: &str) -> Result<Value> {
         "stats" => json!({
             "width": 1920, "height": 1080, "fps": 30, "duration": 6, "background": "#0d1117",
             "layers": [
-                {"type": "text", "text": "Ons jaar in cijfers", "y": 200, "size": 80, "font": "Segoe UI Black", "in": "slide-down"},
+                {"type": "text", "text": "Our year in numbers", "y": 200, "size": 80, "font": "Segoe UI Black", "in": "slide-down"},
                 {"type": "group", "y": 560, "children": [
                     {"type": "counter", "x": 400, "value": {"from": 0, "to": 12840, "ease": "out", "end": 2.5}, "size": 120, "color": "#4ac5da", "font": "Segoe UI Black"},
-                    {"type": "text", "x": 400, "y": 640, "text": "bezoekers", "size": 40, "color": "rgba(255,255,255,0.7)"},
+                    {"type": "text", "x": 400, "y": 640, "text": "visitors", "size": 40, "color": "rgba(255,255,255,0.7)"},
                     {"type": "counter", "x": 960, "value": {"from": 0, "to": 98.4, "ease": "out", "end": 2.5}, "decimals": 1, "suffix": "%", "size": 120, "color": "#f26328", "font": "Segoe UI Black", "start": 0.3},
-                    {"type": "text", "x": 960, "y": 640, "text": "tevreden", "size": 40, "color": "rgba(255,255,255,0.7)", "start": 0.3},
+                    {"type": "text", "x": 960, "y": 640, "text": "happy", "size": 40, "color": "rgba(255,255,255,0.7)", "start": 0.3},
                     {"type": "counter", "x": 1520, "value": {"from": 0, "to": 37, "ease": "out", "end": 2.5}, "size": 120, "color": "#ffd60a", "font": "Segoe UI Black", "start": 0.6},
-                    {"type": "text", "x": 1520, "y": 640, "text": "activiteiten", "size": 40, "color": "rgba(255,255,255,0.7)", "start": 0.6}
+                    {"type": "text", "x": 1520, "y": 640, "text": "events", "size": 40, "color": "rgba(255,255,255,0.7)", "start": 0.6}
                 ]}
             ]
         }),
@@ -59,8 +59,8 @@ pub fn starter(name: &str) -> Result<Value> {
                 {"type": "group", "x": 140, "y": 860, "anchor": [0, 0.5], "width": 760, "height": 150, "clip": true,
                  "in": {"type": "wipe-right", "duration": 0.6}, "out": {"type": "wipe-left", "duration": 0.5}, "children": [
                     {"type": "rect", "color": "#f26328", "radius": 8},
-                    {"type": "text", "text": "Sam de Vries", "x": 40, "y": 55, "anchor": [0, 0.5], "align": "left", "size": 52, "font": "Segoe UI Black"},
-                    {"type": "text", "text": "Functie of rol", "x": 40, "y": 108, "anchor": [0, 0.5], "align": "left", "size": 32, "color": "rgba(255,255,255,0.85)"}
+                    {"type": "text", "text": "Sam Taylor", "x": 40, "y": 55, "anchor": [0, 0.5], "align": "left", "size": 52, "font": "Segoe UI Black"},
+                    {"type": "text", "text": "Role or title", "x": 40, "y": 108, "anchor": [0, 0.5], "align": "left", "size": 32, "color": "rgba(255,255,255,0.85)"}
                 ]}
             ]
         }),

@@ -2,7 +2,7 @@
 name = "flits"
 version = "0.1.0"
 edition = "2021"
-description = "Bliksemsnelle video- en podcastrenderer met ingebouwde transcriptie"
+description = "Blazing-fast GPU video and podcast renderer (JSON scene -> MP4) with built-in transcription"
 license = "MIT"
 authors = ["Arjan den Hartog", "flits contributors"]
 repository = "https://github.com/ArjandenHartog/flits"
