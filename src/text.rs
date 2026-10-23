@@ -38,7 +38,7 @@ fn font_dirs() -> Vec<PathBuf> {
         dirs.push("/usr/share/fonts".into());
         dirs.push("/usr/local/share/fonts".into());
         if let Ok(h) = std::env::var("HOME") {
-            dirs.push(PathBuf::from(h).join(".local/share/fonts"));
+            dirs.push(PathBuf::from(&h).join(".local/share/fonts"));
             dirs.push(PathBuf::from(h).join(".fonts"));
         }
     }

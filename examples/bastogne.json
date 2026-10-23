@@ -1,0 +1,9331 @@
+{
+ "width": 1920,
+ "height": 1080,
+ "fps": 30,
+ "duration": 333.3333333333333,
+ "background": "#2a0d2e",
+ "audio": [
+  {
+   "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\m1.mp3",
+   "volume": 0.8,
+   "fadeOut": 2
+  },
+  {
+   "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\m2.mp3",
+   "start": 180,
+   "volume": 0.8,
+   "fadeIn": 1,
+   "fadeOut": 3
+  }
+ ],
+ "layers": [
+  {
+   "type": "group",
+   "sequence": true,
+   "overlap": 0.6,
+   "children": [
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic005.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Op weg naar Bastogne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic006.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic006.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic007.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic007.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic008.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v014.mp4",
+       "height": 900,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "La Roche-en-Ardenne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic013.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic016.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic016.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic020.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic020.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Margraten",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic023.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v034.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic024.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic029.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic029.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Monsieur!",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic030.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic030.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic031.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v050.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic037.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Op weg naar Bastogne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic038.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic038.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic040.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic040.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic045.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v090.mp4",
+       "height": 900,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "La Roche-en-Ardenne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic046.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic049.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic049.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic056.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic056.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Margraten",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic059.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v111.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic060.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic065.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic065.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Monsieur!",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic066.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic066.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic070.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v125.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic073.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Op weg naar Bastogne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic075.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic075.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic077.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic077.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic079.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v158.mp4",
+       "height": 900,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "La Roche-en-Ardenne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic083.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic085.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic085.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic088.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic088.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Margraten",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic093.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v014.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic097.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic103.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic103.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Monsieur!",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic105.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic105.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic108.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v034.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic113.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Op weg naar Bastogne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic116.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic116.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic119.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic119.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic124.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v050.mp4",
+       "height": 900,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "La Roche-en-Ardenne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic126.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic128.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic128.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic131.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic131.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Margraten",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic134.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v090.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic137.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic144.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic144.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Monsieur!",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic146.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic146.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic149.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v111.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic150.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Op weg naar Bastogne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic152.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic152.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic155.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic155.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic160.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v125.mp4",
+       "height": 900,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "La Roche-en-Ardenne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic162.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic165.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic165.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic167.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic167.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Margraten",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic169.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v158.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic170.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic177.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic177.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Monsieur!",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic181.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic181.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic183.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v014.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic187.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Op weg naar Bastogne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic191.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic191.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic197.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic197.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic200.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v034.mp4",
+       "height": 900,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "La Roche-en-Ardenne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic201.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic205.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic205.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic209.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic209.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Margraten",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic211.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v050.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic214.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic216.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic216.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Monsieur!",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic219.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic219.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic222.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v090.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic223.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Op weg naar Bastogne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic226.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic226.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic227.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic227.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic230.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v111.mp4",
+       "height": 900,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "La Roche-en-Ardenne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic231.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic233.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic233.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic237.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic237.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Margraten",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic239.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v125.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic241.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic242.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic242.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Monsieur!",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic249.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic249.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ic251.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v158.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps1_01.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Op weg naar Bastogne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps1_02.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps1_02.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps2_03.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps2_03.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps2_04.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v014.mp4",
+       "height": 900,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "La Roche-en-Ardenne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps2_15.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps3_01.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps3_01.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps3_05.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps3_05.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Margraten",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps4_01.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v034.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps4_02.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps4_03.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps4_03.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Monsieur!",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps4_06.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps4_06.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps4_16.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v050.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps5_01.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Op weg naar Bastogne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps5_02.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\ps5_02.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\v014.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\v014.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\v034.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v090.mp4",
+       "height": 900,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "La Roche-en-Ardenne",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\v050.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\v090.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\v090.jpg",
+       "height": 860,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\v111.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\v111.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      },
+      {
+       "type": "rect",
+       "x": 110,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "width": 8,
+       "height": 70,
+       "radius": 4,
+       "color": "#f26328",
+       "scaleY": [
+        [
+         0.3,
+         0
+        ],
+        [
+         0.9,
+         1,
+         "out"
+        ]
+       ]
+      },
+      {
+       "type": "text",
+       "text": "Margraten",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "font": "Segoe UI Black",
+       "align": "left",
+       "maxWidth": 900,
+       "shadow": {
+        "blur": 18,
+        "y": 4,
+        "color": "rgba(0,0,0,0.55)"
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\p\\v125.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "type": "radial",
+        "stops": [
+         [
+          0,
+          "rgba(75,27,81,0)"
+         ],
+         [
+          1,
+          "rgba(42,13,46,0.6)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-een-mooie-video-maken-5066690c\\video\\public\\v\\v111.mp4",
+       "height": 900,
+       "x": 960.0,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    }
+   ]
+  },
+  {
+   "type": "text",
+   "text": "SGPJ  ·  Bastogne 2026",
+   "x": 1800,
+   "y": 70,
+   "anchor": [
+    1,
+    0.5
+   ],
+   "size": 30,
+   "color": "rgba(255,255,255,0.85)",
+   "letterSpacing": 2
+  },
+  {
+   "type": "rect",
+   "x": 0,
+   "y": 1075,
+   "anchor": [
+    0,
+    0.5
+   ],
+   "width": 1920,
+   "height": 10,
+   "color": "#f26328",
+   "scaleX": {
+    "from": 0,
+    "to": 1
+   }
+  }
+ ]
+}

@@ -10,7 +10,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use tiny_skia::{Mask, Pixmap, PixmapPaint, Transform};
+use crate::paint::{sprite_op, Clip, Painter};
+use tiny_skia::Transform;
 
 #[derive(Clone, Debug)]
 pub struct Word {
@@ -152,6 +153,15 @@ pub struct CapOptions {
     pub uppercase: bool,
     pub box_w: f32,
     pub box_h: f32,
+    /// oversampling: style/box are in pixels at q x the logical size
+    pub q: f32,
+}
+
+fn logical(mut s: Sprite, q: f32) -> Sprite {
+    s.w /= q;
+    s.h /= q;
+    s.ppu = q;
+    s
 }
 
 /// `words` times are already layer-local (seconds since the layer starts).
@@ -190,8 +200,8 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
     let sprites: HashMap<String, (Arc<Sprite>, Arc<Sprite>)> = uniq
         .par_iter()
         .map(|t| -> Result<(String, (Arc<Sprite>, Arc<Sprite>))> {
-            let n = Arc::new(render_word(&o.style, t, o.style.color, None)?);
-            let h = if o.kind == CapKind::Line { n.clone() } else { Arc::new(render_word(&o.style, t, hi_color, pill)?) };
+            let n = Arc::new(logical(render_word(&o.style, t, o.style.color, None)?, o.q));
+            let h = if o.kind == CapKind::Line { n.clone() } else { Arc::new(logical(render_word(&o.style, t, hi_color, pill)?, o.q)) };
             Ok((t.clone(), (n, h)))
         })
         .collect::<Result<_>>()?;
@@ -218,22 +228,21 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
             .map(|(i, (w, pw))| {
                 let (n, h) = sprites[&w.text].clone();
                 let wend = c.get(i + 1).map(|x| x.start).unwrap_or(end);
-                CapWord { start: w.start, end: wend.max(w.end.min(end)), cx: gx + pw.x + pw.w / 2.0, cy: gy + pw.y + lh / 2.0, normal: n, hi: h }
+                CapWord { start: w.start, end: wend.max(w.end.min(end)), cx: (gx + pw.x + pw.w / 2.0) / o.q, cy: (gy + pw.y + lh / 2.0) / o.q, normal: n, hi: h }
             })
             .collect();
-        groups.push(CapGroup { start, end, cx: o.box_w / 2.0, cy: o.box_h / 2.0, words });
+        groups.push(CapGroup { start, end, cx: o.box_w / 2.0 / o.q, cy: o.box_h / 2.0 / o.q, words });
     }
     Ok(Captions { groups, kind: o.kind })
 }
 
-fn draw_sprite_centered(canvas: &mut Pixmap, s: &Sprite, ts: Transform, cx: f32, cy: f32, scale: f32, opacity: f32, mask: Option<&Mask>) {
+fn draw_sprite_centered<'a>(p: &mut dyn Painter<'a>, s: &'a Sprite, ts: Transform, cx: f32, cy: f32, scale: f32, opacity: f32, clip: Option<Clip>) {
     let t = ts.pre_translate(cx, cy).pre_scale(scale, scale).pre_translate(-s.w / 2.0, -s.h / 2.0);
-    let paint = PixmapPaint { opacity, quality: tiny_skia::FilterQuality::Bilinear, ..PixmapPaint::default() };
-    canvas.draw_pixmap(0, 0, s.pm.as_ref(), &paint, s.place(t), mask);
+    p.draw(sprite_op(s, t, opacity, clip));
 }
 
 impl Captions {
-    pub fn draw(&self, canvas: &mut Pixmap, t: f64, ts: Transform, opacity: f32, mask: Option<&Mask>) {
+    pub fn draw<'a>(&'a self, canvas: &mut dyn Painter<'a>, t: f64, ts: Transform, opacity: f32, mask: Option<Clip>) {
         let i = self.groups.partition_point(|g| g.start <= t);
         if i == 0 {
             return;
