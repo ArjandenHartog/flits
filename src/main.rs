@@ -309,6 +309,7 @@ fn run() -> Result<()> {
                         layers::Kind::Image { .. } => "image",
                         layers::Kind::Video { .. } => "video",
                         layers::Kind::Text { .. } => "text",
+                        layers::Kind::Counter(_) => "counter",
                         layers::Kind::Captions(_) => "captions",
                         layers::Kind::Waveform { .. } => "waveform",
                     };

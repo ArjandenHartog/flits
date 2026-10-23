@@ -91,6 +91,36 @@ impl FrameFormat {
     }
 }
 
+/// Colour grading: brightness (-1..1), contrast (1 = neutral), saturation (1 = neutral, 0 = grey),
+/// warmth (-1 cool .. 1 warm). Applied to gamma-encoded RGB.
+pub type Adjust = [f32; 4];
+pub const NO_ADJUST: Adjust = [0.0, 1.0, 1.0, 0.0];
+
+pub fn adjust(rgb: [f32; 3], a: &Adjust) -> [f32; 3] {
+    if *a == NO_ADJUST {
+        return rgb;
+    }
+    let [b, c, s, w] = *a;
+    let mut v = rgb.map(|x| (x - 0.5) * c + 0.5 + b);
+    v[0] += 0.08 * w;
+    v[2] -= 0.08 * w;
+    let l = 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+    v.map(|x| (l + (x - l) * s).clamp(0.0, 1.0))
+}
+
+/// Adjust straight (non-premultiplied) RGBA8 pixels in place.
+pub fn adjust_rgba8(data: &mut [u8], a: &Adjust) {
+    if *a == NO_ADJUST {
+        return;
+    }
+    for px in data.as_chunks_mut::<4>().0 {
+        let out = adjust([px[0] as f32 / 255.0, px[1] as f32 / 255.0, px[2] as f32 / 255.0], a);
+        px[0] = (out[0] * 255.0 + 0.5) as u8;
+        px[1] = (out[1] * 255.0 + 0.5) as u8;
+        px[2] = (out[2] * 255.0 + 0.5) as u8;
+    }
+}
+
 // ---------------------------------------------------------------- reference math (mirrors the shader)
 
 fn hlg_inverse_oetf(e: f32) -> f32 {
@@ -186,7 +216,7 @@ pub fn yuv_to_rgb(y: f32, cb: f32, cr: f32, f: &FrameFormat) -> [f32; 3] {
 }
 
 /// Convert a whole planar frame to opaque RGBA (software path).
-pub fn frame_to_rgba(data: &[u8], w: u32, h: u32, f: &FrameFormat) -> Vec<u8> {
+pub fn frame_to_rgba(data: &[u8], w: u32, h: u32, f: &FrameFormat, adj: &Adjust) -> Vec<u8> {
     let (w, h) = (w as usize, h as usize);
     let (cw, ch) = (w / 2, h / 2);
     let bps = f.bytes_per_sample();
@@ -205,7 +235,7 @@ pub fn frame_to_rgba(data: &[u8], w: u32, h: u32, f: &FrameFormat) -> Vec<u8> {
     for y in 0..h {
         for x in 0..w {
             let ci = (y / 2).min(ch.saturating_sub(1)) * cw + (x / 2).min(cw.saturating_sub(1));
-            let rgb = yuv_to_rgb(sample(0, y * w + x), sample(u_off, ci), sample(v_off, ci), f);
+            let rgb = adjust(yuv_to_rgb(sample(0, y * w + x), sample(u_off, ci), sample(v_off, ci), f), adj);
             let o = (y * w + x) * 4;
             out[o] = (rgb[0] * 255.0 + 0.5) as u8;
             out[o + 1] = (rgb[1] * 255.0 + 0.5) as u8;
@@ -237,12 +267,20 @@ mod tests {
     }
 
     #[test]
+    fn adjustments() {
+        assert_eq!(adjust([0.3, 0.5, 0.7], &NO_ADJUST), [0.3, 0.5, 0.7]);
+        let g = adjust([0.2, 0.6, 0.9], &[0.0, 1.0, 0.0, 0.0]);
+        assert!((g[0] - g[1]).abs() < 1e-6 && (g[1] - g[2]).abs() < 1e-6, "saturation 0 = grey");
+        assert!(adjust([0.5; 3], &[0.1, 1.0, 1.0, 0.0])[0] > 0.59);
+    }
+
+    #[test]
     fn converts_frames() {
         let f = FrameFormat::default();
         let (w, h) = (4u32, 2u32);
         let mut d = vec![235u8; (w * h) as usize];
         d.extend(vec![128u8; 4]); // U + V planes (2x1 each)
-        let rgba = frame_to_rgba(&d, w, h, &f);
+        let rgba = frame_to_rgba(&d, w, h, &f, &NO_ADJUST);
         assert_eq!(rgba.len(), 32);
         assert!(rgba.iter().all(|&v| v >= 254));
     }

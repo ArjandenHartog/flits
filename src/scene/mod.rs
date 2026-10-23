@@ -143,6 +143,31 @@ pub struct TextBg {
     pub mode: Option<String>,
 }
 
+fn neutral() -> f32 {
+    1.0
+}
+
+/// Colour grading for image and video layers.
+#[derive(Deserialize, Clone, Copy, Debug)]
+pub struct Filter {
+    #[serde(default)]
+    pub brightness: f32,
+    #[serde(default = "neutral")]
+    pub contrast: f32,
+    #[serde(default = "neutral")]
+    pub saturation: f32,
+    #[serde(default)]
+    pub warmth: f32,
+    #[serde(default)]
+    pub grayscale: bool,
+}
+
+impl Filter {
+    pub fn adjust(&self) -> crate::media::colorspace::Adjust {
+        [self.brightness, self.contrast, if self.grayscale { 0.0 } else { self.saturation }, self.warmth]
+    }
+}
+
 #[derive(Deserialize, Clone, Debug)]
 pub struct Gradient {
     #[serde(rename = "type", default)]
@@ -186,6 +211,10 @@ pub struct Layer {
     pub radius: f64,
     pub border: Option<Border>,
     pub shadow: Option<Shadow>,
+    /// colour grading (image, video)
+    pub filter: Option<Filter>,
+    /// clip children to the group's box (groups)
+    pub clip: bool,
 
     // image / video / audio-carrying layers
     pub src: Option<String>,
@@ -231,99 +260,34 @@ pub struct Layer {
     pub gap: Option<f64>,
     pub gain: Option<f64>,
 
+    // counter
+    pub value: Option<Prop>,
+    pub decimals: Option<usize>,
+    pub prefix: Option<String>,
+    pub suffix: Option<String>,
+    /// thousands separator, e.g. "." (default) or ","
+    pub separator: Option<String>,
+
     // group
     pub children: Vec<Layer>,
     pub sequence: bool,
     pub overlap: f64,
 }
 
-const SCENE_KEYS: &[&str] =
-    &["width", "height", "fps", "duration", "background", "fonts", "audio", "loudness", "layers", "$schema", "comment"];
-const AUDIO_KEYS: &[&str] = &["src", "start", "trim", "duration", "volume", "fadeIn", "fadeOut", "loop", "duck", "comment"];
-const LAYER_KEYS: &[&str] = &[
-    "type",
-    "id",
-    "start",
-    "end",
-    "duration",
-    "x",
-    "y",
-    "width",
-    "height",
-    "anchor",
-    "scale",
-    "scaleX",
-    "scaleY",
-    "rotation",
-    "opacity",
-    "zoom",
-    "panX",
-    "panY",
-    "in",
-    "out",
-    "radius",
-    "border",
-    "shadow",
-    "src",
-    "fit",
-    "blur",
-    "trim",
-    "volume",
-    "loop",
-    "fadeIn",
-    "fadeOut",
-    "color",
-    "gradient",
-    "text",
-    "font",
-    "size",
-    "weight",
-    "align",
-    "maxWidth",
-    "lineHeight",
-    "letterSpacing",
-    "stroke",
-    "background",
-    "uppercase",
-    "reveal",
-    "revealDuration",
-    "style",
-    "highlight",
-    "highlightBg",
-    "maxWords",
-    "bars",
-    "mirror",
-    "gap",
-    "gain",
-    "children",
-    "sequence",
-    "overlap",
-    "comment",
-];
-const LAYER_TYPES: &[&str] = &["rect", "image", "video", "text", "captions", "waveform", "group"];
+const LAYER_TYPES: &[&str] = &["rect", "image", "video", "text", "counter", "captions", "waveform", "group"];
 
-fn check_keys(v: &Value, allowed: &[&str], path: &str, warnings: &mut Vec<String>) {
-    if let Value::Object(o) = v {
-        for k in o.keys() {
-            if !allowed.contains(&k.as_str()) {
-                warnings.push(format!("{path}: unknown property '{k}' (ignored)"));
-            }
+/// Layer types are plain strings in the struct, so check them (recursively) here.
+fn check_types(v: &Value, path: &str, warnings: &mut Vec<String>) {
+    match v.get("type").and_then(Value::as_str) {
+        Some(t) if !LAYER_TYPES.contains(&t) => {
+            warnings.push(format!("{path}: unknown layer type '{t}' (expected one of {LAYER_TYPES:?})"))
         }
-    }
-}
-
-fn check_layer(v: &Value, path: &str, warnings: &mut Vec<String>) {
-    check_keys(v, LAYER_KEYS, path, warnings);
-    if let Some(t) = v.get("type").and_then(Value::as_str) {
-        if !LAYER_TYPES.contains(&t) {
-            warnings.push(format!("{path}: unknown layer type '{t}' (expected one of {LAYER_TYPES:?})"));
-        }
-    } else {
-        warnings.push(format!("{path}: layer without \"type\""));
+        None => warnings.push(format!("{path}: layer without \"type\"")),
+        _ => {}
     }
     if let Some(Value::Array(children)) = v.get("children") {
         for (i, c) in children.iter().enumerate() {
-            check_layer(c, &format!("{path}.children[{i}]"), warnings);
+            check_types(c, &format!("{path}.children.{i}"), warnings);
         }
     }
 }
@@ -338,18 +302,19 @@ impl Scene {
 
     pub fn from_value(value: Value, base_dir: PathBuf) -> Result<(Scene, Vec<String>)> {
         let mut warnings = Vec::new();
-        check_keys(&value, SCENE_KEYS, "scene", &mut warnings);
-        if let Some(Value::Array(a)) = value.get("audio") {
-            for (i, t) in a.iter().enumerate() {
-                check_keys(t, AUDIO_KEYS, &format!("audio[{i}]"), &mut warnings);
-            }
-        }
         if let Some(Value::Array(layers)) = value.get("layers") {
             for (i, l) in layers.iter().enumerate() {
-                check_layer(l, &format!("layers[{i}]"), &mut warnings);
+                check_types(l, &format!("layers.{i}"), &mut warnings);
             }
         }
-        let mut scene: Scene = serde_json::from_value(value).context("invalid scene")?;
+        // unknown keys (typos) are reported straight from the struct definitions
+        let mut scene: Scene = serde_ignored::deserialize(value, |path| {
+            let p = path.to_string();
+            if !p.ends_with("comment") && !p.ends_with("$schema") {
+                warnings.push(format!("{p}: unknown property (ignored)"));
+            }
+        })
+        .context("invalid scene")?;
         scene.base_dir = base_dir;
         if scene.width == 0 || scene.height == 0 || scene.fps <= 0.0 {
             anyhow::bail!("width, height and fps must be positive");

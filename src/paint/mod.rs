@@ -6,7 +6,7 @@ pub mod cpu;
 pub mod gpu;
 
 use crate::gfx::Sprite;
-use crate::media::colorspace::FrameFormat;
+use crate::media::colorspace::{Adjust, FrameFormat};
 use crate::scene::color::Rgba;
 use tiny_skia::{Pixmap, Transform};
 
@@ -22,6 +22,7 @@ pub enum Src<'a> {
         w: u32,
         h: u32,
         fmt: FrameFormat,
+        adjust: Adjust,
     },
 }
 

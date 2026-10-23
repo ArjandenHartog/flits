@@ -22,6 +22,7 @@ struct VIn {
     @location(7) ct: vec4<f32>,     // tx, ty, has-clip, px-per-clip-unit
     @location(8) cr: vec4<f32>,     // clip rect
     @location(9) vid: vec4<f32>,    // video: transfer (0 sdr, 1 hlg, 2 pq), matrix (0 709, 1 2020, 2 601), full range, sample scale
+    @location(10) adj: vec4<f32>,   // video grading: brightness, contrast, saturation, warmth
 };
 
 struct VOut {
@@ -36,6 +37,7 @@ struct VOut {
     @location(7) @interpolate(flat) ct: vec4<f32>,
     @location(8) @interpolate(flat) cr: vec4<f32>,
     @location(9) @interpolate(flat) vid: vec4<f32>,
+    @location(10) @interpolate(flat) adj: vec4<f32>,
 };
 
 @vertex
@@ -62,6 +64,7 @@ fn vs(v: VIn) -> VOut {
     o.ct = v.ct;
     o.cr = v.cr;
     o.vid = v.vid;
+    o.adj = v.adj;
     return o;
 }
 
@@ -143,6 +146,13 @@ fn video_rgb(uv: vec2<f32>, vid: vec4<f32>) -> vec3<f32> {
     return rgb;
 }
 
+fn grade(rgb: vec3<f32>, a: vec4<f32>) -> vec3<f32> {
+    var v = (rgb - vec3<f32>(0.5)) * a.y + vec3<f32>(0.5 + a.x);
+    v = v + vec3<f32>(0.08 * a.w, 0.0, -0.08 * a.w);
+    let l = dot(v, vec3<f32>(0.2126, 0.7152, 0.0722));
+    return clamp(vec3<f32>(l) + (v - vec3<f32>(l)) * a.z, vec3<f32>(0.0), vec3<f32>(1.0));
+}
+
 // ---------------------------------------------------------------- fragment
 
 @fragment
@@ -165,7 +175,7 @@ fn fs(i: VOut) -> @location(0) vec4<f32> {
     let uv = vec2<f32>(i.uvm.x * p.x + i.uvm.y * p.y + i.uvt.x, i.uvm.z * p.x + i.uvm.w * p.y + i.uvt.y);
     var col: vec4<f32>;
     if (i.uvt.z > 1.5) {
-        col = vec4<f32>(video_rgb(uv, i.vid), 1.0);
+        col = vec4<f32>(grade(video_rgb(uv, i.vid), i.adj), 1.0);
     } else if (i.uvt.z > 0.5) {
         col = i.color;
     } else {

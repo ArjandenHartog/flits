@@ -2,6 +2,7 @@
 
 use crate::gfx::blur;
 use crate::media;
+use crate::media::colorspace::{adjust_rgba8, Adjust};
 use anyhow::{anyhow, bail, Context, Result};
 use fast_image_resize::{images::Image as FrImage, FilterType, PixelType, ResizeAlg, ResizeOptions, Resizer};
 use image::{DynamicImage, ImageDecoder, ImageReader};
@@ -75,8 +76,9 @@ pub fn resize_rgba(w: u32, h: u32, data: Vec<u8>, nw: u32, nh: u32) -> Result<Ve
 }
 
 /// Load an image so its largest on-screen size is (max_w, max_h); blur in px at that size.
-pub fn load_image(path: &Path, max_w: f64, max_h: f64, blur_sigma: f64) -> Result<Pixmap> {
+pub fn load_image(path: &Path, max_w: f64, max_h: f64, blur_sigma: f64, adj: &Adjust) -> Result<Pixmap> {
     let (w, h, mut data) = decode(path).with_context(|| format!("loading image {}", path.display()))?;
+    adjust_rgba8(&mut data, adj);
     premultiply(&mut data);
     let mut f = (max_w / w as f64).max(max_h / h as f64).min(1.0);
     // blurred images can live at a much lower resolution

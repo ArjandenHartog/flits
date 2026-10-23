@@ -23,6 +23,7 @@ bytemuck = { version = "1.25.2", features = ["derive"] }
 tiny_http = "0.12"
 ureq = "2"
 tar = "0.4"
+serde_ignored = "0.1.14"
 
 [profile.release]
 opt-level = 3

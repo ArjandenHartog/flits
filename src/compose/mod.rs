@@ -8,6 +8,7 @@ pub mod waveform;
 pub use draw::{advance, draw_frame, render_frame, VideoState};
 
 use crate::gfx::{box_shadow, Sprite};
+use crate::media::colorspace::{Adjust, NO_ADJUST};
 use crate::media::{self, image as assets, MediaInfo};
 use crate::scene::anim::{Prop, TKind, Transition};
 use crate::scene::color::Rgba;
@@ -38,16 +39,102 @@ pub enum Fill {
     Radial(Vec<(f32, Rgba)>),
 }
 
-type ImgKey = (PathBuf, u32, u32, u32);
+/// (file, width, height, blur*100, colour adjustment*1000)
+type ImgKey = (PathBuf, u32, u32, u32, [i32; 4]);
 
 pub enum Kind {
     Group,
     Rect(Fill),
     Image { key: ImgKey, pm: Option<Arc<Pixmap>>, fit: Fit },
-    Video { src: PathBuf, info: MediaInfo, dw: u32, dh: u32, trim: f64, looped: bool, fit: Fit, speed: f64 },
-    Text { sprite: Arc<Sprite>, pieces: Option<(Vec<(Arc<Sprite>, f32, f32)>, f64)> },
+    Video { src: PathBuf, info: MediaInfo, dw: u32, dh: u32, trim: f64, looped: bool, fit: Fit, speed: f64, adjust: Adjust },
+    Text { sprite: Arc<Sprite>, reveal: Option<Reveal> },
+    Counter(Arc<Counter>),
     Captions(Arc<Captions>),
     Waveform { spec: Arc<Spectrum>, color: Rgba, mirror: bool, gap: f32 },
+}
+
+/// Text that appears piece by piece (words, lines or characters).
+pub struct Reveal {
+    /// sprite + its position in the text box
+    pub pieces: Vec<(Arc<Sprite>, f32, f32)>,
+    /// seconds over which all pieces appear
+    pub duration: f64,
+    /// typewriter: pieces pop in without a fade/slide
+    pub instant: bool,
+}
+
+/// An animated number ("1.234 bezoekers"), drawn from per-character sprites.
+pub struct Counter {
+    pub value: Prop,
+    pub decimals: usize,
+    pub prefix: Option<Arc<Sprite>>,
+    pub suffix: Option<Arc<Sprite>>,
+    pub separator: Option<char>,
+    pub decimal_mark: char,
+    /// sprites for digits, separators and minus sign
+    pub glyphs: HashMap<char, Arc<Sprite>>,
+    /// every digit gets the width of the widest one so the number doesn't jitter
+    pub digit_w: f32,
+    pub align: Align,
+}
+
+impl Counter {
+    pub fn format(&self, v: f64) -> String {
+        let s = format!("{:.*}", self.decimals, v.abs());
+        let (int, frac) = s.split_once('.').map(|(a, b)| (a.to_string(), Some(b.to_string()))).unwrap_or((s.clone(), None));
+        let mut out = String::new();
+        if v < 0.0 && v.abs() >= 0.5 * 10f64.powi(-(self.decimals as i32)) {
+            out.push('-');
+        }
+        for (i, ch) in int.chars().enumerate() {
+            if i > 0 && (int.len() - i) % 3 == 0 {
+                if let Some(sep) = self.separator {
+                    out.push(sep);
+                }
+            }
+            out.push(ch);
+        }
+        if let Some(f) = frac {
+            out.push(self.decimal_mark);
+            out += &f;
+        }
+        out
+    }
+
+    fn char_w(&self, c: char) -> f32 {
+        if c.is_ascii_digit() {
+            self.digit_w
+        } else {
+            self.glyphs.get(&c).map(|g| g.w).unwrap_or(0.0)
+        }
+    }
+
+    pub fn width(&self, text: &str) -> f32 {
+        self.prefix.as_ref().map(|s| s.w).unwrap_or(0.0)
+            + text.chars().map(|c| self.char_w(c)).sum::<f32>()
+            + self.suffix.as_ref().map(|s| s.w).unwrap_or(0.0)
+    }
+
+    /// (sprite, x) for every piece of the formatted value, starting at x = 0.
+    pub fn layout(&self, text: &str) -> Vec<(&Arc<Sprite>, f32)> {
+        let mut out = vec![];
+        let mut x = 0.0;
+        if let Some(p) = &self.prefix {
+            out.push((p, x));
+            x += p.w;
+        }
+        for c in text.chars() {
+            let cw = self.char_w(c);
+            if let Some(g) = self.glyphs.get(&c) {
+                out.push((g, x + (cw - g.w) / 2.0));
+            }
+            x += cw;
+        }
+        if let Some(s) = &self.suffix {
+            out.push((s, x));
+        }
+        out
+    }
 }
 
 pub struct Node {
@@ -73,6 +160,8 @@ pub struct Node {
     radius: f32,
     border: Option<(f32, Rgba)>,
     shadow: Option<Arc<Sprite>>,
+    /// clip children to the box (groups)
+    clip: bool,
     pub children: Vec<Node>,
 }
 
@@ -215,7 +304,10 @@ impl Prepared {
         keys.dedup();
         let loaded: HashMap<ImgKey, Arc<Pixmap>> = keys
             .par_iter()
-            .map(|k| assets::load_image(&k.0, k.1 as f64, k.2 as f64, k.3 as f64 / 100.0).map(|pm| (k.clone(), Arc::new(pm))))
+            .map(|k| {
+                assets::load_image(&k.0, k.1 as f64, k.2 as f64, k.3 as f64 / 100.0, &k.4.map(|v| v as f32 / 1000.0))
+                    .map(|pm| (k.clone(), Arc::new(pm)))
+            })
             .collect::<Result<_>>()?;
         fill_images(&mut nodes, &loaded);
 
@@ -385,7 +477,8 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
             let th = (ih as f64 * s).ceil().min(ih as f64) as u32;
             // blur is specified in screen px; convert to the loaded image's px
             let blur_px = if l.blur > 0.0 { l.blur * (tw as f64 / (iw as f64 * s0 * rs)).min(1.0) * rs } else { 0.0 };
-            Kind::Image { key: (src, tw.max(1), th.max(1), (blur_px * 100.0) as u32), pm: None, fit }
+            let adj = l.filter.map(|f| f.adjust()).unwrap_or(NO_ADJUST).map(|v| (v * 1000.0).round() as i32);
+            Kind::Image { key: (src, tw.max(1), th.max(1), (blur_px * 100.0) as u32, adj), pm: None, fit }
         }
         "video" => {
             let src = scene.resolve(l.src.as_deref().ok_or_else(|| anyhow!("video needs \"src\""))?);
@@ -430,7 +523,17 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
                     duck: None,
                 });
             }
-            Kind::Video { src, dw: even(iw * s), dh: even(ih * s), info, trim: l.trim, looped: l.looped, fit, speed }
+            Kind::Video {
+                src,
+                dw: even(iw * s),
+                dh: even(ih * s),
+                info,
+                trim: l.trim,
+                looped: l.looped,
+                fit,
+                speed,
+                adjust: l.filter.map(|f| f.adjust()).unwrap_or(NO_ADJUST),
+            }
         }
         "text" => {
             let raw = l.text.clone().ok_or_else(|| anyhow!("text needs \"text\""))?;
@@ -438,35 +541,97 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
             let style = text_style(l, ctx, None, 64.0, q)?;
             let lay = text::layout(&style, &text::tokenize(&raw));
             let sprite = rescale(text::render(&style, &lay, None, None)?, q);
-            let pieces = match l.reveal.as_deref() {
+            let reveal = match l.reveal.as_deref() {
                 None | Some("none") => None,
-                Some(mode @ ("words" | "lines")) => {
+                Some(mode @ ("words" | "lines" | "chars" | "typewriter")) => {
                     let mut st = style.clone();
                     st.bg = None;
                     let (bx, by) = style.bg.map(|b| (b.1, b.2)).unwrap_or((0.0, 0.0));
                     let mut v = Vec::new();
-                    if mode == "words" {
-                        for pw in &lay.words {
-                            let s = rescale(text::render_word(&st, &pw.text, st.color, None)?, q);
-                            v.push((Arc::new(s), (bx + pw.x) / q, (by + pw.y) / q));
-                        }
-                    } else {
-                        for (li, (lx, ly, _)) in lay.lines.iter().enumerate() {
-                            let t: Vec<&str> = lay.words.iter().filter(|w| w.line == li).map(|w| w.text.as_str()).collect();
-                            if t.is_empty() {
-                                continue;
+                    match mode {
+                        "words" => {
+                            for pw in &lay.words {
+                                let s = rescale(text::render_word(&st, &pw.text, st.color, None)?, q);
+                                v.push((Arc::new(s), (bx + pw.x) / q, (by + pw.y) / q));
                             }
-                            let s = rescale(text::render_word(&st, &t.join(" "), st.color, None)?, q);
-                            v.push((Arc::new(s), (bx + lx) / q, (by + ly) / q));
+                        }
+                        "lines" => {
+                            for (li, (lx, ly, _)) in lay.lines.iter().enumerate() {
+                                let t: Vec<&str> = lay.words.iter().filter(|w| w.line == li).map(|w| w.text.as_str()).collect();
+                                if t.is_empty() {
+                                    continue;
+                                }
+                                let s = rescale(text::render_word(&st, &t.join(" "), st.color, None)?, q);
+                                v.push((Arc::new(s), (bx + lx) / q, (by + ly) / q));
+                            }
+                        }
+                        _ => {
+                            // characters: one sprite per distinct char, placed at its prefix width
+                            let mut cache: HashMap<char, Arc<Sprite>> = HashMap::new();
+                            for pw in &lay.words {
+                                for (k, ch) in pw.text.char_indices() {
+                                    let sp = match cache.get(&ch) {
+                                        Some(s) => s.clone(),
+                                        None => {
+                                            let s = Arc::new(rescale(text::render_word(&st, &ch.to_string(), st.color, None)?, q));
+                                            cache.insert(ch, s.clone());
+                                            s
+                                        }
+                                    };
+                                    let x = pw.x + st.measure(&pw.text[..k]) + if k > 0 { st.letter_spacing } else { 0.0 };
+                                    v.push((sp, (bx + x) / q, (by + pw.y) / q));
+                                }
+                            }
                         }
                     }
-                    Some((v, l.reveal_duration.unwrap_or(0.8)))
+                    let per = if mode == "typewriter" { 0.06 } else { 0.0 };
+                    Some(Reveal {
+                        duration: l.reveal_duration.unwrap_or(if per > 0.0 { v.len() as f64 * per } else { 0.8 }),
+                        pieces: v,
+                        instant: mode == "typewriter",
+                    })
                 }
-                Some(o) => bail!("unknown reveal '{o}' (words, lines)"),
+                Some(o) => bail!("unknown reveal '{o}' (words, lines, chars, typewriter)"),
             };
             w = Some(sprite.w);
             h = Some(sprite.h);
-            Kind::Text { sprite: Arc::new(sprite), pieces }
+            Kind::Text { sprite: Arc::new(sprite), reveal }
+        }
+        "counter" => {
+            let value = l.value.clone().ok_or_else(|| anyhow!("counter needs \"value\", e.g. {{\"from\": 0, \"to\": 1500}}"))?;
+            let decimals = l.decimals.unwrap_or(0).min(6);
+            let separator = match l.separator.as_deref() {
+                None => Some('.'),
+                Some("") | Some("none") => None,
+                Some(s) => s.chars().next(),
+            };
+            let decimal_mark = if separator == Some(',') { '.' } else { ',' };
+            let style = text_style(l, ctx, None, 96.0, q)?;
+            let glyph = |t: &str| -> Result<Arc<Sprite>> { Ok(Arc::new(rescale(text::render_word(&style, t, style.color, None)?, q))) };
+            let mut glyphs = HashMap::new();
+            for c in "0123456789-".chars().chain(separator).chain(std::iter::once(decimal_mark)) {
+                glyphs.insert(c, glyph(&c.to_string())?);
+            }
+            let digit_w = "0123456789".chars().map(|c| glyphs[&c].w).fold(0.0, f32::max);
+            let counter = Counter {
+                prefix: l.prefix.as_deref().filter(|p| !p.is_empty()).map(glyph).transpose()?,
+                suffix: l.suffix.as_deref().filter(|p| !p.is_empty()).map(glyph).transpose()?,
+                value,
+                decimals,
+                separator,
+                decimal_mark,
+                glyphs,
+                digit_w,
+                align: Align::parse(l.align.as_deref())?,
+            };
+            // the box fits the widest value the animation reaches
+            let widest = [counter.value.eval(0.0, 1.0), counter.value.eval(1e9, 1.0), counter.value.max_abs()]
+                .iter()
+                .map(|v| counter.width(&counter.format(*v)))
+                .fold(0.0, f32::max);
+            w = Some(w.unwrap_or(widest));
+            h = Some(h.unwrap_or(counter.glyphs[&'0'].h));
+            Kind::Counter(Arc::new(counter))
         }
         "captions" => {
             let src = scene.resolve(l.src.as_deref().ok_or_else(|| anyhow!("captions need \"src\" (a transcript .json/.srt/.vtt)"))?);
@@ -615,6 +780,7 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
         radius,
         border,
         shadow,
+        clip: l.clip,
         children,
     })
 }

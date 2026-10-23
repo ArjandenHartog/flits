@@ -5,6 +5,7 @@ use crate::media::video::VideoReader;
 use crate::paint::{cpu::CpuPainter, sprite_op, Clip, Op, Painter, Src};
 use crate::scene::anim::Fx;
 use crate::scene::color::Rgba;
+use crate::text::Align;
 use anyhow::Result;
 use std::collections::HashMap;
 use tiny_skia::{GradientStop, LinearGradient, Paint, Pixmap, Point, RadialGradient, Rect, SpreadMode, Transform};
@@ -208,6 +209,7 @@ fn draw_node<'a>(
 
     match &n.kind {
         Kind::Group => {
+            let clip = if n.clip { Some(Clip { ts, rect: [0.0, 0.0, w, h] }) } else { clip };
             for c in &n.children {
                 draw_node(painter, c, t, ts, op, clip, ctx);
             }
@@ -247,30 +249,46 @@ fn draw_node<'a>(
                 }
             }
         }
-        Kind::Video { fit, .. } => {
+        Kind::Video { fit, adjust, .. } => {
             if let Some((_, r)) = ctx.videos.readers.get(&n.id) {
                 let zoom = n.zoom.eval(lt, dur) as f32;
                 let pan = (n.pan_x.eval(lt, dur) as f32, n.pan_y.eval(lt, dur) as f32);
-                let src = Src::Frame { key: n.id, ver: r.cur, data: &r.frame, w: r.w, h: r.h, fmt: r.fmt };
+                let src = Src::Frame { key: n.id, ver: r.cur, data: &r.frame, w: r.w, h: r.h, fmt: r.fmt, adjust: *adjust };
                 if let Some(o) = media_op(src, r.w as f32, r.h as f32, *fit, w, h, zoom, pan, n.radius, ts, op, clip) {
                     painter.draw(o);
                 }
             }
         }
-        Kind::Text { sprite, pieces } => match pieces {
+        Kind::Text { sprite, reveal } => match reveal {
             None => painter.draw(sprite_op(sprite, ts, op, clip)),
-            Some((pieces, rd)) => {
-                let step = rd / pieces.len().max(1) as f64;
-                for (i, (s, px, py)) in pieces.iter().enumerate() {
-                    let p = ((lt - i as f64 * step) / 0.35).clamp(0.0, 1.0);
-                    if p <= 0.0 {
+            Some(r) => {
+                let step = r.duration / r.pieces.len().max(1) as f64;
+                for (i, (s, px, py)) in r.pieces.iter().enumerate() {
+                    let since = lt - i as f64 * step;
+                    if since < 0.0 {
                         continue;
                     }
-                    let e = crate::scene::anim::Ease::Out.apply(p) as f32;
-                    painter.draw(sprite_op(s, ts.pre_translate(*px, *py + (1.0 - e) * s.h * 0.35), op * e, clip));
+                    if r.instant {
+                        painter.draw(sprite_op(s, ts.pre_translate(*px, *py), op, clip));
+                    } else {
+                        let e = crate::scene::anim::Ease::Out.apply((since / 0.35).clamp(0.0, 1.0)) as f32;
+                        painter.draw(sprite_op(s, ts.pre_translate(*px, *py + (1.0 - e) * s.h * 0.35), op * e, clip));
+                    }
                 }
             }
         },
+        Kind::Counter(c) => {
+            let text = c.format(c.value.eval(lt, dur));
+            let tw = c.width(&text);
+            let x0 = match c.align {
+                Align::Left => 0.0,
+                Align::Center => (w - tw) / 2.0,
+                Align::Right => w - tw,
+            };
+            for (s, x) in c.layout(&text) {
+                painter.draw(sprite_op(s, ts.pre_translate(x0 + x, 0.0), op, clip));
+            }
+        }
         Kind::Captions(c) => c.draw(painter, lt, ts, op, clip),
         Kind::Waveform { spec, color, mirror, gap } => {
             let fi = (lt * ctx.fps).round() as i64;

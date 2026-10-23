@@ -8,7 +8,7 @@
 //!   for the encoder, so the CPU barely touches pixels.
 
 use super::{Op, Painter, Src};
-use crate::media::colorspace::FrameFormat;
+use crate::media::colorspace::{FrameFormat, NO_ADJUST};
 use crate::scene::color::Rgba;
 use anyhow::{anyhow, Context, Result};
 use bytemuck::{Pod, Zeroable};
@@ -48,6 +48,8 @@ struct Inst {
     cr: [f32; 4],
     /// video: transfer, matrix, full range, sample scale
     vid: [f32; 4],
+    /// video colour grading: brightness, contrast, saturation, warmth
+    adj: [f32; 4],
 }
 
 const MODE_TEXTURE: f32 = 0.0;
@@ -89,6 +91,7 @@ impl<'a> Painter<'a> for GpuPainter<'a> {
             ct: [0.0; 4],
             cr: [0.0; 4],
             vid: [0.0; 4],
+            adj: NO_ADJUST,
         };
         if let Some(c) = op.clip {
             if let Some(inv) = c.ts.invert() {
@@ -113,9 +116,10 @@ impl<'a> Painter<'a> for GpuPainter<'a> {
                 uv_for(pm.width(), pm.height(), MODE_TEXTURE, &mut inst);
                 TexRef::Static(pm)
             }
-            Src::Frame { key, ver, data, w, h, fmt } => {
+            Src::Frame { key, ver, data, w, h, fmt, adjust } => {
                 uv_for(w, h, MODE_YUV, &mut inst);
                 inst.vid = fmt.shader_params();
+                inst.adj = adjust;
                 TexRef::Video { key, ver, data, w, h, fmt }
             }
         };
@@ -357,7 +361,7 @@ impl Gpu {
         });
         let attrs = wgpu::vertex_attr_array![
             0 => Float32x4, 1 => Float32x4, 2 => Float32x4, 3 => Float32x4, 4 => Float32x4,
-            5 => Float32x4, 6 => Float32x4, 7 => Float32x4, 8 => Float32x4, 9 => Float32x4
+            5 => Float32x4, 6 => Float32x4, 7 => Float32x4, 8 => Float32x4, 9 => Float32x4, 10 => Float32x4
         ];
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("composite"),

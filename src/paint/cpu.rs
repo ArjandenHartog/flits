@@ -26,8 +26,8 @@ impl<'a> Painter<'a> for CpuPainter<'_> {
         match &op.src {
             Src::Solid(c) => paint.set_color(c.skia(op.opacity)),
             Src::Image(pm) => paint.shader = pattern(pm.as_ref(), op.ts, op.uv, op.opacity),
-            Src::Frame { data, w, h, fmt, .. } => {
-                rgba = frame_to_rgba(data, *w, *h, fmt);
+            Src::Frame { data, w, h, fmt, adjust, .. } => {
+                rgba = frame_to_rgba(data, *w, *h, fmt, adjust);
                 match PixmapRef::from_bytes(&rgba, *w, *h) {
                     Some(r) => paint.shader = pattern(r, op.ts, op.uv, op.opacity),
                     None => return,
