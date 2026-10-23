@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 pub fn ffmpeg() -> Command {
+    contain_children();
     let mut c = Command::new(std::env::var("FLITS_FFMPEG").unwrap_or_else(|_| "ffmpeg".into()));
     c.args(["-hide_banner", "-loglevel", "error", "-nostdin"]);
     c
@@ -43,4 +44,33 @@ pub fn ffmpeg_major() -> u32 {
         })
         .unwrap_or(7)
     })
+}
+
+/// Make sure every ffmpeg we start dies with us. On Windows a child keeps running (and
+/// keeps inherited pipe handles open, hanging whoever reads our output) when flits exits
+/// or crashes; a job object with kill-on-close prevents that. Unix kills nothing by
+/// default either, but there children get SIGPIPE as soon as we're gone.
+pub fn contain_children() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        #[cfg(windows)]
+        unsafe {
+            use windows_sys::Win32::System::JobObjects::*;
+            use windows_sys::Win32::System::Threading::GetCurrentProcess;
+            let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+            if job.is_null() {
+                return;
+            }
+            let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+            info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            SetInformationJobObject(
+                job,
+                JobObjectExtendedLimitInformation,
+                &info as *const _ as *const std::ffi::c_void,
+                std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+            );
+            AssignProcessToJobObject(job, GetCurrentProcess());
+            // the handle is intentionally leaked: the OS closes it when we exit
+        }
+    });
 }

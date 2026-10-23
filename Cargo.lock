@@ -491,6 +491,7 @@ dependencies = [
  "ttf-parser",
  "ureq",
  "wgpu",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
