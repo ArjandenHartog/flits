@@ -1,8 +1,8 @@
 //! Word-timed animated captions from a transcript.
 
-use crate::anim::Ease;
-use crate::color::Rgba;
-use crate::effects::Sprite;
+use crate::gfx::Sprite;
+use crate::scene::anim::Ease;
+use crate::scene::color::Rgba;
 use crate::text::{layout, render_word, TextStyle};
 use anyhow::{bail, Context, Result};
 use rayon::prelude::*;

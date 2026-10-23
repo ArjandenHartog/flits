@@ -1,8 +1,8 @@
-//! Image loading: decode once, fix orientation, downscale to the size actually shown, pre-blur.
+//! Still images: decode once, fix orientation, downscale to the size actually shown, pre-blur.
 
-use crate::effects::blur;
-use crate::ffmpeg;
-use anyhow::{anyhow, Context, Result};
+use crate::gfx::blur;
+use crate::media;
+use anyhow::{anyhow, bail, Context, Result};
 use fast_image_resize::{images::Image as FrImage, FilterType, PixelType, ResizeAlg, ResizeOptions, Resizer};
 use image::{DynamicImage, ImageDecoder, ImageReader};
 use std::path::Path;
@@ -27,7 +27,7 @@ pub fn image_size(path: &Path) -> Result<(u32, u32)> {
         Err(_) => {}
     }
     // formats the image crate can't read (HEIC, AVIF, ...) go through ffprobe
-    let info = ffmpeg::probe(path)?;
+    let info = media::probe(path)?;
     Ok((info.width, info.height))
 }
 
@@ -47,8 +47,8 @@ fn decode(path: &Path) -> Result<(u32, u32, Vec<u8>)> {
         }
         Err(e) => {
             // fall back to ffmpeg for anything else
-            let info = ffmpeg::probe(path).map_err(|_| e)?;
-            let data = ffmpeg::decode_image_rgba(path, info.width, info.height)?;
+            let info = media::probe(path).map_err(|_| e)?;
+            let data = decode_with_ffmpeg(path, info.width, info.height)?;
             Ok((info.width, info.height, data))
         }
     }
@@ -94,4 +94,16 @@ pub fn load_image(path: &Path, max_w: f64, max_h: f64, blur_sigma: f64) -> Resul
         blur(&mut pm, (blur_sigma / down) as f32);
     }
     Ok(pm)
+}
+
+fn decode_with_ffmpeg(path: &Path, w: u32, h: u32) -> Result<Vec<u8>> {
+    let out = media::ffmpeg()
+        .arg("-i")
+        .arg(path)
+        .args(["-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "-"])
+        .output()?;
+    if !out.status.success() || out.stdout.len() < (w * h * 4) as usize {
+        bail!("ffmpeg could not decode {}", path.display());
+    }
+    Ok(out.stdout[..(w * h * 4) as usize].to_vec())
 }

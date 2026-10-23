@@ -1,11 +1,11 @@
 //! Speech-to-text via faster-whisper (run through `uv`, so no manual Python setup).
 
-use crate::captions::{load_transcript, Word};
+use crate::compose::captions::{load_transcript, Word};
 use anyhow::{bail, Context, Result};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const SCRIPT: &str = include_str!("transcribe.py");
+const SCRIPT: &str = include_str!("whisper.py");
 
 fn has(cmd: &str) -> bool {
     Command::new(cmd).arg("--version").output().map(|o| o.status.success()).unwrap_or(false)
@@ -78,8 +78,8 @@ fn transcribe_local(input: &Path, out_json: &Path, o: &TranscribeOpts) -> Result
     // decode with ffmpeg (fast, any format) to raw 16 kHz mono float32
     let pcm = dir.join(format!("audio-{}.f32", std::process::id()));
     let t = std::time::Instant::now();
-    crate::ffmpeg::run(
-        crate::ffmpeg::ffmpeg().arg("-y").arg("-i").arg(input).args(["-vn", "-ac", "1", "-ar", "16000", "-f", "f32le"]).arg(&pcm),
+    crate::media::run(
+        crate::media::ffmpeg().arg("-y").arg("-i").arg(input).args(["-vn", "-ac", "1", "-ar", "16000", "-f", "f32le"]).arg(&pcm),
         "audio decode",
     )?;
     eprintln!("flits: decoded audio in {:.1}s", t.elapsed().as_secs_f64());

@@ -1,6 +1,6 @@
-//! Pixel effects done once at prepare time: blur, shadows, rounded shapes.
+//! Bitmap helpers done once at prepare time: sprites, blur, shadows, rounded shapes.
 
-use crate::color::Rgba;
+use crate::scene::color::Rgba;
 use rayon::prelude::*;
 use tiny_skia::{FillRule, Paint, Path, PathBuilder, Pixmap, PixmapPaint, Rect, Transform};
 

@@ -1,6 +1,6 @@
 //! Audio spectrum bars (audiogram), analysed once up front.
 
-use crate::ffmpeg;
+use crate::media::audio;
 use anyhow::Result;
 use rayon::prelude::*;
 use rustfft::{num_complex::Complex, FftPlanner};
@@ -24,7 +24,7 @@ impl Spectrum {
 pub fn analyse(src: &Path, trim: f64, dur: f64, fps: f64, bars: usize, gain: f32) -> Result<Spectrum> {
     const RATE: u32 = 22050;
     const N: usize = 2048;
-    let pcm = ffmpeg::decode_audio(src, trim, dur, RATE)?;
+    let pcm = audio::decode_audio(src, trim, dur, RATE)?;
     let nframes = (dur * fps).ceil() as usize;
     let fft = FftPlanner::<f32>::new().plan_fft_forward(N);
     let window: Vec<f32> = (0..N).map(|i| 0.5 - 0.5 * (2.0 * std::f32::consts::PI * i as f32 / N as f32).cos()).collect();

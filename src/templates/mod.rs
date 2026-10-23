@@ -1,6 +1,6 @@
 //! Ready-made scenes: podcast audiograms and captioned videos.
 
-use crate::ffmpeg;
+use crate::media as ffmpeg;
 use anyhow::{bail, Result};
 use serde_json::{json, Value};
 use std::path::Path;

@@ -1,8 +1,8 @@
 //! GPU compositor (wgpu: D3D12 / Vulkan / Metal). Each draw op becomes one quad;
 //! the finished frame is converted to YUV 4:2:0 on the GPU and read back for the encoder.
 
-use crate::color::Rgba;
-use crate::paint::{Op, Painter, Src};
+use super::{Op, Painter, Src};
+use crate::scene::color::Rgba;
 use anyhow::{anyhow, Context, Result};
 use bytemuck::{Pod, Zeroable};
 use std::collections::HashMap;
@@ -11,7 +11,8 @@ use std::time::Instant;
 use tiny_skia::{Pixmap, Transform};
 use wgpu::util::DeviceExt;
 
-const SHADER: &str = include_str!("gpu.wgsl");
+const COMPOSITE_WGSL: &str = include_str!("composite.wgsl");
+const YUV_WGSL: &str = include_str!("yuv.wgsl");
 /// keep at most this many bytes of static textures resident
 const TEX_BUDGET: u64 = 1_200 * 1024 * 1024;
 
@@ -152,8 +153,7 @@ impl Gpu {
         }))
         .context("creating GPU device")?;
 
-        let (render_src, rest) = SHADER.split_once("// ---------------------------------------------------------------- RGBA").unwrap();
-        let yuv_src = rest.split_once('\n').map(|x| x.1).unwrap_or("");
+        let (render_src, yuv_src) = (COMPOSITE_WGSL, YUV_WGSL);
         let render_mod = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("render"), source: wgpu::ShaderSource::Wgsl(render_src.into()) });
         let yuv_mod = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("yuv"), source: wgpu::ShaderSource::Wgsl(yuv_src.into()) });
 

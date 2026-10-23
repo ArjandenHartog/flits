@@ -11,14 +11,9 @@
 //! # anyhow::Ok(())
 //! ```
 
-pub mod anim;
-pub mod assets;
-pub mod captions;
-pub mod color;
-pub mod effects;
-pub mod ffmpeg;
-pub mod gpu;
-pub mod layers;
+pub mod compose;
+pub mod gfx;
+pub mod media;
 pub mod paint;
 pub mod remote;
 pub mod render;
@@ -26,13 +21,12 @@ pub mod scene;
 pub mod templates;
 pub mod text;
 pub mod transcribe;
-pub mod waveform;
 
 use anyhow::{bail, Result};
 use std::path::Path;
 use std::sync::Arc;
 
-pub use layers::Prepared;
+pub use compose::Prepared;
 pub use scene::Scene;
 
 /// Rendering options for the high-level API.
@@ -63,7 +57,7 @@ pub struct Stats {
 }
 
 /// Open the GPU compositor if possible ("auto" silently falls back to CPU).
-pub fn pick_gpu(choice: &str, width: u32) -> Result<Option<Arc<gpu::Gpu>>> {
+pub fn pick_gpu(choice: &str, width: u32) -> Result<Option<Arc<paint::gpu::Gpu>>> {
     if choice == "cpu" || choice == "off" {
         return Ok(None);
     }
@@ -73,7 +67,7 @@ pub fn pick_gpu(choice: &str, width: u32) -> Result<Option<Arc<gpu::Gpu>>> {
         }
         return Ok(None);
     }
-    match gpu::Gpu::new() {
+    match paint::gpu::Gpu::new() {
         Ok(g) => Ok(Some(Arc::new(g))),
         Err(e) if choice == "auto" => {
             eprintln!("flits: GPU not available ({e:#}), using CPU");
@@ -83,12 +77,12 @@ pub fn pick_gpu(choice: &str, width: u32) -> Result<Option<Arc<gpu::Gpu>>> {
     }
 }
 
-pub fn default_workers(enc: ffmpeg::Encoder, gpu: bool) -> usize {
+pub fn default_workers(enc: media::Encoder, gpu: bool) -> usize {
     let n = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
     let w = if gpu { (n * 3 / 4).max(2) } else { n.max(1) };
     match enc {
-        ffmpeg::Encoder::Nvenc => w.min(8),
-        ffmpeg::Encoder::Vaapi | ffmpeg::Encoder::Qsv => w.min(4),
+        media::Encoder::Nvenc => w.min(8),
+        media::Encoder::Vaapi | media::Encoder::Qsv => w.min(4),
         _ => w,
     }
 }
@@ -96,7 +90,7 @@ pub fn default_workers(enc: ffmpeg::Encoder, gpu: bool) -> usize {
 /// Render an already prepared scene.
 pub fn render_prepared(p: &Prepared, out: &Path, o: &Options) -> Result<Stats> {
     let t = std::time::Instant::now();
-    let encoder = ffmpeg::pick_encoder(&o.encoder)?;
+    let encoder = media::encode::pick_encoder(&o.encoder)?;
     let gpu = pick_gpu(&o.compositor, p.width)?;
     let workers = o.workers.unwrap_or_else(|| default_workers(encoder, gpu.is_some()));
     render::render(p, out, &render::RenderOpts { workers, encoder, quality: o.quality, keep_temp: o.keep_temp, gpu })?;

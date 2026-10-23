@@ -1,7 +1,10 @@
 //! Scene description (the JSON format) and validation.
 
-use crate::anim::{Prop, Transition};
-use crate::color::Rgba;
+pub mod anim;
+pub mod color;
+
+use anim::{Prop, Transition};
+use color::Rgba;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use serde_json::Value;

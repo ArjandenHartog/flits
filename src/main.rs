@@ -1,7 +1,7 @@
 
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
-use flits::{gpu, layers, render, templates, transcribe, Prepared, Scene};
+use flits::{compose as layers, paint::gpu, render, templates, transcribe, Prepared, Scene};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
