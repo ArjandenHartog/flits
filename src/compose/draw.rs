@@ -103,7 +103,20 @@ pub fn gradient_pixmap(fill: &Fill, w: f32, h: f32, q: f32) -> Option<Pixmap> {
 
 /// Op for an image/video drawn into a w*h box with fit/zoom/pan.
 #[allow(clippy::too_many_arguments)]
-fn media_op<'a>(src: Src<'a>, iw: f32, ih: f32, fit: Fit, w: f32, h: f32, zoom: f32, pan: (f32, f32), radius: f32, ts: Transform, opacity: f32, clip: Option<Clip>) -> Option<Op<'a>> {
+fn media_op<'a>(
+    src: Src<'a>,
+    iw: f32,
+    ih: f32,
+    fit: Fit,
+    w: f32,
+    h: f32,
+    zoom: f32,
+    pan: (f32, f32),
+    radius: f32,
+    ts: Transform,
+    opacity: f32,
+    clip: Option<Clip>,
+) -> Option<Op<'a>> {
     let (sx, sy) = match fit {
         Fit::Cover => {
             let s = (w / iw).max(h / ih);
@@ -127,7 +140,15 @@ fn media_op<'a>(src: Src<'a>, iw: f32, ih: f32, fit: Fit, w: f32, h: f32, zoom: 
 }
 
 #[allow(clippy::too_many_arguments)]
-fn draw_node<'a>(painter: &mut dyn Painter<'a>, n: &'a Node, t: f64, parent: Transform, parent_op: f32, pclip: Option<Clip>, ctx: &FrameCtx<'a>) {
+fn draw_node<'a>(
+    painter: &mut dyn Painter<'a>,
+    n: &'a Node,
+    t: f64,
+    parent: Transform,
+    parent_op: f32,
+    pclip: Option<Clip>,
+    ctx: &FrameCtx<'a>,
+) {
     if t < n.start || t >= n.end {
         return;
     }
@@ -172,7 +193,15 @@ fn draw_node<'a>(painter: &mut dyn Painter<'a>, n: &'a Node, t: f64, parent: Tra
         painter.draw(sprite_op(sh, ts.pre_translate(-bw, -bw), op, clip));
     }
     if let Some((bw, bc)) = n.border {
-        painter.draw(Op { src: Src::Solid(bc), ts, shape: [-bw, -bw, w + bw, h + bw], radius: n.radius + bw, uv: Transform::identity(), opacity: op, clip });
+        painter.draw(Op {
+            src: Src::Solid(bc),
+            ts,
+            shape: [-bw, -bw, w + bw, h + bw],
+            radius: n.radius + bw,
+            uv: Transform::identity(),
+            opacity: op,
+            clip,
+        });
     }
 
     match &n.kind {
@@ -182,10 +211,26 @@ fn draw_node<'a>(painter: &mut dyn Painter<'a>, n: &'a Node, t: f64, parent: Tra
             }
         }
         Kind::Rect(fill) => match fill {
-            Fill::Solid(c) => painter.draw(Op { src: Src::Solid(*c), ts, shape: [0.0, 0.0, w, h], radius: n.radius, uv: Transform::identity(), opacity: op, clip }),
+            Fill::Solid(c) => painter.draw(Op {
+                src: Src::Solid(*c),
+                ts,
+                shape: [0.0, 0.0, w, h],
+                radius: n.radius,
+                uv: Transform::identity(),
+                opacity: op,
+                clip,
+            }),
             Fill::Bitmap(pm) => {
                 let (kx, ky) = (w / pm.width() as f32, h / pm.height() as f32);
-                painter.draw(Op { src: Src::Image(pm), ts, shape: [0.0, 0.0, w, h], radius: n.radius, uv: Transform::from_scale(kx, ky), opacity: op, clip });
+                painter.draw(Op {
+                    src: Src::Image(pm),
+                    ts,
+                    shape: [0.0, 0.0, w, h],
+                    radius: n.radius,
+                    uv: Transform::from_scale(kx, ky),
+                    opacity: op,
+                    clip,
+                });
             }
             _ => {}
         },
@@ -193,7 +238,9 @@ fn draw_node<'a>(painter: &mut dyn Painter<'a>, n: &'a Node, t: f64, parent: Tra
             if let Some(pm) = pm {
                 let zoom = n.zoom.eval(lt, dur) as f32;
                 let pan = (n.pan_x.eval(lt, dur) as f32, n.pan_y.eval(lt, dur) as f32);
-                if let Some(o) = media_op(Src::Image(pm), pm.width() as f32, pm.height() as f32, *fit, w, h, zoom, pan, n.radius, ts, op, clip) {
+                if let Some(o) =
+                    media_op(Src::Image(pm), pm.width() as f32, pm.height() as f32, *fit, w, h, zoom, pan, n.radius, ts, op, clip)
+                {
                     painter.draw(o);
                 }
             }
@@ -234,7 +281,15 @@ fn draw_node<'a>(painter: &mut dyn Painter<'a>, n: &'a Node, t: f64, parent: Tra
                     let bh = (v * h).max(bwid.min(h));
                     let x = i as f32 * slot + (slot - bwid) / 2.0;
                     let y = if *mirror { (h - bh) / 2.0 } else { h - bh };
-                    painter.draw(Op { src: Src::Solid(*color), ts, shape: [x, y, x + bwid, y + bh], radius: r, uv: Transform::identity(), opacity: op, clip });
+                    painter.draw(Op {
+                        src: Src::Solid(*color),
+                        ts,
+                        shape: [x, y, x + bwid, y + bh],
+                        radius: r,
+                        uv: Transform::identity(),
+                        opacity: op,
+                        clip,
+                    });
                 }
             }
         }

@@ -168,10 +168,7 @@ pub fn layout(style: &TextStyle, tokens: &[String]) -> TextLayout {
         line.push((t.clone(), w));
         cur_w = needed;
     }
-    let widths: Vec<f32> = lines
-        .iter()
-        .map(|l| l.iter().map(|(_, w)| *w).sum::<f32>() + space * (l.len().max(1) - 1) as f32)
-        .collect();
+    let widths: Vec<f32> = lines.iter().map(|l| l.iter().map(|(_, w)| *w).sum::<f32>() + space * (l.len().max(1) - 1) as f32).collect();
     let block_w = widths.iter().cloned().fold(0.0, f32::max);
     let mut words = Vec::new();
     let mut line_boxes = Vec::new();
@@ -273,4 +270,43 @@ pub fn render_word(style: &TextStyle, word: &str, color: Rgba, pill: Option<Rgba
     }
     let lay = layout(&st, &[word.to_string()]);
     render(&st, &lay, None, Some(color))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn style(max_width: Option<f32>) -> TextStyle {
+        TextStyle {
+            font: FontDb::new(Default::default()).get(None, None).unwrap(),
+            size: 40.0,
+            color: Rgba::WHITE,
+            line_height: 1.2,
+            letter_spacing: 0.0,
+            align: Align::Center,
+            max_width,
+            stroke: None,
+            shadow: None,
+            bg: None,
+        }
+    }
+
+    #[test]
+    fn wraps_and_breaks() {
+        let st = style(Some(200.0));
+        let lay = layout(&st, &tokenize("een twee drie vier vijf zes zeven acht\nnegen"));
+        assert!(lay.lines.len() >= 3, "wraps into several lines");
+        assert!(lay.width <= 200.0 + 1.0);
+        assert_eq!(lay.words.last().unwrap().line, lay.lines.len() - 1, "explicit break starts a new line");
+        assert!((lay.height - lay.lines.len() as f32 * 48.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn renders_sprite_with_padding() {
+        let st = style(None);
+        let lay = layout(&st, &tokenize("Hallo"));
+        let s = render(&st, &lay, None, None).unwrap();
+        assert!(s.pm.width() as f32 > s.w && s.ox > 0.0);
+        assert!(s.pm.data().chunks_exact(4).any(|p| p[3] == 255), "glyphs are drawn");
+    }
 }

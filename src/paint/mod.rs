@@ -14,7 +14,13 @@ pub enum Src<'a> {
     /// static bitmap; its address is used as a cache key by the GPU backend
     Image(&'a Pixmap),
     /// a decoded video frame (opaque RGBA), `ver` changes whenever the content does
-    Frame { key: usize, ver: i64, data: &'a [u8], w: u32, h: u32 },
+    Frame {
+        key: usize,
+        ver: i64,
+        data: &'a [u8],
+        w: u32,
+        h: u32,
+    },
 }
 
 #[derive(Clone, Copy)]

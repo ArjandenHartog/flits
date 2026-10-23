@@ -1,6 +1,7 @@
 //! Word-timed animated captions from a transcript.
 
 use crate::gfx::Sprite;
+use crate::paint::{sprite_op, Clip, Painter};
 use crate::scene::anim::Ease;
 use crate::scene::color::Rgba;
 use crate::text::{layout, render_word, TextStyle};
@@ -10,7 +11,6 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use crate::paint::{sprite_op, Clip, Painter};
 use tiny_skia::Transform;
 
 #[derive(Clone, Debug)]
@@ -71,7 +71,9 @@ pub fn load_transcript(path: &Path) -> Result<Vec<Word>> {
         let mut lines = txt.lines().peekable();
         while let Some(l) = lines.next() {
             if let Some((a, b)) = l.split_once("-->") {
-                let (Some(a), Some(b)) = (parse_ts(a), parse_ts(b.split_whitespace().next().unwrap_or(""))) else { continue };
+                let (Some(a), Some(b)) = (parse_ts(a), parse_ts(b.split_whitespace().next().unwrap_or(""))) else {
+                    continue;
+                };
                 let mut text = String::new();
                 while let Some(n) = lines.peek() {
                     if n.trim().is_empty() {
@@ -182,7 +184,7 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
                     || w.start - last.end > 0.6
                     || chars + w.text.chars().count() > max_chars
                     || last.text.ends_with(['.', '?', '!', ':'])
-                    || (last.text.ends_with(',') && c.len() >= maxw / 2 + 1)
+                    || (last.text.ends_with(',') && c.len() > maxw / 2)
             }
         };
         if new_chunk {
@@ -228,7 +230,14 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
             .map(|(i, (w, pw))| {
                 let (n, h) = sprites[&w.text].clone();
                 let wend = c.get(i + 1).map(|x| x.start).unwrap_or(end);
-                CapWord { start: w.start, end: wend.max(w.end.min(end)), cx: (gx + pw.x + pw.w / 2.0) / o.q, cy: (gy + pw.y + lh / 2.0) / o.q, normal: n, hi: h }
+                CapWord {
+                    start: w.start,
+                    end: wend.max(w.end.min(end)),
+                    cx: (gx + pw.x + pw.w / 2.0) / o.q,
+                    cy: (gy + pw.y + lh / 2.0) / o.q,
+                    normal: n,
+                    hi: h,
+                }
             })
             .collect();
         groups.push(CapGroup { start, end, cx: o.box_w / 2.0 / o.q, cy: o.box_h / 2.0 / o.q, words });
@@ -236,7 +245,16 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
     Ok(Captions { groups, kind: o.kind })
 }
 
-fn draw_sprite_centered<'a>(p: &mut dyn Painter<'a>, s: &'a Sprite, ts: Transform, cx: f32, cy: f32, scale: f32, opacity: f32, clip: Option<Clip>) {
+fn draw_sprite_centered<'a>(
+    p: &mut dyn Painter<'a>,
+    s: &'a Sprite,
+    ts: Transform,
+    cx: f32,
+    cy: f32,
+    scale: f32,
+    opacity: f32,
+    clip: Option<Clip>,
+) {
     let t = ts.pre_translate(cx, cy).pre_scale(scale, scale).pre_translate(-s.w / 2.0, -s.h / 2.0);
     p.draw(sprite_op(s, t, opacity, clip));
 }
@@ -284,5 +302,26 @@ impl Captions {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spreads_srt_cues_over_words() {
+        let mut v = vec![];
+        spread("hallo daar wereld", 1.0, 4.0, &mut v);
+        assert_eq!(v.len(), 3);
+        assert!((v[0].start - 1.0).abs() < 1e-9 && (v[2].end - 4.0).abs() < 1e-9);
+        assert!(v.windows(2).all(|w| w[0].end <= w[1].start + 1e-9));
+    }
+
+    #[test]
+    fn parses_timestamps() {
+        assert_eq!(parse_ts("00:01:02,500"), Some(62.5));
+        assert_eq!(parse_ts("01:02.25"), Some(62.25));
+        assert_eq!(parse_ts("x"), None);
     }
 }

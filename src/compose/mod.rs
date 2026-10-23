@@ -7,9 +7,6 @@ pub mod waveform;
 
 pub use draw::{advance, draw_frame, render_frame, VideoState};
 
-use captions::{CapKind, CapOptions, Captions};
-use draw::gradient_pixmap;
-use waveform::Spectrum;
 use crate::gfx::{box_shadow, Sprite};
 use crate::media::{self, image as assets, MediaInfo};
 use crate::scene::anim::{Prop, TKind, Transition};
@@ -17,11 +14,14 @@ use crate::scene::color::Rgba;
 use crate::scene::{Layer, Scene};
 use crate::text::{self, Align, FontDb, TextStyle};
 use anyhow::{anyhow, bail, Context, Result};
+use captions::{CapKind, CapOptions, Captions};
+use draw::gradient_pixmap;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tiny_skia::Pixmap;
+use waveform::Spectrum;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Fit {
@@ -150,10 +150,8 @@ impl Prepared {
         }
         media.sort();
         media.dedup();
-        let probes: HashMap<PathBuf, MediaInfo> = media
-            .par_iter()
-            .map(|p| media::probe(p).map(|i| (p.clone(), i)))
-            .collect::<Result<_>>()?;
+        let probes: HashMap<PathBuf, MediaInfo> =
+            media.par_iter().map(|p| media::probe(p).map(|i| (p.clone(), i))).collect::<Result<_>>()?;
         let aliases = scene.fonts.iter().map(|(k, v)| (k.clone(), scene.resolve(v))).collect();
         let mut ctx = Ctx { scene, fonts: FontDb::new(aliases), probes, next_id: 0, audio: vec![], render_scale };
 
@@ -183,7 +181,16 @@ impl Prepared {
             let nat = ctx.probes.get(&path).map(|i| i.duration).unwrap_or(0.0);
             let dur = a.duration.unwrap_or(if a.looped { duration - a.start } else { nat - a.trim }).min(duration - a.start);
             if dur > 0.0 {
-                ctx.audio.push(AudioInput { path, start: a.start, trim: a.trim, dur, volume: a.volume, fade_in: a.fade_in, fade_out: a.fade_out, looped: a.looped });
+                ctx.audio.push(AudioInput {
+                    path,
+                    start: a.start,
+                    trim: a.trim,
+                    dur,
+                    volume: a.volume,
+                    fade_in: a.fade_in,
+                    fade_out: a.fade_out,
+                    looped: a.looped,
+                });
             }
         }
         for a in ctx.audio.iter_mut() {
@@ -198,9 +205,7 @@ impl Prepared {
         keys.dedup();
         let loaded: HashMap<ImgKey, Arc<Pixmap>> = keys
             .par_iter()
-            .map(|k| {
-                assets::load_image(&k.0, k.1 as f64, k.2 as f64, k.3 as f64 / 100.0).map(|pm| (k.clone(), Arc::new(pm)))
-            })
+            .map(|k| assets::load_image(&k.0, k.1 as f64, k.2 as f64, k.3 as f64 / 100.0).map(|pm| (k.clone(), Arc::new(pm))))
             .collect::<Result<_>>()?;
         fill_images(&mut nodes, &loaded);
 
@@ -249,7 +254,16 @@ fn fill_images(nodes: &mut [Node], map: &HashMap<ImgKey, Arc<Pixmap>>) {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn build_list(layers: &[Layer], sequence: bool, overlap: f64, base: f64, default_end: f64, pbox: (f32, f32), pscale: f64, ctx: &mut Ctx) -> Result<Vec<Node>> {
+fn build_list(
+    layers: &[Layer],
+    sequence: bool,
+    overlap: f64,
+    base: f64,
+    default_end: f64,
+    pbox: (f32, f32),
+    pscale: f64,
+    ctx: &mut Ctx,
+) -> Result<Vec<Node>> {
     let mut out = Vec::with_capacity(layers.len());
     let mut cursor = 0.0;
     for (i, l) in layers.iter().enumerate() {
@@ -388,7 +402,16 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
             let vol = l.volume.unwrap_or(1.0);
             if vol > 0.0 && info.has_audio {
                 // duration filled in after the node end is known (see below)
-                ctx.audio.push(AudioInput { path: src.clone(), start, trim: l.trim, dur: f64::NAN, volume: vol, fade_in: l.fade_in, fade_out: l.fade_out, looped: l.looped });
+                ctx.audio.push(AudioInput {
+                    path: src.clone(),
+                    start,
+                    trim: l.trim,
+                    dur: f64::NAN,
+                    volume: vol,
+                    fade_in: l.fade_in,
+                    fade_out: l.fade_out,
+                    looped: l.looped,
+                });
             }
             Kind::Video { src, dw: even(iw * s), dh: even(ih * s), info, trim: l.trim, looped: l.looped, fit }
         }
@@ -450,7 +473,13 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
             let dur_guess = match (l.end, l.duration) {
                 (Some(e), _) => base + e - start,
                 (_, Some(d)) => d,
-                _ => if default_end.is_finite() { default_end - start } else { words.last().map(|w| w.end + 1.0).unwrap_or(0.0) },
+                _ => {
+                    if default_end.is_finite() {
+                        default_end - start
+                    } else {
+                        words.last().map(|w| w.end + 1.0).unwrap_or(0.0)
+                    }
+                }
             };
             if !(l.end.is_some() || l.duration.is_some() || default_end.is_finite()) {
                 natural = Some(dur_guess);
@@ -486,8 +515,20 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
                     d
                 }
             };
-            let spec = waveform::analyse(&src, l.trim, dur.max(0.04), scene.fps, l.bars.unwrap_or(48).clamp(2, 512), l.gain.unwrap_or(1.0) as f32)?;
-            Kind::Waveform { spec: Arc::new(spec), color: l.color.unwrap_or(Rgba::WHITE), mirror: l.mirror, gap: l.gap.unwrap_or(0.35).clamp(0.0, 0.95) as f32 }
+            let spec = waveform::analyse(
+                &src,
+                l.trim,
+                dur.max(0.04),
+                scene.fps,
+                l.bars.unwrap_or(48).clamp(2, 512),
+                l.gain.unwrap_or(1.0) as f32,
+            )?;
+            Kind::Waveform {
+                spec: Arc::new(spec),
+                color: l.color.unwrap_or(Rgba::WHITE),
+                mirror: l.mirror,
+                gap: l.gap.unwrap_or(0.35).clamp(0.0, 0.95) as f32,
+            }
         }
         "" => bail!("layer without \"type\""),
         o => bail!("unknown layer type '{o}'"),

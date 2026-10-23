@@ -267,7 +267,9 @@ impl Transition {
             "wipe-right" | "wipe" => TKind::WipeRight,
             "wipe-up" => TKind::WipeUp,
             "wipe-down" => TKind::WipeDown,
-            other => bail!("unknown transition '{other}' (fade, slide-up/down/left/right, zoom-in, zoom-out, pop, wipe-left/right/up/down)"),
+            other => {
+                bail!("unknown transition '{other}' (fade, slide-up/down/left/right, zoom-in, zoom-out, pop, wipe-left/right/up/down)")
+            }
         })
     }
 
@@ -411,5 +413,68 @@ pub struct Fx {
 impl Default for Fx {
     fn default() -> Self {
         Fx { opacity: 1.0, dx: 0.0, dy: 0.0, scale: 1.0, clip: None }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn eases_hit_endpoints() {
+        for e in [
+            Ease::Linear,
+            Ease::In,
+            Ease::Out,
+            Ease::InOut,
+            Ease::SineInOut,
+            Ease::BackIn,
+            Ease::BackOut,
+            Ease::Elastic,
+            Ease::Bounce,
+            Ease::Spring,
+        ] {
+            assert!(e.apply(0.0).abs() < 1e-6, "{e:?}(0)");
+            assert!((e.apply(1.0) - 1.0).abs() < 1e-6, "{e:?}(1)");
+        }
+        assert!(Ease::BackOut.apply(0.6) > 1.0, "back-out overshoots");
+    }
+
+    #[test]
+    fn keyframes_interpolate_and_hold() {
+        let p = Prop::from_json(&json!([[1, 10], [3, 20, "linear"], ["end-1", 0, "hold"]])).unwrap();
+        assert_eq!(p.eval(0.0, 10.0), 10.0);
+        assert_eq!(p.eval(2.0, 10.0), 15.0);
+        assert_eq!(p.eval(8.5, 10.0), 20.0); // hold until the key at 9
+        assert_eq!(p.eval(9.5, 10.0), 0.0);
+    }
+
+    #[test]
+    fn from_to_spans_layer() {
+        let p = Prop::from_json(&json!({"from": 1, "to": 2})).unwrap();
+        assert_eq!(p.eval(0.0, 4.0), 1.0);
+        assert_eq!(p.eval(2.0, 4.0), 1.5);
+        assert_eq!(p.eval(4.0, 4.0), 2.0);
+    }
+
+    #[test]
+    fn transitions_parse_and_apply() {
+        let t = Transition::from_json(&json!("slide-up 0.4")).unwrap();
+        assert_eq!(t.kind, TKind::SlideUp);
+        assert!((t.dur - 0.4).abs() < 1e-9);
+        let mut fx = Fx::default();
+        t.apply_in(0.0, &mut fx);
+        assert!(fx.dy > 0.0 && fx.opacity == 0.0);
+        let mut fx = Fx::default();
+        t.apply_in(1.0, &mut fx);
+        assert_eq!(fx.dy, 0.0);
+        assert!(Transition::from_json(&json!("explode")).is_err());
+    }
+
+    #[test]
+    fn wipe_reveals_from_side() {
+        let c = Clip { side: Side::Right, frac: 0.25 };
+        assert_eq!(c.rect(100.0, 50.0), (0.0, 0.0, 25.0, 50.0));
     }
 }

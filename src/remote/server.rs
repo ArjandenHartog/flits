@@ -48,7 +48,8 @@ fn respond_text(req: tiny_http::Request, code: u16, msg: &str) -> Result<()> {
 }
 
 fn handle(mut req: tiny_http::Request, token: &str, job: &Mutex<()>, gpu_name: &Option<String>) -> Result<()> {
-    let ok_auth = token.is_empty() || req.headers().iter().any(|h| h.field.equiv("Authorization") && h.value.as_str() == format!("Bearer {token}"));
+    let ok_auth =
+        token.is_empty() || req.headers().iter().any(|h| h.field.equiv("Authorization") && h.value.as_str() == format!("Bearer {token}"));
     if !ok_auth {
         return respond_text(req, 401, "bad token");
     }

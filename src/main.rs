@@ -1,7 +1,6 @@
-
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
-use flits::{compose as layers, paint::gpu, render, templates, transcribe, Prepared, Scene};
+use flits::{compose as layers, render, templates, transcribe, Prepared, Scene};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -34,7 +33,6 @@ struct RenderArgs {
     gpu: String,
 }
 
-
 #[derive(Args, Clone)]
 struct WhisperArgs {
     /// whisper model: default (= large-v3-turbo on GPU, small on CPU), tiny, base, small, medium, large-v3, large-v3-turbo
@@ -56,7 +54,13 @@ struct WhisperArgs {
 
 impl WhisperArgs {
     fn opts(&self) -> transcribe::TranscribeOpts {
-        transcribe::TranscribeOpts { model: self.model.clone(), language: self.lang.clone(), device: self.device.clone(), python: self.python.clone(), remote: self.remote.clone() }
+        transcribe::TranscribeOpts {
+            model: self.model.clone(),
+            language: self.lang.clone(),
+            device: self.device.clone(),
+            python: self.python.clone(),
+            remote: self.remote.clone(),
+        }
     }
 }
 
@@ -199,7 +203,6 @@ fn parse_time(s: &str) -> Result<f64, String> {
     Ok(t)
 }
 
-
 fn load(scene_path: &Path, scale: f64) -> Result<Prepared> {
     let t = Instant::now();
     let (scene, warnings) = Scene::load(scene_path)?;
@@ -212,7 +215,14 @@ fn load(scene_path: &Path, scale: f64) -> Result<Prepared> {
 }
 
 fn do_render(p: &Prepared, out: &Path, r: &RenderArgs) -> Result<()> {
-    let o = flits::Options { workers: r.workers, encoder: r.encoder.clone(), quality: r.quality, scale: r.scale, compositor: r.gpu.clone(), keep_temp: r.keep_temp };
+    let o = flits::Options {
+        workers: r.workers,
+        encoder: r.encoder.clone(),
+        quality: r.quality,
+        scale: r.scale,
+        compositor: r.gpu.clone(),
+        keep_temp: r.keep_temp,
+    };
     flits::render_prepared(p, out, &o).map(|_| ())
 }
 
@@ -242,7 +252,8 @@ fn run() -> Result<()> {
         Cmd::Render { scene, out, r, remote } => {
             let out = out.unwrap_or_else(|| scene.with_extension("mp4"));
             if remote {
-                let rm = flits::remote::configured().ok_or_else(|| anyhow::anyhow!("no GPU server configured: run `flits remote http://host:7777 --token ...`"))?;
+                let rm = flits::remote::configured()
+                    .ok_or_else(|| anyhow::anyhow!("no GPU server configured: run `flits remote http://host:7777 --token ...`"))?;
                 rm.health().map_err(|e| anyhow::anyhow!("GPU server {} not reachable: {e}", rm.url))?;
                 return rm.render(&scene, &out, &format!("scale={}&quality={}", r.scale, r.quality));
             }
@@ -251,7 +262,7 @@ fn run() -> Result<()> {
         }
         Cmd::Still { scene, at, out, scale } => {
             let p = load(&scene, scale)?;
-            for f in render::stills(&p, &at, &out)? {
+            for f in render::stills(&p, flits::pick_gpu("auto")?, &at, &out)? {
                 println!("{}", f.display());
             }
             Ok(())
@@ -259,7 +270,7 @@ fn run() -> Result<()> {
         Cmd::Sheet { scene, out, count, cols, thumb } => {
             let (s, _) = Scene::load(&scene)?;
             let p = load(&scene, thumb as f64 / s.width as f64)?;
-            render::sheet(&p, count, cols, &out)?;
+            render::sheet(&p, flits::pick_gpu("auto")?, count, cols, &out)?;
             println!("{}", out.display());
             Ok(())
         }
@@ -269,7 +280,15 @@ fn run() -> Result<()> {
                 println!("warning: {w}");
             }
             let p = Prepared::build(&s, 0.25)?;
-            println!("ok: {}x{} @ {} fps, {:.2}s = {} frames, {} audio track(s)", s.width, s.height, s.fps, p.duration, p.frames, p.audio.len());
+            println!(
+                "ok: {}x{} @ {} fps, {:.2}s = {} frames, {} audio track(s)",
+                s.width,
+                s.height,
+                s.fps,
+                p.duration,
+                p.frames,
+                p.audio.len()
+            );
             fn walk(n: &[layers::Node], depth: usize) {
                 for n in n {
                     let kind = match &n.kind {
@@ -304,7 +323,14 @@ fn run() -> Result<()> {
                 bail!("output would overwrite the input");
             }
             let tr = transcribe::ensure(&video, transcript.as_deref(), &w.opts())?;
-            let scene = templates::captioned_video(&templates::CaptionOpts { video: &video, transcript: &tr, style, highlight, uppercase, position })?;
+            let scene = templates::captioned_video(&templates::CaptionOpts {
+                video: &video,
+                transcript: &tr,
+                style,
+                highlight,
+                uppercase,
+                position,
+            })?;
             write_scene_and_render(scene, &out, &r)
         }
         Cmd::Podcast { audio, out, cover, title, subtitle, format, from, to, accent, style, transcript, w, r } => {
@@ -328,36 +354,21 @@ fn run() -> Result<()> {
         }
         Cmd::Bench { scene, at, frames } => {
             let p = load(&scene, 1.0)?;
-            if let Some(g) = flits::pick_gpu("auto", p.width)? {
-                let mut tg = g.target(p.width, p.height);
-                let mut vs = layers::VideoState::default();
+            let f0 = (at * p.fps) as i64;
+            let mut backends = vec![("CPU".to_string(), None)];
+            if let Some(g) = flits::pick_gpu("auto")? {
+                backends.insert(0, (format!("GPU {}", g.name), Some(g)));
+            }
+            for (name, g) in backends {
+                let mut fr = render::FrameRenderer::new(&p, g)?;
                 let mut yuv = Vec::new();
-                let f0 = (at * p.fps) as i64;
+                fr.yuv(&p, f0, &mut yuv)?; // warm up (uploads, decoders)
                 let t = Instant::now();
                 for f in f0..f0 + frames {
-                    layers::advance(&p, f, &mut vs)?;
-                    let mut gp = gpu::GpuPainter::default();
-                    layers::draw_frame(&p, f, &mut gp, &vs);
-                    g.render(&mut tg, p.background, gp, &mut yuv)?;
+                    fr.yuv(&p, f, &mut yuv)?;
                 }
-                println!("GPU {}: {:.2} ms/frame (incl. video decode + yuv readback)", g.name, t.elapsed().as_secs_f64() * 1000.0 / frames as f64);
+                println!("{name}: {:.2} ms/frame (compose + video decode + yuv)", t.elapsed().as_secs_f64() * 1000.0 / frames as f64);
             }
-            let mut canvas = tiny_skia::Pixmap::new(p.width, p.height).unwrap();
-            let mut vs = layers::VideoState::default();
-            let f0 = (at * p.fps) as i64;
-            layers::render_frame(&p, f0, &mut canvas, &mut vs)?;
-            let t = Instant::now();
-            for f in f0..f0 + frames {
-                layers::render_frame(&p, f, &mut canvas, &mut vs)?;
-            }
-            let ms = t.elapsed().as_secs_f64() * 1000.0 / frames as f64;
-            let t = Instant::now();
-            let mut yuv = Vec::new();
-            for _ in 0..frames {
-                render::rgba_to_yuv420(canvas.data(), p.width as usize, p.height as usize, &mut yuv);
-            }
-            let yms = t.elapsed().as_secs_f64() * 1000.0 / frames as f64;
-            println!("{ms:.2} ms/frame compose, {yms:.2} ms/frame yuv");
             Ok(())
         }
         Cmd::Serve { port, token } => {

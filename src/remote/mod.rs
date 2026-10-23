@@ -95,7 +95,12 @@ impl Remote {
         let tmp = std::env::temp_dir().join(format!("flits-up-{}.m4a", std::process::id()));
         let send = if info.has_video || size > 80_000_000 {
             crate::media::run(
-                crate::media::ffmpeg().arg("-y").arg("-i").arg(input).args(["-vn", "-ac", "1", "-ar", "16000", "-c:a", "aac", "-b:a", "48k"]).arg(&tmp),
+                crate::media::ffmpeg()
+                    .arg("-y")
+                    .arg("-i")
+                    .arg(input)
+                    .args(["-vn", "-ac", "1", "-ar", "16000", "-c:a", "aac", "-b:a", "48k"])
+                    .arg(&tmp),
                 "audio extract",
             )?;
             tmp.clone()

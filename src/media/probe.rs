@@ -53,7 +53,8 @@ pub fn probe(path: &Path) -> Result<MediaInfo> {
                 info.height = h;
                 let fr = s["avg_frame_rate"].as_str().or(s["r_frame_rate"].as_str()).unwrap_or("0/1");
                 let mut it = fr.split('/');
-                let (n, d): (f64, f64) = (it.next().and_then(|x| x.parse().ok()).unwrap_or(0.0), it.next().and_then(|x| x.parse().ok()).unwrap_or(1.0));
+                let (n, d): (f64, f64) =
+                    (it.next().and_then(|x| x.parse().ok()).unwrap_or(0.0), it.next().and_then(|x| x.parse().ok()).unwrap_or(1.0));
                 info.fps = if d > 0.0 { n / d } else { 0.0 };
                 let trc = s["color_transfer"].as_str().unwrap_or("");
                 info.hdr = trc == "arib-std-b67" || trc == "smpte2084";

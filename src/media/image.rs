@@ -10,21 +10,18 @@ use tiny_skia::{IntSize, Pixmap};
 
 /// Natural (orientation-corrected) size of an image without fully decoding it.
 pub fn image_size(path: &Path) -> Result<(u32, u32)> {
-    match ImageReader::open(path).and_then(|r| r.with_guessed_format()) {
-        Ok(r) => {
-            if let Ok(mut dec) = r.into_decoder() {
-                let (w, h) = dec.dimensions();
-                let rotated = matches!(
-                    dec.orientation().unwrap_or(image::metadata::Orientation::NoTransforms),
-                    image::metadata::Orientation::Rotate90
-                        | image::metadata::Orientation::Rotate270
-                        | image::metadata::Orientation::Rotate90FlipH
-                        | image::metadata::Orientation::Rotate270FlipH
-                );
-                return Ok(if rotated { (h, w) } else { (w, h) });
-            }
+    if let Ok(r) = ImageReader::open(path).and_then(|r| r.with_guessed_format()) {
+        if let Ok(mut dec) = r.into_decoder() {
+            let (w, h) = dec.dimensions();
+            let rotated = matches!(
+                dec.orientation().unwrap_or(image::metadata::Orientation::NoTransforms),
+                image::metadata::Orientation::Rotate90
+                    | image::metadata::Orientation::Rotate270
+                    | image::metadata::Orientation::Rotate90FlipH
+                    | image::metadata::Orientation::Rotate270FlipH
+            );
+            return Ok(if rotated { (h, w) } else { (w, h) });
         }
-        Err(_) => {}
     }
     // formats the image crate can't read (HEIC, AVIF, ...) go through ffprobe
     let info = media::probe(path)?;
@@ -97,11 +94,7 @@ pub fn load_image(path: &Path, max_w: f64, max_h: f64, blur_sigma: f64) -> Resul
 }
 
 fn decode_with_ffmpeg(path: &Path, w: u32, h: u32) -> Result<Vec<u8>> {
-    let out = media::ffmpeg()
-        .arg("-i")
-        .arg(path)
-        .args(["-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "-"])
-        .output()?;
+    let out = media::ffmpeg().arg("-i").arg(path).args(["-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "-"]).output()?;
     if !out.status.success() || out.stdout.len() < (w * h * 4) as usize {
         bail!("ffmpeg could not decode {}", path.display());
     }

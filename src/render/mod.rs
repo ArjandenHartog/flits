@@ -2,22 +2,23 @@
 //! composite every frame (GPU or CPU), feed a hardware encoder each, and the
 //! segments are joined without re-encoding.
 
+pub mod frame;
 pub mod preview;
 pub mod yuv;
 
+pub use frame::FrameRenderer;
 pub use preview::{sheet, stills};
 pub use yuv::rgba_to_yuv420;
 
-use crate::compose::{advance, draw_frame, render_frame, Prepared, VideoState};
+use crate::compose::Prepared;
 use crate::media::{self, audio, encode, Encoder};
-use crate::paint::gpu::{Gpu, GpuPainter};
+use crate::paint::gpu::Gpu;
 use anyhow::{anyhow, bail, Result};
 use std::io::Write;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tiny_skia::Pixmap;
 
 pub struct RenderOpts {
     pub workers: usize,
@@ -102,9 +103,8 @@ pub fn render(p: &Prepared, out: &Path, opts: &RenderOpts) -> Result<()> {
                 let chunks = &chunks;
                 let tmp = &tmp;
                 s.spawn(move || -> Result<()> {
-                    let mut canvas = Pixmap::new(p.width, p.height).ok_or_else(|| anyhow!("bad output size"))?;
+                    let mut fr = FrameRenderer::new(p, opts.gpu.clone())?;
                     let mut yuv = Vec::new();
-                    let mut target = opts.gpu.as_ref().map(|g| g.target(p.width, p.height));
                     loop {
                         let ci = next.fetch_add(1, Ordering::Relaxed);
                         if ci >= chunks.len() || failed.load(Ordering::Relaxed) {
@@ -112,20 +112,12 @@ pub fn render(p: &Prepared, out: &Path, opts: &RenderOpts) -> Result<()> {
                         }
                         let (a, b) = chunks[ci];
                         let seg = tmp.join(format!("seg{ci:04}.mp4"));
-                        let mut enc = encode::spawn_encoder(opts.encoder, p.width, p.height, p.fps, opts.quality, &seg)?;
+                        let mut enc = encode::spawn_encoder(opts.encoder, fr.yuv_width(), p.width, p.height, p.fps, opts.quality, &seg)?;
                         let mut stdin = enc.stdin.take().unwrap();
-                        let mut vs = VideoState::default();
+                        fr.reset_videos();
                         let mut res = Ok(());
                         for f in a..b {
-                            let step = match (&opts.gpu, &mut target) {
-                                (Some(g), Some(tg)) => advance(p, f, &mut vs).and_then(|_| {
-                                    let mut gp = GpuPainter::default();
-                                    draw_frame(p, f, &mut gp, &vs);
-                                    g.render(tg, p.background, gp, &mut yuv)
-                                }),
-                                _ => render_frame(p, f, &mut canvas, &mut vs).map(|_| rgba_to_yuv420(canvas.data(), p.width as usize, p.height as usize, &mut yuv)),
-                            };
-                            if let Err(e) = step {
+                            if let Err(e) = fr.yuv(p, f, &mut yuv) {
                                 res = Err(e.context(format!("frame {f}")));
                                 break;
                             }

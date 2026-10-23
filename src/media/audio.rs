@@ -47,11 +47,7 @@ pub fn mix(p: &Prepared, out: &Path) -> Result<bool> {
         filters.push(f);
     }
     let ins: String = (0..p.audio.len()).map(|i| format!("[a{i}]")).collect();
-    filters.push(format!(
-        "{ins}amix=inputs={}:normalize=0:duration=longest,apad,atrim=0:{:.3}[out]",
-        p.audio.len(),
-        p.duration
-    ));
+    filters.push(format!("{ins}amix=inputs={}:normalize=0:duration=longest,apad,atrim=0:{:.3}[out]", p.audio.len(), p.duration));
     cmd.args(["-filter_complex", &filters.join(";"), "-map", "[out]", "-c:a", "aac", "-b:a", "192k"]).arg(out);
     run(&mut cmd, "audio mix")?;
     Ok(true)

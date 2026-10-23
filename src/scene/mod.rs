@@ -4,8 +4,8 @@ pub mod anim;
 pub mod color;
 
 use anim::{Prop, Transition};
-use color::Rgba;
 use anyhow::{Context, Result};
+use color::Rgba;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -217,12 +217,64 @@ pub struct Layer {
 const SCENE_KEYS: &[&str] = &["width", "height", "fps", "duration", "background", "fonts", "audio", "layers", "$schema", "comment"];
 const AUDIO_KEYS: &[&str] = &["src", "start", "trim", "duration", "volume", "fadeIn", "fadeOut", "loop", "comment"];
 const LAYER_KEYS: &[&str] = &[
-    "type", "id", "start", "end", "duration", "x", "y", "width", "height", "anchor", "scale", "scaleX", "scaleY",
-    "rotation", "opacity", "zoom", "panX", "panY", "in", "out", "radius", "border", "shadow", "src", "fit", "blur",
-    "trim", "volume", "loop", "fadeIn", "fadeOut", "color", "gradient", "text", "font", "size", "weight", "align",
-    "maxWidth", "lineHeight", "letterSpacing", "stroke", "background", "uppercase", "reveal", "revealDuration",
-    "style", "highlight", "highlightBg", "maxWords", "bars", "mirror", "gap", "gain", "children", "sequence",
-    "overlap", "comment",
+    "type",
+    "id",
+    "start",
+    "end",
+    "duration",
+    "x",
+    "y",
+    "width",
+    "height",
+    "anchor",
+    "scale",
+    "scaleX",
+    "scaleY",
+    "rotation",
+    "opacity",
+    "zoom",
+    "panX",
+    "panY",
+    "in",
+    "out",
+    "radius",
+    "border",
+    "shadow",
+    "src",
+    "fit",
+    "blur",
+    "trim",
+    "volume",
+    "loop",
+    "fadeIn",
+    "fadeOut",
+    "color",
+    "gradient",
+    "text",
+    "font",
+    "size",
+    "weight",
+    "align",
+    "maxWidth",
+    "lineHeight",
+    "letterSpacing",
+    "stroke",
+    "background",
+    "uppercase",
+    "reveal",
+    "revealDuration",
+    "style",
+    "highlight",
+    "highlightBg",
+    "maxWords",
+    "bars",
+    "mirror",
+    "gap",
+    "gain",
+    "children",
+    "sequence",
+    "overlap",
+    "comment",
 ];
 const LAYER_TYPES: &[&str] = &["rect", "image", "video", "text", "captions", "waveform", "group"];
 
@@ -288,5 +340,31 @@ impl Scene {
         } else {
             self.base_dir.join(path)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn warns_about_typos() {
+        let v = json!({"width": 100, "height": 100, "durration": 3, "layers": [
+            {"type": "rect", "colour": "#fff"},
+            {"type": "group", "children": [{"type": "txt"}]}
+        ]});
+        let (_, w) = Scene::from_value(v, PathBuf::new()).unwrap();
+        assert!(w.iter().any(|w| w.contains("durration")));
+        assert!(w.iter().any(|w| w.contains("colour")));
+        assert!(w.iter().any(|w| w.contains("'txt'")));
+    }
+
+    #[test]
+    fn rejects_bad_values() {
+        assert!(Scene::from_value(json!({"width": 0, "height": 10}), PathBuf::new()).is_err());
+        assert!(
+            Scene::from_value(json!({"width": 10, "height": 10, "layers": [{"type": "rect", "color": "nope"}]}), PathBuf::new()).is_err()
+        );
     }
 }

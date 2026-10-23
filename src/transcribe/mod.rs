@@ -32,7 +32,10 @@ pub fn transcribe(input: &Path, out_json: &Path, o: &TranscribeOpts) -> Result<P
     }
     let remote = match o.remote.as_deref() {
         Some("off") => None,
-        Some(url) => Some(crate::remote::Remote { url: url.trim_end_matches('/').to_string(), token: std::env::var("FLITS_TOKEN").ok().or_else(|| crate::remote::configured().map(|r| r.token)).unwrap_or_default() }),
+        Some(url) => Some(crate::remote::Remote {
+            url: url.trim_end_matches('/').to_string(),
+            token: std::env::var("FLITS_TOKEN").ok().or_else(|| crate::remote::configured().map(|r| r.token)).unwrap_or_default(),
+        }),
         None => crate::remote::configured(),
     };
     if let Some(r) = remote {
@@ -73,7 +76,9 @@ fn transcribe_local(input: &Path, out_json: &Path, o: &TranscribeOpts) -> Result
         c.arg("python");
         c
     } else {
-        bail!("transcription needs either `uv` (https://docs.astral.sh/uv/) or --python pointing at a Python with faster-whisper installed");
+        bail!(
+            "transcription needs either `uv` (https://docs.astral.sh/uv/) or --python pointing at a Python with faster-whisper installed"
+        );
     };
     // decode with ffmpeg (fast, any format) to raw 16 kHz mono float32
     let pcm = dir.join(format!("audio-{}.f32", std::process::id()));

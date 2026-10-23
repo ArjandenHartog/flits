@@ -37,12 +37,7 @@ fn encoder_works(codec: &str) -> bool {
     if codec == "h264_vaapi" {
         c.args(["-vf", "format=nv12,hwupload"]);
     }
-    c.args(["-c:v", codec, "-f", "null", "-"])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+    c.args(["-c:v", codec, "-f", "null", "-"]).stdout(Stdio::null()).stderr(Stdio::null()).status().map(|s| s.success()).unwrap_or(false)
 }
 
 pub fn pick_encoder(choice: &str) -> Result<Encoder> {
@@ -67,21 +62,41 @@ pub fn pick_encoder(choice: &str) -> Result<Encoder> {
 }
 
 /// ffmpeg process that reads raw yuv420p frames on stdin and writes an H.264 file.
-pub fn spawn_encoder(enc: Encoder, w: u32, h: u32, fps: f64, quality: u32, out: &Path) -> Result<Child> {
+/// `in_w` may be wider than `w` (padded GPU frames); the extra columns are cropped.
+pub fn spawn_encoder(enc: Encoder, in_w: u32, w: u32, h: u32, fps: f64, quality: u32, out: &Path) -> Result<Child> {
     let mut cmd = ffmpeg();
     if enc == Encoder::Vaapi {
         cmd.args(["-vaapi_device", &vaapi_device()]);
     }
-    cmd.args(["-y", "-f", "rawvideo", "-pix_fmt", "yuv420p", "-s", &format!("{w}x{h}"), "-r", &format!("{fps}"), "-i", "-"]);
+    cmd.args(["-y", "-f", "rawvideo", "-pix_fmt", "yuv420p", "-s", &format!("{in_w}x{h}"), "-r", &format!("{fps}"), "-i", "-"]);
+    let crop = if in_w != w { format!("crop={w}:{h}:0:0,") } else { String::new() };
+    if !crop.is_empty() && enc != Encoder::Vaapi {
+        cmd.args(["-vf", crop.trim_end_matches(',')]);
+    }
     match enc {
         Encoder::Nvenc => {
-            cmd.args(["-c:v", "h264_nvenc", "-preset", "p4", "-tune", "hq", "-rc", "vbr", "-cq", &quality.to_string(), "-b:v", "0", "-profile:v", "high"]);
+            cmd.args([
+                "-c:v",
+                "h264_nvenc",
+                "-preset",
+                "p4",
+                "-tune",
+                "hq",
+                "-rc",
+                "vbr",
+                "-cq",
+                &quality.to_string(),
+                "-b:v",
+                "0",
+                "-profile:v",
+                "high",
+            ]);
         }
         Encoder::Qsv => {
             cmd.args(["-c:v", "h264_qsv", "-preset", "fast", "-global_quality", &quality.to_string()]);
         }
         Encoder::Vaapi => {
-            cmd.args(["-vf", "format=nv12,hwupload", "-c:v", "h264_vaapi", "-qp", &quality.to_string()]);
+            cmd.args(["-vf", &format!("{crop}format=nv12,hwupload"), "-c:v", "h264_vaapi", "-qp", &quality.to_string()]);
         }
         Encoder::X264 => {
             cmd.args(["-c:v", "libx264", "-preset", "veryfast", "-crf", &quality.to_string(), "-threads", "4"]);

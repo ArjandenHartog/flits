@@ -36,9 +36,7 @@ impl Rgba {
         };
         let s = named.map(str::to_string).unwrap_or(s);
         if let Some(h) = s.strip_prefix('#') {
-            let hex = |i: usize| -> Result<u8> {
-                u8::from_str_radix(&h[i..i + 2], 16).with_context(|| format!("bad color '{input}'"))
-            };
+            let hex = |i: usize| -> Result<u8> { u8::from_str_radix(&h[i..i + 2], 16).with_context(|| format!("bad color '{input}'")) };
             let short = |i: usize| -> Result<u8> {
                 let v = u8::from_str_radix(&h[i..i + 1], 16).with_context(|| format!("bad color '{input}'"))?;
                 Ok(v * 17)
@@ -51,10 +49,7 @@ impl Rgba {
                 _ => bail!("bad color '{input}'"),
             });
         }
-        let inner = s
-            .strip_prefix("rgba(")
-            .or_else(|| s.strip_prefix("rgb("))
-            .and_then(|x| x.strip_suffix(')'));
+        let inner = s.strip_prefix("rgba(").or_else(|| s.strip_prefix("rgb(")).and_then(|x| x.strip_suffix(')'));
         if let Some(inner) = inner {
             let parts: Vec<f32> = inner
                 .split(',')
@@ -62,12 +57,7 @@ impl Rgba {
                 .collect::<Result<_, _>>()
                 .with_context(|| format!("bad color '{input}'"))?;
             if parts.len() == 3 || parts.len() == 4 {
-                return Ok(Rgba {
-                    r: parts[0] / 255.0,
-                    g: parts[1] / 255.0,
-                    b: parts[2] / 255.0,
-                    a: *parts.get(3).unwrap_or(&1.0),
-                });
+                return Ok(Rgba { r: parts[0] / 255.0, g: parts[1] / 255.0, b: parts[2] / 255.0, a: *parts.get(3).unwrap_or(&1.0) });
             }
         }
         bail!("unknown color '{input}' (use #rrggbb, #rrggbbaa or rgba(r,g,b,a))")
@@ -92,5 +82,23 @@ impl<'de> Deserialize<'de> for Rgba {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let s = String::deserialize(d)?;
         Rgba::parse(&s).map_err(serde::de::Error::custom)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Rgba;
+
+    #[test]
+    fn parses_all_forms() {
+        assert_eq!(Rgba::parse("#fff").unwrap(), Rgba::WHITE);
+        assert_eq!(Rgba::parse("#000000").unwrap(), Rgba::BLACK);
+        let c = Rgba::parse("#ff000080").unwrap();
+        assert!((c.a - 128.0 / 255.0).abs() < 1e-6 && c.r == 1.0);
+        let c = Rgba::parse("rgba(255, 0, 0, 0.5)").unwrap();
+        assert_eq!((c.r, c.a), (1.0, 0.5));
+        assert_eq!(Rgba::parse(" White ").unwrap(), Rgba::WHITE);
+        assert!(Rgba::parse("#12").is_err());
+        assert!(Rgba::parse("blurple").is_err());
     }
 }

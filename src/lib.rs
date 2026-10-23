@@ -11,6 +11,8 @@
 //! # anyhow::Ok(())
 //! ```
 
+#![allow(clippy::too_many_arguments, clippy::type_complexity)]
+
 pub mod compose;
 pub mod gfx;
 pub mod media;
@@ -22,7 +24,7 @@ pub mod templates;
 pub mod text;
 pub mod transcribe;
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -57,14 +59,8 @@ pub struct Stats {
 }
 
 /// Open the GPU compositor if possible ("auto" silently falls back to CPU).
-pub fn pick_gpu(choice: &str, width: u32) -> Result<Option<Arc<paint::gpu::Gpu>>> {
+pub fn pick_gpu(choice: &str) -> Result<Option<Arc<paint::gpu::Gpu>>> {
     if choice == "cpu" || choice == "off" {
-        return Ok(None);
-    }
-    if width % 8 != 0 {
-        if choice == "gpu" {
-            bail!("GPU compositing needs an output width divisible by 8");
-        }
         return Ok(None);
     }
     match paint::gpu::Gpu::new() {
@@ -91,7 +87,7 @@ pub fn default_workers(enc: media::Encoder, gpu: bool) -> usize {
 pub fn render_prepared(p: &Prepared, out: &Path, o: &Options) -> Result<Stats> {
     let t = std::time::Instant::now();
     let encoder = media::encode::pick_encoder(&o.encoder)?;
-    let gpu = pick_gpu(&o.compositor, p.width)?;
+    let gpu = pick_gpu(&o.compositor)?;
     let workers = o.workers.unwrap_or_else(|| default_workers(encoder, gpu.is_some()));
     render::render(p, out, &render::RenderOpts { workers, encoder, quality: o.quality, keep_temp: o.keep_temp, gpu })?;
     Ok(Stats { frames: p.frames, seconds: t.elapsed().as_secs_f64() })
