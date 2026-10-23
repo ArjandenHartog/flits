@@ -41,17 +41,19 @@ impl VideoReader {
         w: u32,
         h: u32,
         looped: bool,
+        speed: f64,
         high_bit: bool,
     ) -> Result<VideoReader> {
-        let mut seek = trim + first as f64 / fps;
+        let mut seek = trim + first as f64 / fps * speed;
         if looped && info.duration > 0.0 {
             seek %= info.duration;
         }
         let mut fmt = info.color;
         fmt.high_bit = high_bit && (fmt.high_bit || fmt.is_hdr());
         let pix = if fmt.high_bit { "yuv420p10le" } else { "yuv420p" };
-        // keep the source colour encoding: only resample + scale here, the GPU converts
-        let vf = format!("fps={fps},scale={w}:{h}:flags=bicubic,format={pix}");
+        // keep the source colour encoding: only retime, resample + scale here, the GPU converts
+        let retime = if (speed - 1.0).abs() > 1e-6 { format!("setpts=PTS/{speed},") } else { String::new() };
+        let vf = format!("{retime}fps={fps},scale={w}:{h}:flags=bicubic,format={pix}");
         let mut cmd = ffmpeg();
         cmd.args(["-threads", "2", "-filter_threads", "1"]);
         if looped {

@@ -55,3 +55,22 @@ fn gpu_auto_pipeline_odd_width() {
         .unwrap();
     assert_eq!(String::from_utf8_lossy(&o.stdout).trim(), "638,360");
 }
+
+#[test]
+fn audio_ducking_loudness_and_speed() {
+    if !common::has_ffmpeg() {
+        return;
+    }
+    let dir = common::tmp("pipe-audio-assets");
+    let clip = common::clip(&dir, "c.mp4", 4.0);
+    let music = common::clip(&dir, "m.mp4", 6.0);
+    let scene = json!({
+        "width": 320, "height": 180, "fps": 25, "loudness": -16,
+        "audio": [{"src": music, "duck": 0.2, "volume": [[0, 0], [0.5, 1, "out"], ["end-0.5", 1], ["end", 0]]}],
+        "layers": [{"type": "video", "src": clip, "speed": 2.0}]
+    });
+    let out = render("pipe-audio", scene, "cpu", "cpu");
+    // 4 s clip at 2x speed = 2 s
+    assert_eq!(common::probe_frames(&out), 50);
+    assert!(common::has_audio(&out));
+}

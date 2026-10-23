@@ -55,14 +55,14 @@ fn advance_videos(n: &Node, t: f64, frame: i64, fps: f64, vs: &mut VideoState) -
     if t < n.start || t >= n.end {
         return Ok(());
     }
-    if let Kind::Video { src, info, dw, dh, trim, looped, .. } = &n.kind {
+    if let Kind::Video { src, info, dw, dh, trim, looped, speed, .. } = &n.kind {
         let lf = frame - (n.start * fps).round() as i64;
         let need_new = match vs.readers.get(&n.id) {
             None => true,
             Some((_, r)) => lf < r.cur || lf > r.cur + (fps * 2.0) as i64 || lf < r.first(),
         };
         if need_new {
-            let r = VideoReader::spawn(src, info, *trim, lf.max(0), fps, *dw, *dh, *looped, vs.high_bit)?;
+            let r = VideoReader::spawn(src, info, *trim, lf.max(0), fps, *dw, *dh, *looped, *speed, vs.high_bit)?;
             vs.readers.insert(n.id, (n.end, r));
         }
         vs.readers.get_mut(&n.id).unwrap().1.seek_forward(lf)?;

@@ -14,9 +14,6 @@ use std::path::{Path, PathBuf};
 fn default_fps() -> f64 {
     30.0
 }
-fn one() -> f64 {
-    1.0
-}
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -33,6 +30,9 @@ pub struct Scene {
     pub fonts: HashMap<String, String>,
     #[serde(default)]
     pub audio: Vec<AudioTrack>,
+    /// normalize the final mix to this loudness (LUFS, e.g. -14 for social, -16 for podcasts)
+    #[serde(default)]
+    pub loudness: Option<f64>,
     #[serde(default)]
     pub layers: Vec<Layer>,
     /// Directory relative paths are resolved against (not part of the JSON).
@@ -50,14 +50,35 @@ pub struct AudioTrack {
     pub trim: f64,
     #[serde(default)]
     pub duration: Option<f64>,
-    #[serde(default = "one")]
-    pub volume: f64,
+    /// constant or keyframed (seconds from the track start)
+    #[serde(default)]
+    pub volume: Option<Prop>,
     #[serde(default)]
     pub fade_in: f64,
     #[serde(default)]
     pub fade_out: f64,
     #[serde(default, rename = "loop")]
     pub looped: bool,
+    /// duck under the other audio (voice, video sound): true or the level to duck to (0..1)
+    #[serde(default)]
+    pub duck: Option<Duck>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum Duck {
+    On(bool),
+    Level(f64),
+}
+
+impl Duck {
+    pub fn level(&self) -> Option<f64> {
+        match self {
+            Duck::On(true) => Some(0.25),
+            Duck::On(false) => None,
+            Duck::Level(l) => Some(*l),
+        }
+    }
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -171,9 +192,11 @@ pub struct Layer {
     pub fit: Option<String>,
     pub blur: f64,
     pub trim: f64,
-    pub volume: Option<f64>,
+    pub volume: Option<Prop>,
     #[serde(rename = "loop")]
     pub looped: bool,
+    /// playback speed for video (0.5 = slow motion, 2 = double speed)
+    pub speed: Option<f64>,
     pub fade_in: f64,
     pub fade_out: f64,
 
@@ -214,8 +237,9 @@ pub struct Layer {
     pub overlap: f64,
 }
 
-const SCENE_KEYS: &[&str] = &["width", "height", "fps", "duration", "background", "fonts", "audio", "layers", "$schema", "comment"];
-const AUDIO_KEYS: &[&str] = &["src", "start", "trim", "duration", "volume", "fadeIn", "fadeOut", "loop", "comment"];
+const SCENE_KEYS: &[&str] =
+    &["width", "height", "fps", "duration", "background", "fonts", "audio", "loudness", "layers", "$schema", "comment"];
+const AUDIO_KEYS: &[&str] = &["src", "start", "trim", "duration", "volume", "fadeIn", "fadeOut", "loop", "duck", "comment"];
 const LAYER_KEYS: &[&str] = &[
     "type",
     "id",

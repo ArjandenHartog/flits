@@ -44,7 +44,7 @@ pub enum Kind {
     Group,
     Rect(Fill),
     Image { key: ImgKey, pm: Option<Arc<Pixmap>>, fit: Fit },
-    Video { src: PathBuf, info: MediaInfo, dw: u32, dh: u32, trim: f64, looped: bool, fit: Fit },
+    Video { src: PathBuf, info: MediaInfo, dw: u32, dh: u32, trim: f64, looped: bool, fit: Fit, speed: f64 },
     Text { sprite: Arc<Sprite>, pieces: Option<(Vec<(Arc<Sprite>, f32, f32)>, f64)> },
     Captions(Arc<Captions>),
     Waveform { spec: Arc<Spectrum>, color: Rgba, mirror: bool, gap: f32 },
@@ -79,13 +79,19 @@ pub struct Node {
 #[derive(Clone, Debug)]
 pub struct AudioInput {
     pub path: PathBuf,
+    /// scene time where it starts
     pub start: f64,
+    /// seconds skipped in the source
     pub trim: f64,
+    /// duration in the scene (source plays `dur * speed` seconds)
     pub dur: f64,
-    pub volume: f64,
+    pub volume: Prop,
     pub fade_in: f64,
     pub fade_out: f64,
     pub looped: bool,
+    pub speed: f64,
+    /// duck under the other audio to this level
+    pub duck: Option<f64>,
 }
 
 pub struct Prepared {
@@ -98,6 +104,8 @@ pub struct Prepared {
     pub root_scale: f32,
     pub nodes: Vec<Node>,
     pub audio: Vec<AudioInput>,
+    /// master loudness target (LUFS)
+    pub loudness: Option<f64>,
 }
 
 struct Ctx<'a> {
@@ -186,10 +194,12 @@ impl Prepared {
                     start: a.start,
                     trim: a.trim,
                     dur,
-                    volume: a.volume,
+                    volume: a.volume.clone().unwrap_or(Prop::Const(1.0)),
                     fade_in: a.fade_in,
                     fade_out: a.fade_out,
                     looped: a.looped,
+                    speed: 1.0,
+                    duck: a.duck.as_ref().and_then(|d| d.level()),
                 });
             }
         }
@@ -222,6 +232,7 @@ impl Prepared {
             root_scale: width as f32 / scene.width as f32,
             nodes,
             audio: ctx.audio,
+            loudness: scene.loudness,
         })
     }
 }
@@ -396,11 +407,15 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
             };
             let s = (s0 * zoom.max_abs().max(1.0) * max_scale * rs).min(1.0);
             let even = |v: f64| ((v / 2.0).ceil() as u32 * 2).max(2);
-            if !l.looped {
-                natural = Some((info.duration - l.trim).max(0.0));
+            let speed = l.speed.unwrap_or(1.0);
+            if !(0.05..=20.0).contains(&speed) {
+                bail!("video speed must be between 0.05 and 20");
             }
-            let vol = l.volume.unwrap_or(1.0);
-            if vol > 0.0 && info.has_audio {
+            if !l.looped {
+                natural = Some(((info.duration - l.trim) / speed).max(0.0));
+            }
+            let vol = l.volume.clone().unwrap_or(Prop::Const(1.0));
+            if vol.max_abs() > 0.0 && info.has_audio {
                 // duration filled in after the node end is known (see below)
                 ctx.audio.push(AudioInput {
                     path: src.clone(),
@@ -411,9 +426,11 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
                     fade_in: l.fade_in,
                     fade_out: l.fade_out,
                     looped: l.looped,
+                    speed,
+                    duck: None,
                 });
             }
-            Kind::Video { src, dw: even(iw * s), dh: even(ih * s), info, trim: l.trim, looped: l.looped, fit }
+            Kind::Video { src, dw: even(iw * s), dh: even(ih * s), info, trim: l.trim, looped: l.looped, fit, speed }
         }
         "text" => {
             let raw = l.text.clone().ok_or_else(|| anyhow!("text needs \"text\""))?;

@@ -127,7 +127,7 @@ impl KeyTime {
             _ => bail!("key time must be a number or \"end-<sec>\""),
         }
     }
-    fn at(self, dur: f64) -> f64 {
+    pub fn at(self, dur: f64) -> f64 {
         match self {
             KeyTime::Abs(t) => t,
             KeyTime::FromEnd(off) => dur + off,
