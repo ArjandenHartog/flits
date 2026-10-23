@@ -17,7 +17,7 @@ pub fn decode_audio(path: &Path, start: f64, dur: f64, rate: u32) -> Result<Vec<
     if !out.status.success() {
         bail!("ffmpeg could not decode audio from {}: {}", path.display(), String::from_utf8_lossy(&out.stderr));
     }
-    Ok(out.stdout.chunks_exact(4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect())
+    Ok(out.stdout.as_chunks::<4>().0.iter().map(|b| f32::from_le_bytes(*b)).collect())
 }
 
 pub fn mix(p: &Prepared, out: &Path) -> Result<bool> {

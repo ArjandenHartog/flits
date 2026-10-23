@@ -307,6 +307,6 @@ mod tests {
         let lay = layout(&st, &tokenize("Hallo"));
         let s = render(&st, &lay, None, None).unwrap();
         assert!(s.pm.width() as f32 > s.w && s.ox > 0.0);
-        assert!(s.pm.data().chunks_exact(4).any(|p| p[3] == 255), "glyphs are drawn");
+        assert!(s.pm.data().as_chunks::<4>().0.iter().any(|p| p[3] == 255), "glyphs are drawn");
     }
 }

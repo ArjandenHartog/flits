@@ -101,7 +101,7 @@ pub fn blur(pm: &mut Pixmap, sigma: f32) {
 /// Replace color with `color`, keeping (scaled) alpha. Output is premultiplied.
 pub fn tint(pm: &mut Pixmap, color: Rgba) {
     let (r, g, b, a) = (color.r, color.g, color.b, color.a);
-    for px in pm.data_mut().chunks_exact_mut(4) {
+    for px in pm.data_mut().as_chunks_mut::<4>().0 {
         let al = px[3] as f32 / 255.0 * a;
         px[0] = (r * al * 255.0 + 0.5) as u8;
         px[1] = (g * al * 255.0 + 0.5) as u8;

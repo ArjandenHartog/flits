@@ -52,7 +52,7 @@ fn decode(path: &Path) -> Result<(u32, u32, Vec<u8>)> {
 }
 
 fn premultiply(data: &mut [u8]) {
-    for px in data.chunks_exact_mut(4) {
+    for px in data.as_chunks_mut::<4>().0 {
         let a = px[3] as u16;
         if a < 255 {
             px[0] = ((px[0] as u16 * a + 127) / 255) as u8;

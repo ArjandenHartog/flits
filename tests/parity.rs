@@ -8,7 +8,8 @@ use serde_json::json;
 
 fn diff(a: &[u8], b: &[u8]) -> (f64, f64) {
     // (mean abs difference, 99.5th percentile) over RGB
-    let mut d: Vec<u8> = a.chunks_exact(4).zip(b.chunks_exact(4)).flat_map(|(x, y)| (0..3).map(move |i| x[i].abs_diff(y[i]))).collect();
+    let mut d: Vec<u8> =
+        a.as_chunks::<4>().0.iter().zip(b.as_chunks::<4>().0).flat_map(|(x, y)| (0..3).map(move |i| x[i].abs_diff(y[i]))).collect();
     let mean = d.iter().map(|&v| v as f64).sum::<f64>() / d.len() as f64;
     d.sort_unstable();
     (mean, d[d.len() * 995 / 1000] as f64)
