@@ -55,6 +55,7 @@ pub fn sheet(p: &Prepared, gpu: Option<Arc<Gpu>>, count: usize, cols: usize, out
         color: Rgba::rgba8(230, 230, 235, 1.0),
         line_height: 1.2,
         letter_spacing: 0.0,
+        word_spacing: 0.0,
         align: Align::Left,
         max_width: None,
         stroke: None,

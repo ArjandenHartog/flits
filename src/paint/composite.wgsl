@@ -19,7 +19,7 @@ struct VIn {
     @location(4) uvt: vec4<f32>,    // tx, ty, mode (0 texture, 1 solid, 2 yuv), px-per-local-unit
     @location(5) color: vec4<f32>,  // premultiplied solid color
     @location(6) cm: vec4<f32>,     // canvas -> clip-local: sx, kx, ky, sy
-    @location(7) ct: vec4<f32>,     // tx, ty, has-clip, px-per-clip-unit
+    @location(7) ct: vec4<f32>,     // tx, ty, has-clip (1 + corner radius), px-per-clip-unit
     @location(8) cr: vec4<f32>,     // clip rect
     @location(9) vid: vec4<f32>,    // video: transfer (0 sdr, 1 hlg, 2 pq), matrix (0 709, 1 2020, 2 601), full range, sample scale
     @location(10) adj: vec4<f32>,   // video grading: brightness, contrast, saturation, warmth
@@ -169,7 +169,16 @@ fn fs(i: VOut) -> @location(0) vec4<f32> {
     if (i.ct.z > 0.5) {
         let s = i.pos.xy;
         let cp = vec2<f32>(i.cm.x * s.x + i.cm.y * s.y + i.ct.x, i.cm.z * s.x + i.cm.w * s.y + i.ct.y);
-        let e = min(min(cp.x - i.cr.x, i.cr.z - cp.x), min(cp.y - i.cr.y, i.cr.w - cp.y));
+        var e = min(min(cp.x - i.cr.x, i.cr.z - cp.x), min(cp.y - i.cr.y, i.cr.w - cp.y));
+        let cr_r = i.ct.z - 1.0;
+        if (cr_r > 0.0) {
+            // rounded clip (iris): signed distance like the shape above
+            let cc = (i.cr.xy + i.cr.zw) * 0.5;
+            let ch = (i.cr.zw - i.cr.xy) * 0.5;
+            let rr = min(cr_r, min(ch.x, ch.y));
+            let cq = abs(cp - cc) - ch + vec2<f32>(rr, rr);
+            e = -(length(max(cq, vec2<f32>(0.0, 0.0))) + min(max(cq.x, cq.y), 0.0) - rr);
+        }
         cov = cov * clamp(e * i.ct.w + 0.5, 0.0, 1.0);
     }
     let uv = vec2<f32>(i.uvm.x * p.x + i.uvm.y * p.y + i.uvt.x, i.uvm.z * p.x + i.uvm.w * p.y + i.uvt.y);

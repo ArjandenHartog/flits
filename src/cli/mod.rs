@@ -285,11 +285,15 @@ enum Cmd {
         video: PathBuf,
         #[arg(short, long)]
         out: Option<PathBuf>,
-        /// karaoke | pop | word | line
-        #[arg(long, default_value = "pop")]
-        style: String,
-        #[arg(long, default_value = "#ffd60a")]
-        highlight: String,
+        /// named look: tiktok | karaoke-box | bounce | minimal | neon | highlighter | subtitle | word-pop-big
+        #[arg(long)]
+        preset: Option<String>,
+        /// karaoke | pop | word | line | bounce (default: pop, or the preset's)
+        #[arg(long)]
+        style: Option<String>,
+        /// active word colour (default: #ffd60a, or the preset's)
+        #[arg(long)]
+        highlight: Option<String>,
         #[arg(long)]
         uppercase: bool,
         /// vertical position as fraction of the height
@@ -325,7 +329,7 @@ enum Cmd {
         to: Option<f64>,
         #[arg(long, default_value = "#f26328")]
         accent: String,
-        /// captions style: karaoke | pop | word | line
+        /// captions style: karaoke | pop | word | line | bounce
         #[arg(long)]
         style: Option<String>,
         #[arg(long)]
@@ -506,8 +510,9 @@ fn run(cli: Cli) -> Result<()> {
             };
             make::slideshow(o, out, &r)
         }
-        Cmd::Captions { video, out, style, highlight, uppercase, position, transcript, w, r } => {
-            make::captions(&video, out, style, highlight, uppercase, position, transcript, &w, &r)
+        Cmd::Captions { video, out, preset, style, highlight, uppercase, position, transcript, w, r } => {
+            let look = make::CaptionLook { preset, style, highlight, uppercase, position };
+            make::captions(&video, out, look, transcript, &w, &r)
         }
         Cmd::Podcast { audio, out, cover, title, subtitle, format, from, to, accent, style, transcript, w, r } => {
             make::podcast(&audio, out, cover, title, subtitle, format, from, to, accent, style, transcript, &w, &r)

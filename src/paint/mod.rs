@@ -31,6 +31,8 @@ pub struct Clip {
     /// clip-local -> canvas pixels
     pub ts: Transform,
     pub rect: [f32; 4],
+    /// corner radius in clip-local units (radius >= half the size = circle)
+    pub radius: f32,
 }
 
 pub struct Op<'a> {

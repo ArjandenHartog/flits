@@ -398,6 +398,10 @@
       ],
       "description": "One layer. All layer types share this flat set of properties; each type uses the ones that apply to it (see the descriptions). Positions and sizes are relative to the parent (canvas or group).",
       "properties": {
+        "activeScale": {
+          "description": "captions: size of the active word relative to the others (default 1.12 for pop, 1 otherwise)",
+          "type": "number"
+        },
         "align": {
           "description": "Text alignment: left, center (default), right (aliases start, middle, end).",
           "enum": [
@@ -450,6 +454,13 @@
         "color": {
           "$ref": "#/$defs/Color",
           "description": "rect: fill colour; text/counter/captions: text colour (default white)"
+        },
+        "colors": {
+          "description": "captions: active-word colours, cycled word by word (instead of `highlight`)",
+          "items": {
+            "$ref": "#/$defs/Color"
+          },
+          "type": "array"
         },
         "comment": {
           "description": "Free-form note for humans; ignored by flits.",
@@ -518,7 +529,17 @@
         },
         "highlightBg": {
           "$ref": "#/$defs/Color",
-          "description": "captions: pill colour behind the active word"
+          "description": "captions: box colour behind the active word (shape: `highlightBox`)"
+        },
+        "highlightBox": {
+          "description": "Shape of the `highlightBg` box: pill (default; glides from word to word) or marker (a highlighter stroke that wipes in). Aliases: box, highlighter.",
+          "enum": [
+            "pill",
+            "marker",
+            "box",
+            "highlighter"
+          ],
+          "type": "string"
         },
         "id": {
           "description": "optional name (for your own bookkeeping)",
@@ -542,12 +563,17 @@
           "description": "video: loop the clip",
           "type": "boolean"
         },
+        "maxLines": {
+          "description": "captions: most lines per chunk (default 2; a chunk ends before it would wrap further)",
+          "minimum": 0,
+          "type": "integer"
+        },
         "maxWidth": {
           "description": "wrap text at this width in px",
           "type": "number"
         },
         "maxWords": {
-          "description": "captions: words per chunk",
+          "description": "captions: most words per chunk",
           "minimum": 0,
           "type": "integer"
         },
@@ -579,6 +605,20 @@
         },
         "prefix": {
           "description": "counter: text before the number",
+          "type": "string"
+        },
+        "preset": {
+          "description": "captions: named look (see `presets`); merged into the layer before parsing",
+          "enum": [
+            "tiktok",
+            "karaoke-box",
+            "bounce",
+            "minimal",
+            "neon",
+            "highlighter",
+            "subtitle",
+            "word-pop-big"
+          ],
           "type": "string"
         },
         "radius": {
@@ -633,6 +673,13 @@
           "description": "font size in px (text 64, counter 96)",
           "type": "number"
         },
+        "speakerColors": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Color"
+          },
+          "description": "captions: word colour per diarization speaker label ({\"SPEAKER_00\": \"#ffffff\", ...})",
+          "type": "object"
+        },
         "speed": {
           "description": "playback speed for video (0.5 = slow motion, 2 = double speed)",
           "type": "number"
@@ -650,14 +697,16 @@
           "$ref": "#/$defs/StrokeSpec"
         },
         "style": {
-          "description": "Captions style: karaoke (default; active word highlighted), pop (words pop in as spoken, TikTok-style), word (one big word at a time), line (plain subtitles). Aliases: highlight, tiktok, single, plain, subtitle.",
+          "description": "Captions style: karaoke (default; active word highlighted), pop (words pop in as spoken, TikTok-style), bounce (words drop in with a bounce), word (one big word at a time), line (plain subtitles). Aliases: highlight, tiktok, jump, single, plain, subtitle.",
           "enum": [
             "karaoke",
             "pop",
+            "bounce",
             "word",
             "line",
             "highlight",
             "tiktok",
+            "jump",
             "single",
             "plain",
             "subtitle"
@@ -841,14 +890,14 @@
     "Transition": {
       "anyOf": [
         {
-          "pattern": "^\\s*(fade|slide-up|slide-down|slide-left|slide-right|zoom-in|zoom-out|pop|wipe-left|wipe-right|wipe-up|wipe-down|up|down|left|right|zoom|wipe)(\\s+([0-9]+\\.?[0-9]*|\\.[0-9]+)s?)?\\s*$",
+          "pattern": "^\\s*(fade|slide-up|slide-down|slide-left|slide-right|slide-fade|zoom-in|zoom-out|zoom-fade|pop|wipe-left|wipe-right|wipe-up|wipe-down|push-left|push-right|push-up|push-down|rotate-in|flip-x|flip-y|iris|up|down|left|right|rise|zoom|wipe|push|rotate|flip|circle)(\\s+([0-9]+\\.?[0-9]*|\\.[0-9]+)s?)?\\s*$",
           "type": "string"
         },
         {
           "$ref": "#/$defs/TransitionSpec"
         }
       ],
-      "description": "Enter (`in`) or exit (`out`) transition: \"fade\", \"pop 0.4\" (type + seconds) or {\"type\", \"duration\", \"ease\", \"distance\"}.",
+      "description": "Enter (`in`) or exit (`out`) transition: \"fade\", \"pop 0.4\" (type + seconds) or {\"type\", \"duration\", \"ease\", \"distance\", \"angle\"}.",
       "examples": [
         "fade",
         "pop 0.4",
@@ -864,21 +913,25 @@
       "additionalProperties": false,
       "description": "Enter/exit transition as an object.",
       "properties": {
+        "angle": {
+          "description": "rotate-in: degrees turned during the transition (default 90)",
+          "type": "number"
+        },
         "comment": {
           "description": "Free-form note for humans; ignored by flits.",
           "type": "string"
         },
         "distance": {
-          "description": "slide distance in px (default 120)",
+          "description": "slide distance in px (default 120; slide-fade 40)",
           "type": "number"
         },
         "duration": {
-          "description": "seconds (default 0.5; pop 0.45)",
+          "description": "seconds (default 0.5; pop 0.45; iris and push 0.6)",
           "type": "number"
         },
         "ease": {
           "$ref": "#/$defs/Ease",
-          "description": "easing curve (default: out; pop: back-out; wipes: in-out)"
+          "description": "easing curve (default: out; pop: back-out; wipes, push and iris: in-out)"
         },
         "type": {
           "$ref": "#/$defs/TransitionType",
@@ -888,26 +941,41 @@
       "type": "object"
     },
     "TransitionType": {
-      "description": "fade, slide-up/down/left/right, zoom-in, zoom-out, pop, wipe-left/right/up/down (aliases: up, down, left, right, zoom = zoom-in, wipe = wipe-right).",
+      "description": "fade, slide-up/down/left/right, slide-fade, zoom-in, zoom-out, zoom-fade, pop, wipe-left/right/up/down, push-left/right/up/down, rotate-in, flip-x, flip-y, iris (aliases: up, down, left, right, rise = slide-fade, zoom = zoom-in, wipe = wipe-right, push = push-right, rotate = rotate-in, flip = flip-x, circle = iris).",
       "enum": [
         "fade",
         "slide-up",
         "slide-down",
         "slide-left",
         "slide-right",
+        "slide-fade",
         "zoom-in",
         "zoom-out",
+        "zoom-fade",
         "pop",
         "wipe-left",
         "wipe-right",
         "wipe-up",
         "wipe-down",
+        "push-left",
+        "push-right",
+        "push-up",
+        "push-down",
+        "rotate-in",
+        "flip-x",
+        "flip-y",
+        "iris",
         "up",
         "down",
         "left",
         "right",
+        "rise",
         "zoom",
-        "wipe"
+        "wipe",
+        "push",
+        "rotate",
+        "flip",
+        "circle"
       ],
       "type": "string"
     }

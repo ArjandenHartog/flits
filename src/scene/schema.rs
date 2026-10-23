@@ -5,8 +5,9 @@
 //! hand-written parsers — animated numbers, transitions, colours, eases — get their schemas here,
 //! as do the string enums of `Layer` (`type`, `fit`, `align`, ...).
 
-use super::anim::{Ease, KeyTime, Prop, Transition};
+use super::anim::{Ease, KeyTime, Prop, Transition, TRANSITION_ALIASES, TRANSITION_NAMES};
 use super::color::Rgba;
+use super::presets::CAPTION_PRESETS;
 use super::{Scene, LAYER_TYPES};
 use schemars::{json_schema, JsonSchema, Schema, SchemaGenerator};
 use serde_json::{json, Value};
@@ -34,28 +35,18 @@ pub const EASE_ALIASES: &[&str] = &[
     "step",
 ];
 
-/// Canonical transition types (plus the short aliases in [`TRANSITION_ALIASES`]).
-pub const TRANSITIONS: &[&str] = &[
-    "fade",
-    "slide-up",
-    "slide-down",
-    "slide-left",
-    "slide-right",
-    "zoom-in",
-    "zoom-out",
-    "pop",
-    "wipe-left",
-    "wipe-right",
-    "wipe-up",
-    "wipe-down",
-];
-pub const TRANSITION_ALIASES: &[&str] = &["up", "down", "left", "right", "zoom", "wipe"];
+/// Every accepted transition name: the canonical ones, then the short aliases.
+pub fn transition_names() -> Vec<&'static str> {
+    TRANSITION_NAMES.iter().chain(TRANSITION_ALIASES).map(|(n, _)| *n).collect()
+}
 
 pub const FITS: &[&str] = &["cover", "contain", "fill", "stretch"];
 pub const ALIGNS: &[&str] = &["left", "center", "right", "start", "middle", "end"];
 pub const REVEALS: &[&str] = &["words", "lines", "chars", "typewriter", "none"];
 pub const WRAPS: &[&str] = &["balance", "greedy"];
-pub const CAPTION_STYLES: &[&str] = &["karaoke", "pop", "word", "line", "highlight", "tiktok", "single", "plain", "subtitle"];
+pub const CAPTION_STYLES: &[&str] =
+    &["karaoke", "pop", "bounce", "word", "line", "highlight", "tiktok", "jump", "single", "plain", "subtitle"];
+pub const HIGHLIGHT_BOXES: &[&str] = &["pill", "marker", "box", "highlighter"];
 pub const TEXT_BG_MODES: &[&str] = &["box", "lines"];
 pub const GRADIENT_TYPES: &[&str] = &["linear", "radial"];
 
@@ -188,9 +179,28 @@ pub(crate) fn wrap(_: &mut SchemaGenerator) -> Schema {
 pub(crate) fn caption_style(_: &mut SchemaGenerator) -> Schema {
     string_enum(
         "Captions style: karaoke (default; active word highlighted), pop (words pop in as spoken, TikTok-style), \
-         word (one big word at a time), line (plain subtitles). Aliases: highlight, tiktok, single, plain, subtitle.",
+         bounce (words drop in with a bounce), word (one big word at a time), line (plain subtitles). \
+         Aliases: highlight, tiktok, jump, single, plain, subtitle.",
         CAPTION_STYLES,
     )
+}
+
+pub(crate) fn highlight_box(_: &mut SchemaGenerator) -> Schema {
+    string_enum(
+        "Shape of the `highlightBg` box: pill (default; glides from word to word) or marker (a highlighter stroke that \
+         wipes in). Aliases: box, highlighter.",
+        HIGHLIGHT_BOXES,
+    )
+}
+
+pub(crate) fn caption_preset(_: &mut SchemaGenerator) -> Schema {
+    let names: Vec<&str> = CAPTION_PRESETS.iter().map(|(n, _)| *n).collect();
+    let looks: Vec<String> = CAPTION_PRESETS.iter().map(|(n, d)| format!("{n}: {d}")).collect();
+    let description = format!(
+        "Captions: a ready-made look; properties set on the layer override it (objects such as `stroke` merge key by key). {}.",
+        looks.join("; ")
+    );
+    string_enum(&description, &names)
 }
 
 pub(crate) fn text_bg_mode(_: &mut SchemaGenerator) -> Schema {
@@ -333,12 +343,12 @@ impl JsonSchema for TransitionType {
     }
 
     fn json_schema(_: &mut SchemaGenerator) -> Schema {
-        let all: Vec<&str> = TRANSITIONS.iter().chain(TRANSITION_ALIASES).copied().collect();
         json_schema!({
             "type": "string",
-            "enum": all,
-            "description": "fade, slide-up/down/left/right, zoom-in, zoom-out, pop, wipe-left/right/up/down \
-                            (aliases: up, down, left, right, zoom = zoom-in, wipe = wipe-right)."
+            "enum": transition_names(),
+            "description": "fade, slide-up/down/left/right, slide-fade, zoom-in, zoom-out, zoom-fade, pop, wipe-left/right/up/down, \
+                            push-left/right/up/down, rotate-in, flip-x, flip-y, iris (aliases: up, down, left, right, rise = slide-fade, \
+                            zoom = zoom-in, wipe = wipe-right, push = push-right, rotate = rotate-in, flip = flip-x, circle = iris)."
         })
     }
 }
@@ -350,12 +360,14 @@ struct TransitionSpec {
     /// transition type (default fade)
     #[serde(rename = "type")]
     kind: Option<TransitionType>,
-    /// seconds (default 0.5; pop 0.45)
+    /// seconds (default 0.5; pop 0.45; iris and push 0.6)
     duration: Option<f64>,
-    /// easing curve (default: out; pop: back-out; wipes: in-out)
+    /// easing curve (default: out; pop: back-out; wipes, push and iris: in-out)
     ease: Option<Ease>,
-    /// slide distance in px (default 120)
+    /// slide distance in px (default 120; slide-fade 40)
     distance: Option<f64>,
+    /// rotate-in: degrees turned during the transition (default 90)
+    angle: Option<f64>,
 }
 
 impl JsonSchema for Transition {
@@ -364,9 +376,9 @@ impl JsonSchema for Transition {
     }
 
     fn json_schema(g: &mut SchemaGenerator) -> Schema {
-        let kinds = alternation(&TRANSITIONS.iter().chain(TRANSITION_ALIASES).copied().collect::<Vec<_>>());
+        let kinds = alternation(&transition_names());
         json_schema!({
-            "description": "Enter (`in`) or exit (`out`) transition: \"fade\", \"pop 0.4\" (type + seconds) or {\"type\", \"duration\", \"ease\", \"distance\"}.",
+            "description": "Enter (`in`) or exit (`out`) transition: \"fade\", \"pop 0.4\" (type + seconds) or {\"type\", \"duration\", \"ease\", \"distance\", \"angle\"}.",
             "anyOf": [
                 {"type": "string", "pattern": format!(r"^\s*({kinds})(\s+([0-9]+\.?[0-9]*|\.[0-9]+)s?)?\s*$")},
                 g.subschema_for::<TransitionSpec>()
@@ -385,8 +397,17 @@ mod tests {
         for e in EASES.iter().chain(EASE_ALIASES) {
             assert!(Ease::parse(e).is_ok(), "{e}");
         }
-        for t in TRANSITIONS.iter().chain(TRANSITION_ALIASES) {
+        for t in transition_names() {
             assert!(Transition::from_json(&json!(t)).is_ok(), "{t}");
+        }
+        for c in CAPTION_STYLES {
+            assert!(crate::compose::captions::CapKind::parse(Some(c)).is_ok(), "{c}");
+        }
+        for b in HIGHLIGHT_BOXES {
+            assert!(crate::compose::captions::HiBox::parse(Some(b)).is_ok(), "{b}");
+        }
+        for (p, _) in CAPTION_PRESETS {
+            assert!(super::super::presets::caption_preset(p, (1080.0, 1920.0), None).is_ok(), "{p}");
         }
         for a in ALIGNS {
             assert!(crate::text::Align::parse(Some(a)).is_ok(), "{a}");

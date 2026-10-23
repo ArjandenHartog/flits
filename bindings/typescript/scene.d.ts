@@ -72,31 +72,48 @@ export type TransitionType =
   | "slide-down"
   | "slide-left"
   | "slide-right"
+  | "slide-fade"
   | "zoom-in"
   | "zoom-out"
+  | "zoom-fade"
   | "pop"
   | "wipe-left"
   | "wipe-right"
   | "wipe-up"
   | "wipe-down"
-  // aliases: zoom = zoom-in, wipe = wipe-right
+  | "push-left"
+  | "push-right"
+  | "push-up"
+  | "push-down"
+  | "rotate-in"
+  | "flip-x"
+  | "flip-y"
+  | "iris"
+  // aliases: rise = slide-fade, zoom = zoom-in, wipe = wipe-right, push = push-right, rotate = rotate-in, flip = flip-x, circle = iris
   | "up"
   | "down"
   | "left"
   | "right"
+  | "rise"
   | "zoom"
-  | "wipe";
+  | "wipe"
+  | "push"
+  | "rotate"
+  | "flip"
+  | "circle";
 
 /** Enter/exit transition as an object. */
 export interface TransitionSpec {
   /** transition type (default "fade") */
   type?: TransitionType;
-  /** seconds (default 0.5; pop 0.45) */
+  /** seconds (default 0.5; pop 0.45; iris and push 0.6) */
   duration?: number;
-  /** easing curve (default "out"; pop "back-out"; wipes "in-out") */
+  /** easing curve (default "out"; pop "back-out"; wipes, push and iris "in-out") */
   ease?: Ease;
-  /** slide distance in px (default 120) */
+  /** slide distance in px (default 120; slide-fade 40) */
   distance?: number;
+  /** rotate-in: degrees turned during the transition (default 90) */
+  angle?: number;
   comment?: string;
 }
 
@@ -117,8 +134,12 @@ export type Align = "left" | "center" | "right" | "start" | "middle" | "end";
 export type Reveal = "words" | "lines" | "chars" | "typewriter" | "none";
 /** balance: even line lengths; greedy (default) */
 export type Wrap = "balance" | "greedy";
-/** karaoke (default), pop, word, line; aliases highlight, tiktok, single, plain, subtitle */
-export type CaptionStyle = "karaoke" | "pop" | "word" | "line" | "highlight" | "tiktok" | "single" | "plain" | "subtitle";
+/** karaoke (default), pop, bounce, word, line; aliases highlight, tiktok, jump, single, plain, subtitle */
+export type CaptionStyle = "karaoke" | "pop" | "bounce" | "word" | "line" | "highlight" | "tiktok" | "jump" | "single" | "plain" | "subtitle";
+/** Ready-made caption looks (see SPEC.md); layer properties override the preset. */
+export type CaptionPreset = "tiktok" | "karaoke-box" | "bounce" | "minimal" | "neon" | "highlighter" | "subtitle" | "word-pop-big";
+/** pill (default; glides from word to word) or marker (highlighter stroke); aliases box, highlighter */
+export type HighlightBox = "pill" | "marker" | "box" | "highlighter";
 /** box (default): one box around the text block; lines: one pill per line */
 export type TextBgMode = "box" | "lines";
 export type GradientType = "linear" | "radial";
@@ -309,14 +330,26 @@ export interface LayerProps {
   /** seconds over which the `reveal` pieces appear */
   revealDuration?: number;
 
+  /** captions: named look; properties set on the layer override it */
+  preset?: CaptionPreset;
   /** captions style */
   style?: CaptionStyle;
   /** captions: colour of the active word (default yellow) */
   highlight?: Color;
-  /** captions: pill colour behind the active word */
+  /** captions: box colour behind the active word (shape: `highlightBox`) */
   highlightBg?: Color;
-  /** captions: words per chunk */
+  /** captions: shape of the `highlightBg` box */
+  highlightBox?: HighlightBox;
+  /** captions: most words per chunk */
   maxWords?: number;
+  /** captions: most lines per chunk (default 2) */
+  maxLines?: number;
+  /** captions: active-word colours, cycled word by word (instead of `highlight`) */
+  colors?: Color[];
+  /** captions: size of the active word relative to the others (default 1.12 for pop, 1 otherwise) */
+  activeScale?: number;
+  /** captions: word colour per diarization speaker label, e.g. { SPEAKER_00: "#ffffff" } */
+  speakerColors?: Record<string, Color>;
 
   /** waveform: number of bars (default 48) */
   bars?: number;

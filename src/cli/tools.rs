@@ -225,6 +225,7 @@ pub fn measure() -> Result<()> {
             color: flits::scene::color::Rgba::WHITE,
             line_height: r.line_height,
             letter_spacing: r.letter_spacing,
+            word_spacing: 0.0,
             align: flits::text::Align::Left,
             max_width: r.max_width,
             stroke: None,

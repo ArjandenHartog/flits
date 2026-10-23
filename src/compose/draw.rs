@@ -193,11 +193,12 @@ fn draw_node<'a>(
     let lt = t - n.start;
     let dur = n.end - n.start;
     let mut fx = Fx::default();
+    let area = (n.area.0 as f64, n.area.1 as f64);
     if let Some(tr) = &n.enter {
-        tr.apply_in(lt, &mut fx);
+        tr.apply_in(lt, area, &mut fx);
     }
     if let Some(tr) = &n.exit {
-        tr.apply_out(dur - lt, &mut fx);
+        tr.apply_out(dur - lt, area, &mut fx);
     }
     let op = parent_op * n.opacity.eval(lt, dur).clamp(0.0, 1.0) as f32 * fx.opacity;
     if op <= 0.002 {
@@ -206,11 +207,11 @@ fn draw_node<'a>(
     let x = n.x.eval(lt, dur) + fx.dx;
     let y = n.y.eval(lt, dur) + fx.dy;
     let s = n.scale.eval(lt, dur) * fx.scale;
-    let (sx, sy) = ((s * n.scale_x.eval(lt, dur)) as f32, (s * n.scale_y.eval(lt, dur)) as f32);
+    let (sx, sy) = ((s * fx.sx * n.scale_x.eval(lt, dur)) as f32, (s * fx.sy * n.scale_y.eval(lt, dur)) as f32);
     if sx.abs() < 1e-4 || sy.abs() < 1e-4 {
         return;
     }
-    let rot = n.rotation.eval(lt, dur) as f32;
+    let rot = (n.rotation.eval(lt, dur) + fx.rot) as f32;
     let (w, h) = (n.w, n.h);
     let mut ts = parent.pre_translate(x as f32, y as f32);
     if rot != 0.0 {
@@ -220,7 +221,8 @@ fn draw_node<'a>(
     let clip = match fx.clip {
         Some(c) => {
             let (cx, cy, cw, ch) = c.rect(w as f64, h as f64);
-            Some(Clip { ts, rect: [cx as f32, cy as f32, (cx + cw) as f32, (cy + ch) as f32] })
+            let radius = c.radius(w as f64, h as f64) as f32;
+            Some(Clip { ts, rect: [cx as f32, cy as f32, (cx + cw) as f32, (cy + ch) as f32], radius })
         }
         None => pclip,
     };
@@ -244,7 +246,7 @@ fn draw_node<'a>(
 
     match &n.kind {
         Kind::Group => {
-            let clip = if n.clip { Some(Clip { ts, rect: [0.0, 0.0, w, h] }) } else { clip };
+            let clip = if n.clip { Some(Clip { ts, rect: [0.0, 0.0, w, h], radius: 0.0 }) } else { clip };
             for c in &n.children {
                 draw_node(painter, c, t, ts, op, clip, ctx);
             }

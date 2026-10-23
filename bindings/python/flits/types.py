@@ -33,6 +33,8 @@ __all__ = [
     "Reveal",
     "Wrap",
     "CaptionStyle",
+    "CaptionPreset",
+    "HighlightBox",
     "TextBgMode",
     "GradientType",
     "Border",
@@ -112,29 +114,45 @@ TransitionType = Literal[
     "slide-down",
     "slide-left",
     "slide-right",
+    "slide-fade",
     "zoom-in",
     "zoom-out",
+    "zoom-fade",
     "pop",
     "wipe-left",
     "wipe-right",
     "wipe-up",
     "wipe-down",
-    # aliases: zoom = zoom-in, wipe = wipe-right
+    "push-left",
+    "push-right",
+    "push-up",
+    "push-down",
+    "rotate-in",
+    "flip-x",
+    "flip-y",
+    "iris",
+    # aliases: rise = slide-fade, zoom = zoom-in, wipe = wipe-right, push = push-right, rotate = rotate-in, flip = flip-x, circle = iris
     "up",
     "down",
     "left",
     "right",
+    "rise",
     "zoom",
     "wipe",
+    "push",
+    "rotate",
+    "flip",
+    "circle",
 ]
 
 TransitionSpec = TypedDict(
     "TransitionSpec",
     {
         "type": TransitionType,  # default "fade"
-        "duration": float,  # seconds (default 0.5; pop 0.45)
-        "ease": Ease,  # default "out"; pop "back-out"; wipes "in-out"
-        "distance": float,  # slide distance in px (default 120)
+        "duration": float,  # seconds (default 0.5; pop 0.45; iris and push 0.6)
+        "ease": Ease,  # default "out"; pop "back-out"; wipes, push and iris "in-out"
+        "distance": float,  # slide distance in px (default 120; slide-fade 40)
+        "angle": float,  # rotate-in: degrees turned during the transition (default 90)
         "comment": str,
     },
     total=False,
@@ -153,7 +171,13 @@ Fit = Literal["cover", "contain", "fill", "stretch"]
 Align = Literal["left", "center", "right", "start", "middle", "end"]
 Reveal = Literal["words", "lines", "chars", "typewriter", "none"]
 Wrap = Literal["balance", "greedy"]
-CaptionStyle = Literal["karaoke", "pop", "word", "line", "highlight", "tiktok", "single", "plain", "subtitle"]
+CaptionStyle = Literal[
+    "karaoke", "pop", "bounce", "word", "line", "highlight", "tiktok", "jump", "single", "plain", "subtitle",
+]
+CaptionPreset = Literal[
+    "tiktok", "karaoke-box", "bounce", "minimal", "neon", "highlighter", "subtitle", "word-pop-big",
+]
+HighlightBox = Literal["pill", "marker", "box", "highlighter"]
 TextBgMode = Literal["box", "lines"]
 GradientType = Literal["linear", "radial"]
 
@@ -293,10 +317,16 @@ Layer = TypedDict(
         "wrap": Wrap,
         "revealDuration": float,
         # captions
+        "preset": CaptionPreset,  # named look; layer properties override it
         "style": CaptionStyle,
-        "highlight": Color,
-        "highlightBg": Color,
+        "highlight": Color,  # active word colour (default yellow)
+        "highlightBg": Color,  # box behind the active word
+        "highlightBox": HighlightBox,  # "pill" (default) or "marker"
         "maxWords": int,
+        "maxLines": int,  # default 2
+        "colors": List[Color],  # active-word colours, cycled word by word
+        "activeScale": float,  # active word size (default 1.12 for pop, 1 otherwise)
+        "speakerColors": Dict[str, Color],  # word colour per diarization speaker
         # waveform
         "bars": int,
         "mirror": bool,

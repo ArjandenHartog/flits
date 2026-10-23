@@ -18,7 +18,9 @@ impl<'a> Painter<'a> for CpuPainter<'_> {
         let mask = op.clip.and_then(|c| {
             let r = Rect::from_ltrb(c.rect[0], c.rect[1], c.rect[2].max(c.rect[0] + 0.01), c.rect[3].max(c.rect[1] + 0.01))?;
             let mut m = Mask::new(self.canvas.width(), self.canvas.height())?;
-            m.fill_path(&PathBuilder::from_rect(r), FillRule::Winding, true, c.ts);
+            let path =
+                if c.radius > 0.0 { rounded_rect(r.x(), r.y(), r.width(), r.height(), c.radius)? } else { PathBuilder::from_rect(r) };
+            m.fill_path(&path, FillRule::Winding, true, c.ts);
             Some(m)
         });
         let rgba: Vec<u8>;

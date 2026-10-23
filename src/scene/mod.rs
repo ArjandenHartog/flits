@@ -4,6 +4,7 @@
 
 pub mod anim;
 pub mod color;
+pub mod presets;
 pub mod schema;
 
 use anim::{Prop, Transition};
@@ -346,16 +347,27 @@ pub struct Layer {
     pub reveal_duration: Option<f64>,
 
     // captions
+    /// captions: named look (see `presets`); merged into the layer before parsing
+    #[schemars(schema_with = "schema::caption_preset")]
+    pub preset: Option<String>,
     #[schemars(schema_with = "schema::caption_style")]
     pub style: Option<String>,
     /// captions: colour of the active word (default yellow)
     pub highlight: Option<Rgba>,
-    /// captions: pill colour behind the active word
+    /// captions: box colour behind the active word (shape: `highlightBox`)
     pub highlight_bg: Option<Rgba>,
-    /// captions: words per chunk
+    #[schemars(schema_with = "schema::highlight_box")]
+    pub highlight_box: Option<String>,
+    /// captions: most words per chunk
     pub max_words: Option<usize>,
-    /// text colour per speaker of a diarized transcript, in order of first appearance
-    pub speaker_colors: Vec<Rgba>,
+    /// captions: most lines per chunk (default 2; a chunk ends before it would wrap further)
+    pub max_lines: Option<usize>,
+    /// captions: active-word colours, cycled word by word (instead of `highlight`)
+    pub colors: Option<Vec<Rgba>>,
+    /// captions: size of the active word relative to the others (default 1.12 for pop, 1 otherwise)
+    pub active_scale: Option<f64>,
+    /// captions: word colour per diarization speaker label ({"SPEAKER_00": "#ffffff", ...})
+    pub speaker_colors: Option<HashMap<String, Rgba>>,
 
     // waveform
     /// waveform: number of bars (default 48)
@@ -414,8 +426,12 @@ impl Scene {
         Scene::from_value(value, base)
     }
 
-    pub fn from_value(value: Value, base_dir: PathBuf) -> Result<(Scene, Vec<String>)> {
+    pub fn from_value(mut value: Value, base_dir: PathBuf) -> Result<(Scene, Vec<String>)> {
         let mut warnings = Vec::new();
+        let canvas = (value["width"].as_f64().unwrap_or(1920.0), value["height"].as_f64().unwrap_or(1080.0));
+        if let Some(Value::Array(layers)) = value.get_mut("layers") {
+            presets::apply(layers, canvas, "layers", &mut warnings)?;
+        }
         if let Some(Value::Array(layers)) = value.get("layers") {
             for (i, l) in layers.iter().enumerate() {
                 check_types(l, &format!("layers.{i}"), &mut warnings);

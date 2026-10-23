@@ -96,7 +96,8 @@ impl<'a> Painter<'a> for GpuPainter<'a> {
         if let Some(c) = op.clip {
             if let Some(inv) = c.ts.invert() {
                 inst.cm = [inv.sx, inv.kx, inv.ky, inv.sy];
-                inst.ct = [inv.tx, inv.ty, 1.0, det_scale(&c.ts)];
+                // has-clip flag carries the clip's corner radius: 1 + radius
+                inst.ct = [inv.tx, inv.ty, 1.0 + c.radius.max(0.0), det_scale(&c.ts)];
                 inst.cr = c.rect;
             }
         }
