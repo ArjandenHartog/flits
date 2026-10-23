@@ -43,8 +43,13 @@ flits spec                                    # full scene format reference
 flits slideshow photos/ --music song.mp3 --beats --title "Summer 2026" --format 9:16
 flits captions clip.mp4 --style pop           # burn in animated word-by-word captions
 flits podcast episode.mp3 --cover cover.jpg --title "Episode 12" --format 9:16 --from 12:30 --to 13:30
-flits cut recording.mp4 --fillers             # remove silences (and uh/um) from audio or video
+flits cut recording.mp4 --fillers --repeats   # remove silences, uh/um (nl/en/de/fr/es/...) and stutters
+flits cut recording.mp4 --export fcpxml,premiere,edl   # Final Cut Pro / Premiere / Resolve timeline instead
+flits cut recording.mp4 --edit                # edit as text: delete lines/words in recording.edit.txt,
+flits cut recording.mp4 --apply recording.edit.txt     #   then cut exactly that (word-accurate)
 flits transcribe recording.m4a --lang en      # -> .words.json + .srt + .vtt + .txt
+flits transcribe recording.m4a --initial-prompt "Arjan, flits" --vocab terms.txt   # names and jargon
+flits transcribe interview.m4a --diarize      # speaker labels (optional pyannote, needs HF_TOKEN)
 
 # tools
 flits doctor                                  # what works on this machine (GPU, encoders, whisper, ...)
@@ -67,7 +72,8 @@ As a library:
 let stats = flits::render_file("scene.json".as_ref(), "out.mp4".as_ref(), &flits::Options::default())?;
 ```
 
-The scene format is documented in [SPEC.md](SPEC.md) (`flits spec`).
+The scene format is documented in [SPEC.md](SPEC.md) (`flits spec`), as are the cut options (edit files,
+timeline exports, filler languages) and transcription options (prompts, vocabulary, diarization).
 
 ## Why it is fast
 
@@ -102,8 +108,8 @@ src/
   transcribe/     faster-whisper via uv (CUDA when available), SRT/VTT/TXT
   remote/         `flits serve` and offloading to a GPU machine
   preview/        `flits preview`: live browser preview with hot reload (page in index.html)
-  templates/      podcast, captions, slideshow, cut, starters
-tests/            CPU = GPU parity, end-to-end renders, audio
+  templates/      podcast, captions, slideshow, cut (+ fillers, edit files, editor exports), starters
+tests/            CPU = GPU parity, end-to-end renders, audio, preview, cut/edit/export
 examples/         reproducible benchmark
 ```
 
@@ -113,6 +119,7 @@ examples/         reproducible benchmark
 * for transcription: [`uv`](https://docs.astral.sh/uv/) (installs faster-whisper into a cache automatically)
   or `--python` pointing at a Python with faster-whisper. CUDA is used when an NVIDIA GPU is present;
   machines without one can offload to another machine (`flits serve` / `flits remote`).
+* optional, for `--diarize`: a Hugging Face token in `HF_TOKEN` (pyannote.audio is installed through uv on first use)
 
 ## Building and testing
 

@@ -95,6 +95,8 @@ faster-whisper JSON / .srt / .vtt): `src`, `trim` (transcript time that maps to 
 `style`: `karaoke` (active word highlighted) | `pop` (words pop in as spoken, TikTok-style) | `word` (one big word at a time) | `line` (plain),
 `highlight` (color, default yellow), `highlightBg` (pill behind the active word), `maxWords` per chunk,
 `size`, `font` (default Segoe UI Black), `color`, `stroke`, `shadow`, `uppercase`, `width` (wrap width).
+With a diarized transcript (`flits transcribe --diarize`) a new chunk starts at every speaker change, and
+`speakerColors` (e.g. `["#ffffff", "#4cc9f0"]`) gives each speaker its own text colour, in order of first appearance.
 
 **waveform** — live audio spectrum bars: `src` (audio/video file), `trim`, `bars` (48), `color`, `mirror`
 (bars grow from the centre line), `gap` (0..1 of a slot), `gain`, `radius`.
@@ -137,3 +139,75 @@ transitions apply to all children. `"clip": true` hides everything outside the g
 
 `slideshow`, `captions`, `podcast` and `cut` (video) also write `<out>.scene.json`; edit it and run
 `flits render` to tweak.
+
+## Cutting: `flits cut`
+
+    flits cut rec.mp4                                # shorten silences (--threshold -35 dB, --min 0.6 s, --keep 0.25 s)
+    flits cut rec.mp4 --fillers --repeats            # also cut filler words and stutters ("I I I think", "th- the")
+    flits cut rec.mp4 --fillers-list "uh,um,you know"   # your own list (phrases allowed)
+    flits cut rec.mp4 --export fcpxml,premiere,edl,json # editor timelines instead of a render (--render: both)
+    flits cut rec.mp4 --edit                         # -> rec.edit.txt: edit the recording as text...
+    flits cut rec.mp4 --apply rec.edit.txt           # ...and cut what you deleted (word-accurate)
+    flits cut rec.mp4 --dry-run                      # print the kept ranges
+
+Words come from the transcript (`rec.words.json` next to the input, `--transcript`, or made automatically).
+Removed words are cut from the middle of the pause before them to the middle of the pause after them, so
+what remains sounds natural; silences are still shortened unless `--no-silence`.
+
+**Filler words** follow the transcript language (`--lang`, else the `language` in the JSON): built-in lists for
+`nl`, `en`, `de`, `fr`, `es`, `it`, `pt` (hesitations only: uh/um/ehm, äh/ähm, euh, eh/em, ...); other languages use a
+combined list. When flits transcribes for `--fillers`/`--repeats` with an explicit `--lang`, it primes whisper to
+write hesitations down (whisper tends to drop them). An existing transcript is reused as is.
+
+**Repeats** (`--repeats`): an immediately repeated word or 2-3 word phrase loses its earlier take(s), and a cut-off
+fragment ending in `-` that starts the next word goes too. Repeats across a sentence end or a pause over 1 s stay.
+
+**Edit file** (`--edit` writes `<input>.edit.txt`, `--force` overwrites):
+
+```text
+# flits edit file for rec.mp4
+# transcript: /abs/path/rec.words.json
+[00:12.40] So this is the first sentence.
+[00:15.02] {SPEAKER_01} And this is the answer.
+```
+
+One line per sentence (`[h:mm:ss.cc]` from an hour on; `{speaker}` only with a diarized transcript). Delete a line to
+cut the sentence, delete words to cut only those words, or wrap parts in `[[ ]]` (may span lines). Lines are tied to
+the recording by their time stamp (±1 s); within a line the remaining text is aligned to the original words, ignoring
+case and punctuation, so a fixed typo keeps its word and added words are reported and ignored. A line without a time
+stamp continues the line above it. Reordering is not supported. `--apply` combines with `--fillers`, `--repeats`,
+`--export` and `--dry-run`.
+
+**Exports** (`--export`, comma separated; files are named after `-o`/`<input>-cut`, every kept range is one clip that
+refers to the original file, cut points snapped to source frames):
+
+| format | file | open in |
+|---|---|---|
+| `fcpxml` (= `resolve`) | `.fcpxml` (FCPXML 1.9) | Final Cut Pro: File > Import > XML; DaVinci Resolve: File > Import > Timeline |
+| `premiere` | `.xml` (FCP7 XML / xmeml 4) | Premiere Pro: File > Import (also Resolve) |
+| `edl` | `.edl` (CMX3600) | DaVinci Resolve, Avid, ... (source must be in the media pool) |
+| `json` | `.cuts.json` | scripts: exact `ranges` in seconds, `removed`, frame-snapped clips, `timebase` |
+
+NTSC rates use exact rational timebases (23.976 = 24000/1001, 29.97 = 30000/1001, 59.94 = 60000/1001); a source
+timecode (camera files starting at 01:00:00:00, drop-frame included) is respected; audio-only sources give an
+audio-only timeline at 30 fps.
+
+## Transcription: `flits transcribe`
+
+    flits transcribe rec.m4a --lang en                         # -> rec.words.json + .srt + .vtt + .txt
+    flits transcribe rec.m4a --initial-prompt "Arjan, flits, NVENC"   # prime names, jargon and spelling
+    flits transcribe rec.m4a --vocab terms.txt                 # terms (one per line or comma separated) to favour
+    flits transcribe rec.m4a --words-only                      # {"words": [...]} instead of segments
+    flits transcribe rec.m4a --segments-only                   # no word timestamps (faster)
+    flits transcribe rec.m4a --diarize [--speakers 2]          # speaker labels (optional, see below)
+
+`--initial-prompt`, `--vocab`, `--diarize` also work on `captions`, `podcast` and `cut` (whenever they transcribe).
+The JSON has `language`, `duration` and `segments` (`start`, `end`, `text`, `words`: `word`, `start`, `end`, `prob`),
+with `--diarize` plus `speaker` per segment and word (`"SPEAKER_00"`, ...) and a `speakers` list. SRT/TXT then
+name the speaker when it changes, VTT uses `<v SPEAKER_00>` voice tags.
+
+**Diarization** uses [pyannote.audio](https://github.com/pyannote/pyannote-audio), installed through uv only when
+`--diarize` is used (with PyTorch: a large first download). It needs a Hugging Face token: create a read token at
+huggingface.co/settings/tokens, accept the conditions of `pyannote/speaker-diarization-community-1` (pyannote.audio 4;
+`pyannote/speaker-diarization-3.1` + `pyannote/segmentation-3.0` for 3.x) and set `HF_TOKEN`. `FLITS_DIARIZE_MODEL`
+picks another pipeline. With `--python`, install `pyannote.audio` into that Python yourself.

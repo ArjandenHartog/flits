@@ -86,18 +86,78 @@ pub struct WhisperArgs {
     /// GPU server URL (default: the one saved with `flits remote`), or "off" to force local
     #[arg(long)]
     pub remote: Option<String>,
+    /// text that primes whisper: names, jargon and spelling it should use ("Arjan, flits, NVENC")
+    #[arg(long)]
+    pub initial_prompt: Option<String>,
+    /// file with terms to favour (one per line or comma separated): names, products, jargon
+    #[arg(long)]
+    pub vocab: Option<PathBuf>,
+    /// label speakers (pyannote.audio, installed through uv on first use; needs HF_TOKEN)
+    #[arg(long)]
+    pub diarize: bool,
+    /// number of speakers for --diarize (default: detect)
+    #[arg(long, requires = "diarize")]
+    pub speakers: Option<u32>,
 }
 
 impl WhisperArgs {
-    pub fn opts(&self) -> transcribe::TranscribeOpts {
-        transcribe::TranscribeOpts {
+    pub fn opts(&self) -> Result<transcribe::TranscribeOpts> {
+        Ok(transcribe::TranscribeOpts {
             model: self.model.clone(),
             language: self.lang.clone(),
             device: self.device.clone(),
             python: self.python.clone(),
             remote: self.remote.clone(),
-        }
+            initial_prompt: self.initial_prompt.clone().filter(|p| !p.trim().is_empty()),
+            hotwords: self.vocab.as_deref().map(transcribe::read_vocab).transpose()?.filter(|v| !v.is_empty()),
+            word_timestamps: true,
+            diarize: self.diarize,
+            speakers: self.speakers,
+        })
     }
+}
+
+#[derive(Args, Clone)]
+pub struct CutArgs {
+    /// silence threshold in dB
+    #[arg(long, default_value_t = -35.0, allow_negative_numbers = true)]
+    pub threshold: f64,
+    /// shorten silences longer than this (seconds)
+    #[arg(long, default_value_t = 0.6)]
+    pub min: f64,
+    /// pause left in place of a removed silence (seconds)
+    #[arg(long, default_value_t = 0.25)]
+    pub keep: f64,
+    /// don't shorten silences (only cut words: fillers, repeats, --apply)
+    #[arg(long)]
+    pub no_silence: bool,
+    /// also remove filler words, per transcript language: nl, en, de, fr, es, it, pt (transcribes automatically)
+    #[arg(long)]
+    pub fillers: bool,
+    /// your own filler words/phrases instead of the built-in list, e.g. "uh,um,you know" (implies --fillers)
+    #[arg(long)]
+    pub fillers_list: Option<String>,
+    /// also remove repeated words and stutters ("I I I think", "th- the")
+    #[arg(long)]
+    pub repeats: bool,
+    /// only print the cut plan
+    #[arg(long)]
+    pub dry_run: bool,
+    /// write an editor timeline instead of rendering: fcpxml | premiere | resolve | edl | json (comma separated for several)
+    #[arg(long, value_delimiter = ',')]
+    pub export: Vec<String>,
+    /// with --export: render the cut as well
+    #[arg(long)]
+    pub render: bool,
+    /// write <input>.edit.txt (one line per sentence) to edit the recording as text, then use --apply
+    #[arg(long, conflicts_with_all = ["apply", "export", "dry_run"])]
+    pub edit: bool,
+    /// cut what was deleted from an edit file (made with --edit); silences are still shortened
+    #[arg(long)]
+    pub apply: Option<PathBuf>,
+    /// with --edit: overwrite an existing edit file
+    #[arg(long)]
+    pub force: bool,
 }
 
 #[derive(Subcommand)]
@@ -269,26 +329,16 @@ enum Cmd {
         #[command(flatten)]
         r: RenderArgs,
     },
-    /// Remove silences (and with --fillers: uh/uhm/eh) from audio or video
+    /// Remove silences, filler words and repeats from audio or video, edit it as text (--edit/--apply),
+    /// or export the cut as a Final Cut Pro / Premiere / Resolve timeline (--export)
     Cut {
         input: PathBuf,
+        /// rendered output (default: <input>-cut.<ext>); exports are named after it
         #[arg(short, long)]
         out: Option<PathBuf>,
-        /// silence threshold in dB
-        #[arg(long, default_value_t = -35.0, allow_negative_numbers = true)]
-        threshold: f64,
-        /// shorten silences longer than this (seconds)
-        #[arg(long, default_value_t = 0.6)]
-        min: f64,
-        /// pause left in place of a removed silence (seconds)
-        #[arg(long, default_value_t = 0.25)]
-        keep: f64,
-        /// also remove filler words (needs a transcript; made automatically)
-        #[arg(long)]
-        fillers: bool,
-        /// only print the cut plan
-        #[arg(long)]
-        dry_run: bool,
+        #[command(flatten)]
+        c: CutArgs,
+        /// existing transcript (.json/.srt/.vtt) instead of transcribing
         #[arg(long)]
         transcript: Option<PathBuf>,
         #[command(flatten)]
@@ -297,6 +347,10 @@ enum Cmd {
         r: RenderArgs,
     },
     /// Transcribe audio/video to word-timed JSON + SRT + VTT + TXT (several files: one model load)
+    #[command(after_help = "Speaker labels (--diarize) are optional and need a Hugging Face token:\n  \
+        1. create a read token at https://huggingface.co/settings/tokens\n  \
+        2. accept the conditions of https://huggingface.co/pyannote/speaker-diarization-community-1\n  \
+        3. set HF_TOKEN; the first run installs pyannote.audio + PyTorch through uv (large download)")]
     Transcribe {
         #[arg(required = true)]
         inputs: Vec<PathBuf>,
@@ -306,6 +360,12 @@ enum Cmd {
         /// folder for the outputs (default: next to each input)
         #[arg(long)]
         outdir: Option<PathBuf>,
+        /// write one flat word list ({"words": [...]}) instead of segments with their words
+        #[arg(long, conflicts_with = "segments_only")]
+        words_only: bool,
+        /// segments without word timestamps (faster; captions then spread words over each segment)
+        #[arg(long)]
+        segments_only: bool,
         #[command(flatten)]
         w: WhisperArgs,
     },
@@ -438,10 +498,10 @@ fn run(cli: Cli) -> Result<()> {
         Cmd::Podcast { audio, out, cover, title, subtitle, format, from, to, accent, style, transcript, w, r } => {
             make::podcast(&audio, out, cover, title, subtitle, format, from, to, accent, style, transcript, &w, &r)
         }
-        Cmd::Cut { input, out, threshold, min, keep, fillers, dry_run, transcript, w, r } => {
-            make::cut(&input, out, threshold, min, keep, fillers, dry_run, transcript, &w, &r)
+        Cmd::Cut { input, out, c, transcript, w, r } => make::cut(&input, out, &c, transcript, &w, &r),
+        Cmd::Transcribe { inputs, out, outdir, words_only, segments_only, w } => {
+            make::transcribe(&inputs, out, outdir, words_only, segments_only, &w)
         }
-        Cmd::Transcribe { inputs, out, outdir, w } => make::transcribe(&inputs, out, outdir, &w),
         Cmd::Info { file } => tools::info(&file),
         Cmd::Doctor => tools::doctor(),
         Cmd::Serve { port, token } => tools::serve(port, token),

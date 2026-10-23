@@ -255,6 +255,8 @@ pub struct Layer {
     pub highlight: Option<Rgba>,
     pub highlight_bg: Option<Rgba>,
     pub max_words: Option<usize>,
+    /// text colour per speaker of a diarized transcript, in order of first appearance
+    pub speaker_colors: Vec<Rgba>,
 
     // waveform
     pub bars: Option<usize>,

@@ -87,7 +87,7 @@ impl Remote {
     }
 
     /// Transcribe on the server. Writes the transcript JSON to `out_json`.
-    pub fn transcribe(&self, input: &Path, out_json: &Path, lang: &str, model: &str) -> Result<()> {
+    pub fn transcribe(&self, input: &Path, out_json: &Path, o: &crate::transcribe::TranscribeOpts) -> Result<()> {
         let t = Instant::now();
         // video or big files: send only a compact mono audio track
         let info = crate::media::probe(input)?;
@@ -108,7 +108,23 @@ impl Remote {
             input.to_path_buf()
         };
         let ext = send.extension().and_then(|e| e.to_str()).unwrap_or("bin");
-        let r = self.post_file(&format!("/transcribe?lang={lang}&model={model}&ext={ext}"), &send, out_json);
+        let mut query = format!("/transcribe?lang={}&model={}&ext={ext}", pct_encode(&o.language), pct_encode(&o.model));
+        if !o.word_timestamps {
+            query += "&words=0";
+        }
+        if let Some(p) = &o.initial_prompt {
+            query += &format!("&prompt={}", pct_encode(p));
+        }
+        if let Some(h) = &o.hotwords {
+            query += &format!("&hotwords={}", pct_encode(h));
+        }
+        if o.diarize {
+            query += "&diarize=1";
+        }
+        if let Some(n) = o.speakers {
+            query += &format!("&speakers={n}");
+        }
+        let r = self.post_file(&query, &send, out_json);
         let _ = std::fs::remove_file(&tmp);
         r?;
         eprintln!("flits: transcribed remotely in {:.1}s", t.elapsed().as_secs_f64());
@@ -183,6 +199,38 @@ fn bundle(scene: &Path, tar_path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Percent-encode a query value (everything but unreserved characters).
+pub(crate) fn pct_encode(s: &str) -> String {
+    let mut out = String::new();
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => out.push(b as char),
+            _ => out += &format!("%{b:02X}"),
+        }
+    }
+    out
+}
+
+/// Inverse of `pct_encode` (invalid escapes are kept as they are).
+pub(crate) fn pct_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        let hex = |c: u8| (c as char).to_digit(16);
+        if b[i] == b'%' && i + 2 < b.len() {
+            if let (Some(h), Some(l)) = (hex(b[i + 1]), hex(b[i + 2])) {
+                out.push((h * 16 + l) as u8);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 // ---------------------------------------------------------------- server
 
 pub(crate) fn rand_u64() -> u64 {
@@ -195,4 +243,16 @@ pub(crate) fn rand_u64() -> u64 {
 /// Random token for `flits serve` when none is given.
 pub fn new_token() -> String {
     format!("{:016x}{:016x}", rand_u64(), rand_u64())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn percent_encoding_round_trips() {
+        let s = "Arjan den Hartog, café & co: 100% ✓";
+        let e = super::pct_encode(s);
+        assert!(!e.contains(' ') && !e.contains('&'));
+        assert_eq!(super::pct_decode(&e), s);
+        assert_eq!(super::pct_decode("50%"), "50%");
+    }
 }
