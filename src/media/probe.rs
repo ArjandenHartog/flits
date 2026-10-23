@@ -20,6 +20,10 @@ pub struct MediaInfo {
     pub hdr: bool,
     /// colour description of the video stream (bit depth, transfer, matrix, range)
     pub color: FrameFormat,
+    /// video codec name (hevc, h264, av1, ...)
+    pub codec: String,
+    /// display rotation in degrees (phone footage)
+    pub rotation: i64,
 }
 
 pub fn probe(path: &Path) -> Result<MediaInfo> {
@@ -52,6 +56,8 @@ pub fn probe(path: &Path) -> Result<MediaInfo> {
                         }
                     }
                 }
+                info.rotation = rot.rem_euclid(360);
+                info.codec = s["codec_name"].as_str().unwrap_or("").to_string();
                 if rot.rem_euclid(180) == 90 {
                     std::mem::swap(&mut w, &mut h);
                 }

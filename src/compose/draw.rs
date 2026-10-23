@@ -13,10 +13,19 @@ use tiny_skia::{GradientStop, LinearGradient, Paint, Pixmap, Point, RadialGradie
 /// Per-worker state: open video decoders.
 #[derive(Default)]
 pub struct VideoState {
+    /// decoder per video node: (node end time, reader)
     readers: HashMap<usize, (f64, VideoReader)>,
+    /// decoders of nodes that just ended, kept briefly: the next cut of the same clip
+    /// (e.g. after a removed silence) continues with them instead of a fresh start
+    spare: Vec<(f64, VideoReader)>,
     /// decode 10-bit sources at full precision (the GPU path supports 16-bit planes)
     pub high_bit: bool,
 }
+
+/// Start decoders this long before their layer appears (hides start-up and seeking).
+const PREFETCH: f64 = 1.0;
+/// A spare decoder is reused when the new cut starts at most this far ahead in the source.
+const REUSE_GAP: f64 = 4.0;
 
 pub struct FrameCtx<'a> {
     pub fps: f64,
@@ -35,10 +44,17 @@ pub fn render_frame(p: &Prepared, frame: i64, canvas: &mut Pixmap, vs: &mut Vide
 /// Decode the video frames needed for `frame`.
 pub fn advance(p: &Prepared, frame: i64, vs: &mut VideoState) -> Result<()> {
     let t = frame as f64 / p.fps;
+    // finished layers hand their decoder to the spare pool
+    let ended: Vec<usize> = vs.readers.iter().filter(|(_, (end, _))| *end <= t).map(|(k, _)| *k).collect();
+    for k in ended {
+        let (_, r) = vs.readers.remove(&k).unwrap();
+        vs.spare.push((t, r));
+    }
+    vs.spare.retain(|(since, _)| t - since < 2.0);
+    vs.spare.truncate(4);
     for n in &p.nodes {
         advance_videos(n, t, frame, p.fps, vs)?;
     }
-    vs.readers.retain(|_, (end, _)| *end > t);
     Ok(())
 }
 
@@ -53,20 +69,39 @@ pub fn draw_frame<'a>(p: &'a Prepared, frame: i64, painter: &mut dyn Painter<'a>
 }
 
 fn advance_videos(n: &Node, t: f64, frame: i64, fps: f64, vs: &mut VideoState) -> Result<()> {
-    if t < n.start || t >= n.end {
+    if t + PREFETCH < n.start || t >= n.end {
         return Ok(());
     }
     if let Kind::Video { src, info, dw, dh, trim, looped, speed, .. } = &n.kind {
-        let lf = frame - (n.start * fps).round() as i64;
-        let need_new = match vs.readers.get(&n.id) {
-            None => true,
-            Some((_, r)) => lf < r.cur || lf > r.cur + (fps * 2.0) as i64 || lf < r.first(),
+        let start_frame = (n.start * fps).round() as i64;
+        let lf = frame - start_frame;
+        let target = lf.max(0);
+        let usable = |r: &VideoReader| target >= r.cur && target <= r.cur + (fps * 2.0) as i64 && target >= r.first();
+        let want = trim + target as f64 * speed / fps;
+        let reachable = |r: &VideoReader| {
+            r.compatible(src, *dw, *dh, *speed, *looped)
+                && want >= r.next_source_time() - 0.5 / fps
+                && want - r.next_source_time() < REUSE_GAP
         };
-        if need_new {
-            let r = VideoReader::spawn(src, info, *trim, lf.max(0), fps, *dw, *dh, *looped, *speed, vs.high_bit)?;
+        // not started yet and a running decoder of this clip will hand over: don't prefetch
+        let handover = lf < 0 && vs.readers.iter().any(|(id, (_, r))| *id != n.id && reachable(r));
+        if !handover && !vs.readers.get(&n.id).is_some_and(|(_, r)| usable(r)) {
+            // continue a decoder of the same clip that is just behind this cut, if any
+            let reuse = vs.spare.iter().position(|(_, r)| reachable(r));
+            let r = match reuse {
+                Some(k) => {
+                    let (_, mut r) = vs.spare.swap_remove(k);
+                    r.rebase(*trim);
+                    r
+                }
+                None => VideoReader::spawn(src, info, *trim, target, fps, *dw, *dh, *looped, *speed, vs.high_bit)?,
+            };
             vs.readers.insert(n.id, (n.end, r));
         }
-        vs.readers.get_mut(&n.id).unwrap().1.seek_forward(lf)?;
+        // before the layer starts the decoder just fills its read-ahead buffer
+        if let (true, Some((_, r))) = (lf >= 0, vs.readers.get_mut(&n.id)) {
+            r.seek_forward(lf)?;
+        }
     }
     for c in &n.children {
         advance_videos(c, t, frame, fps, vs)?;
