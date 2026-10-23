@@ -20,13 +20,41 @@ pub struct TranscribeOpts {
     pub language: String,
     pub device: String,
     pub python: Option<PathBuf>,
+    /// remote server URL, "off", or None = use the configured one if reachable
+    pub remote: Option<String>,
 }
 
 /// Transcribe `input`; returns the path of the JSON transcript (also writes .srt/.vtt/.txt).
+/// Uses a configured `flits serve` GPU machine when reachable, otherwise runs locally.
 pub fn transcribe(input: &Path, out_json: &Path, o: &TranscribeOpts) -> Result<PathBuf> {
     if !input.exists() {
         bail!("file not found: {}", input.display());
     }
+    let remote = match o.remote.as_deref() {
+        Some("off") => None,
+        Some(url) => Some(crate::remote::Remote { url: url.trim_end_matches('/').to_string(), token: std::env::var("FLITS_TOKEN").ok().or_else(|| crate::remote::configured().map(|r| r.token)).unwrap_or_default() }),
+        None => crate::remote::configured(),
+    };
+    if let Some(r) = remote {
+        match r.health() {
+            Ok(h) => {
+                eprintln!("flits: using GPU server {} ({})", r.url, h["gpu"].as_str().unwrap_or("no GPU"));
+                match r.transcribe(input, out_json, &o.language, &o.model) {
+                    Ok(()) => {
+                        let words = load_transcript(out_json)?;
+                        write_subtitles(out_json, &words)?;
+                        return Ok(out_json.to_path_buf());
+                    }
+                    Err(e) => eprintln!("flits: remote transcription failed ({e:#}); transcribing locally"),
+                }
+            }
+            Err(e) => eprintln!("flits: GPU server {} not reachable ({e}); transcribing locally", r.url),
+        }
+    }
+    transcribe_local(input, out_json, o)
+}
+
+fn transcribe_local(input: &Path, out_json: &Path, o: &TranscribeOpts) -> Result<PathBuf> {
     let dir = std::env::temp_dir().join("flits");
     std::fs::create_dir_all(&dir)?;
     let script = dir.join("transcribe.py");

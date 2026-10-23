@@ -20,6 +20,7 @@ pub mod ffmpeg;
 pub mod gpu;
 pub mod layers;
 pub mod paint;
+pub mod remote;
 pub mod render;
 pub mod scene;
 pub mod templates;

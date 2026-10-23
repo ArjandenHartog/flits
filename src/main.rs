@@ -49,11 +49,14 @@ struct WhisperArgs {
     /// python with faster-whisper installed (default: run through uv)
     #[arg(long)]
     python: Option<PathBuf>,
+    /// GPU server URL (default: the one saved with `flits remote`), or "off" to force local
+    #[arg(long)]
+    remote: Option<String>,
 }
 
 impl WhisperArgs {
     fn opts(&self) -> transcribe::TranscribeOpts {
-        transcribe::TranscribeOpts { model: self.model.clone(), language: self.lang.clone(), device: self.device.clone(), python: self.python.clone() }
+        transcribe::TranscribeOpts { model: self.model.clone(), language: self.lang.clone(), device: self.device.clone(), python: self.python.clone(), remote: self.remote.clone() }
     }
 }
 
@@ -66,6 +69,9 @@ enum Cmd {
         out: Option<PathBuf>,
         #[command(flatten)]
         r: RenderArgs,
+        /// render on the configured GPU server (`flits remote`)
+        #[arg(long)]
+        remote: bool,
     },
     /// Render single frames to PNG (fast visual check)
     Still {
@@ -159,6 +165,21 @@ enum Cmd {
     },
     /// Print the scene format reference
     Spec,
+    /// Run a GPU server other machines can offload transcription and rendering to
+    Serve {
+        #[arg(long, default_value_t = 7777)]
+        port: u16,
+        /// shared secret (default: $FLITS_TOKEN or a new random one)
+        #[arg(long)]
+        token: Option<String>,
+    },
+    /// Set (or show) the GPU server this machine offloads to
+    Remote {
+        /// e.g. http://laptop:7777 ; "off" to disable
+        url: Option<String>,
+        #[arg(long)]
+        token: Option<String>,
+    },
     /// Time single-threaded frame rendering (developer tool)
     #[command(hide = true)]
     Bench {
@@ -218,8 +239,13 @@ fn main() {
 fn run() -> Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
-        Cmd::Render { scene, out, r } => {
+        Cmd::Render { scene, out, r, remote } => {
             let out = out.unwrap_or_else(|| scene.with_extension("mp4"));
+            if remote {
+                let rm = flits::remote::configured().ok_or_else(|| anyhow::anyhow!("no GPU server configured: run `flits remote http://host:7777 --token ...`"))?;
+                rm.health().map_err(|e| anyhow::anyhow!("GPU server {} not reachable: {e}", rm.url))?;
+                return rm.render(&scene, &out, &format!("scale={}&quality={}", r.scale, r.quality));
+            }
             let p = load(&scene, r.scale)?;
             do_render(&p, &out, &r)
         }
@@ -332,6 +358,26 @@ fn run() -> Result<()> {
             }
             let yms = t.elapsed().as_secs_f64() * 1000.0 / frames as f64;
             println!("{ms:.2} ms/frame compose, {yms:.2} ms/frame yuv");
+            Ok(())
+        }
+        Cmd::Serve { port, token } => {
+            let token = token.or_else(|| std::env::var("FLITS_TOKEN").ok()).unwrap_or_else(flits::remote::new_token);
+            eprintln!("flits: token {token}");
+            eprintln!("flits: on other machines run: flits remote http://<this-machine>:{port} --token {token}");
+            flits::remote::serve(port, token)
+        }
+        Cmd::Remote { url, token } => {
+            if let Some(url) = url {
+                let p = flits::remote::save(&url, &token.unwrap_or_default())?;
+                println!("saved {}", p.display());
+            }
+            match flits::remote::configured() {
+                None => println!("no GPU server configured (work runs locally)"),
+                Some(r) => match r.health() {
+                    Ok(h) => println!("{} reachable: {h}", r.url),
+                    Err(e) => println!("{} NOT reachable: {e}", r.url),
+                },
+            }
             Ok(())
         }
         Cmd::Spec => {
