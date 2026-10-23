@@ -38,6 +38,7 @@ flits still scene.json --at 12.5 -o frame.png
 flits check scene.json                        # validate (typos are reported) + print the timeline
 flits new [intro|quote|stats|lower-third|countdown]   # starter scenes
 flits spec                                    # full scene format reference
+flits schema                                  # JSON Schema of the scene format (also in schema/scene.schema.json)
 
 # ready-made
 flits slideshow photos/ --music song.mp3 --beats --title "Summer 2026" --format 9:16
@@ -75,6 +76,58 @@ let stats = flits::render_file("scene.json".as_ref(), "out.mp4".as_ref(), &flits
 The scene format is documented in [SPEC.md](SPEC.md) (`flits spec`), as are the cut options (edit files,
 timeline exports, filler languages) and transcription options (prompts, vocabulary, diarization).
 
+## Use from TypeScript / Python / Docker
+
+A scene is plain JSON, so anything that can write JSON and start a process can drive flits. The format has a
+**JSON Schema** ([`schema/scene.schema.json`](schema/scene.schema.json), or `flits schema`), generated from the Rust
+structs and tested against them, with descriptions and enums for every property. Use it for editor completion
+(`"$schema": "https://raw.githubusercontent.com/ArjandenHartog/flits/main/schema/scene.schema.json"` at the top of a
+scene), for validation in CI, or as the output format for an LLM (structured output / tool parameters). `flits check`
+remains the authority: it also catches what a schema can't (missing files, fonts, video length).
+
+**TypeScript** ([`bindings/typescript`](bindings/typescript), dependency-free, Node ≥ 18): complete types for the
+scene format plus a small wrapper around the CLI.
+
+```ts
+import { check, render, type Scene } from "@flits/scene"; // or a relative import of bindings/typescript/index.js
+
+const scene: Scene = {
+  width: 1080, height: 1920, duration: 4,
+  layers: [{ type: "text", text: "Hello", size: 120, in: "pop", out: "fade 0.4" }],
+};
+const { ok, warnings, error } = await check(scene);
+await render(scene, "hello.mp4", { scale: 0.5 });  // also: still, sheet, transcribe, schema
+```
+
+**Python** ([`bindings/python`](bindings/python), `pip install ./bindings/python`, no dependencies on 3.11+):
+`TypedDict`s for the scene format and the same wrapper (`render`, `still`, `sheet`, `check`, `transcribe`, `schema`).
+See [`examples/hello.py`](bindings/python/examples/hello.py).
+
+```python
+import flits
+
+scene = {"width": 1080, "height": 1920, "duration": 4,
+         "layers": [{"type": "text", "text": "Hello", "size": 120, "in": "pop"}]}
+print(flits.check(scene))                     # CheckResult(ok=True, warnings=[], ...)
+flits.render(scene, "hello.mp4", scale=0.5, echo=True)
+words_json = flits.transcribe("talk.m4a", lang="en")[0]
+```
+
+Both wrappers find the CLI via `$FLITS_BIN` or `PATH`. A scene object is written to a temporary file in `baseDir` /
+`base_dir` (default: the current directory), so relative media paths resolve against that folder.
+
+**Docker** (Linux image with ffmpeg, fonts and Vulkan drivers; `flits` is the entrypoint):
+
+```sh
+docker build -t flits .
+docker run --rm -v "$PWD:/work" flits render scene.json -o out.mp4            # CPU compositor + x264
+docker run --rm --gpus all -v "$PWD:/work" flits render scene.json -o out.mp4 # NVIDIA: Vulkan + NVENC
+docker run --rm -v "$PWD:/work" -v flits-cache:/cache flits transcribe talk.m4a --lang en
+```
+
+The GPU variant needs the NVIDIA Container Toolkit on the host. Add `--user "$(id -u):$(id -g)"` to get output
+files owned by you; the `/cache` volume keeps whisper models between runs.
+
 ## Why it is fast
 
 * **Static work happens once.** Photos are decoded, EXIF-rotated and downscaled to their on-screen
@@ -97,7 +150,7 @@ timeline exports, filler languages) and transcription options (prompts, vocabula
 src/
   lib.rs          public API (Options, render_file, render_json, pick_gpu)
   cli/            the flits CLI (make.rs: commands that produce media, tools.rs: doctor/info/serve/...)
-  scene/          the JSON format: structs, animation/easing/transitions, colours
+  scene/          the JSON format: structs, animation/easing/transitions, colours, JSON Schema
   compose/        scene -> tree of prepared nodes (static content pre-rasterized);
                   draw.rs walks the tree per frame; captions, waveform
   paint/          drawing interface (Op/Painter) with CPU (tiny-skia) and GPU (wgpu + WGSL) backends
@@ -109,8 +162,11 @@ src/
   remote/         `flits serve` and offloading to a GPU machine
   preview/        `flits preview`: live browser preview with hot reload (page in index.html)
   templates/      podcast, captions, slideshow, cut (+ fillers, edit files, editor exports), starters
-tests/            CPU = GPU parity, end-to-end renders, audio, preview, cut/edit/export
+tests/            CPU = GPU parity, end-to-end renders, audio, preview, cut/edit/export, schema
 examples/         reproducible benchmark
+schema/           scene.schema.json (generated by `flits schema`, checked by tests/schema.rs)
+bindings/         TypeScript types + CLI wrapper, Python package (TypedDicts + CLI wrapper)
+Dockerfile        Linux image: flits + ffmpeg + fonts + Vulkan drivers
 ```
 
 ## Requirements

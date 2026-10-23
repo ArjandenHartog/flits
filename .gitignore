@@ -2,3 +2,7 @@ target/
 *.mp4
 .flits-*/
 .claude/
+__pycache__/
+*.egg-info/
+node_modules/
+.flits-*.scene.json

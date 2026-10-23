@@ -1,0 +1,985 @@
+{
+  "$defs": {
+    "Animated": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/Keyframe"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        {
+          "$ref": "#/$defs/FromTo"
+        }
+      ],
+      "description": "An animatable number: a constant, keyframes [[time, value, ease?], ...] or {\"from\", \"to\", \"ease\", \"start\", \"end\"}.",
+      "examples": [
+        0.8,
+        [
+          [
+            0,
+            1200
+          ],
+          [
+            0.6,
+            540,
+            "back-out"
+          ],
+          [
+            "end-0.5",
+            540
+          ],
+          [
+            "end",
+            -200,
+            "in"
+          ]
+        ],
+        {
+          "from": 1.0,
+          "to": 1.15
+        }
+      ]
+    },
+    "AudioTrack": {
+      "additionalProperties": false,
+      "description": "An audio file in the soundtrack.",
+      "properties": {
+        "comment": {
+          "description": "Free-form note for humans; ignored by flits.",
+          "type": "string"
+        },
+        "duck": {
+          "$ref": "#/$defs/Duck",
+          "description": "duck under the other audio (voice, video sound): true or the level to duck to (0..1)"
+        },
+        "duration": {
+          "description": "seconds to play (default: until the source ends)",
+          "type": "number"
+        },
+        "fadeIn": {
+          "default": 0.0,
+          "description": "fade-in in seconds",
+          "type": "number"
+        },
+        "fadeOut": {
+          "default": 0.0,
+          "description": "fade-out in seconds",
+          "type": "number"
+        },
+        "loop": {
+          "default": false,
+          "description": "repeat the source to fill `duration` (or the scene)",
+          "type": "boolean"
+        },
+        "src": {
+          "description": "audio (or video) file",
+          "type": "string"
+        },
+        "start": {
+          "default": 0.0,
+          "description": "scene time in seconds where the track starts",
+          "type": "number"
+        },
+        "trim": {
+          "default": 0.0,
+          "description": "seconds to skip at the start of the source",
+          "type": "number"
+        },
+        "volume": {
+          "$ref": "#/$defs/Animated",
+          "description": "constant or keyframed (seconds from the track start)"
+        }
+      },
+      "required": [
+        "src"
+      ],
+      "type": "object"
+    },
+    "Border": {
+      "additionalProperties": false,
+      "description": "Border drawn outside the box.",
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/Color"
+        },
+        "comment": {
+          "description": "Free-form note for humans; ignored by flits.",
+          "type": "string"
+        },
+        "width": {
+          "description": "px",
+          "type": "number"
+        }
+      },
+      "required": [
+        "width",
+        "color"
+      ],
+      "type": "object"
+    },
+    "Color": {
+      "description": "Colour: #rgb, #rgba, #rrggbb, #rrggbbaa, rgb(r,g,b), rgba(r,g,b,a) (r,g,b 0..255, a 0..1) or a name (white, black, transparent, red, green, blue, yellow, orange, purple, pink, gray).",
+      "examples": [
+        "#ffffff",
+        "#f26328",
+        "#00000080",
+        "rgba(0,0,0,0.5)",
+        "white"
+      ],
+      "pattern": "^\\s*(#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|rgba?\\(\\s*[-+]?(?:[0-9]+\\.?[0-9]*|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?\\s*(,\\s*[-+]?(?:[0-9]+\\.?[0-9]*|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?\\s*){2,3}\\)|white|black|transparent|red|green|blue|yellow|orange|purple|pink|gray|grey)\\s*$",
+      "type": "string"
+    },
+    "Duck": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        }
+      ],
+      "description": "Ducking: `true` (duck to 0.25) or the volume level (0..1) to duck to while other audio plays."
+    },
+    "Ease": {
+      "description": "Easing curve: linear, in, out, in-out (default for keyframes), smooth (sine in-out), back-in, back-out (overshoot), elastic, bounce, spring, hold (jump at the end of the segment).",
+      "enum": [
+        "linear",
+        "in",
+        "out",
+        "in-out",
+        "smooth",
+        "back-in",
+        "back-out",
+        "elastic",
+        "bounce",
+        "spring",
+        "hold",
+        "ease-in",
+        "easein",
+        "ease-out",
+        "easeout",
+        "ease",
+        "inout",
+        "ease-in-out",
+        "easeinout",
+        "sine",
+        "sine-in-out",
+        "anticipate",
+        "back",
+        "overshoot",
+        "step"
+      ],
+      "type": "string"
+    },
+    "Filter": {
+      "additionalProperties": false,
+      "description": "Colour grading for image and video layers.",
+      "properties": {
+        "brightness": {
+          "default": 0.0,
+          "description": "added brightness, e.g. 0.05 (0 = unchanged)",
+          "type": "number"
+        },
+        "comment": {
+          "description": "Free-form note for humans; ignored by flits.",
+          "type": "string"
+        },
+        "contrast": {
+          "default": 1.0,
+          "description": "contrast factor (1 = unchanged)",
+          "type": "number"
+        },
+        "grayscale": {
+          "default": false,
+          "description": "black and white",
+          "type": "boolean"
+        },
+        "saturation": {
+          "default": 1.0,
+          "description": "saturation factor (1 = unchanged, 0 = gray)",
+          "type": "number"
+        },
+        "warmth": {
+          "default": 0.0,
+          "description": "warm (positive) or cool (negative) tint, e.g. 0.3",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "FromTo": {
+      "additionalProperties": false,
+      "description": "Animate from one value to another over the layer (or between `start` and `end`).",
+      "properties": {
+        "comment": {
+          "description": "Free-form note for humans; ignored by flits.",
+          "type": "string"
+        },
+        "ease": {
+          "$ref": "#/$defs/Ease",
+          "description": "easing curve (default linear)"
+        },
+        "end": {
+          "$ref": "#/$defs/KeyTime",
+          "description": "when the animation ends (default \"end\" = layer end)"
+        },
+        "from": {
+          "description": "value at `start`",
+          "type": "number"
+        },
+        "start": {
+          "$ref": "#/$defs/KeyTime",
+          "description": "when the animation starts (default 0 = layer start)"
+        },
+        "to": {
+          "description": "value at `end`",
+          "type": "number"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
+    "Gradient": {
+      "additionalProperties": false,
+      "description": "Gradient fill for rect layers: `stops` ([offset 0..1, colour] pairs) or evenly spaced `colors`.",
+      "properties": {
+        "angle": {
+          "description": "CSS-style angle in degrees: 180 = top to bottom, 90 = left to right",
+          "type": "number"
+        },
+        "colors": {
+          "description": "colours spread evenly (alternative to `stops`)",
+          "items": {
+            "$ref": "#/$defs/Color"
+          },
+          "type": "array"
+        },
+        "comment": {
+          "description": "Free-form note for humans; ignored by flits.",
+          "type": "string"
+        },
+        "stops": {
+          "description": "[[offset 0..1, colour], ...]",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/Color"
+              }
+            ],
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "type": {
+          "description": "linear (default; uses `angle`) or radial (centre to edge).",
+          "enum": [
+            "linear",
+            "radial"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "KeyTime": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "pattern": "^\\s*(end(\\s*[-+]\\s*(?:[0-9]+\\.?[0-9]*|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?)?|[-+]?(?:[0-9]+\\.?[0-9]*|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?)\\s*$",
+          "type": "string"
+        }
+      ],
+      "description": "Keyframe time: seconds from the layer start, or \"end\" / \"end-0.5\" (relative to the layer end).",
+      "examples": [
+        0,
+        1.5,
+        "end",
+        "end-0.5"
+      ]
+    },
+    "Keyframe": {
+      "description": "[time, value] or [time, value, ease]; the ease applies to the segment ending at this key.",
+      "items": false,
+      "maxItems": 3,
+      "minItems": 2,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/KeyTime"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "$ref": "#/$defs/Ease"
+        }
+      ],
+      "type": "array"
+    },
+    "Layer": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "image",
+                  "video",
+                  "captions",
+                  "waveform"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "src"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "text"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "text"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "counter"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          }
+        }
+      ],
+      "description": "One layer. All layer types share this flat set of properties; each type uses the ones that apply to it (see the descriptions). Positions and sizes are relative to the parent (canvas or group).",
+      "properties": {
+        "align": {
+          "description": "Text alignment: left, center (default), right (aliases start, middle, end).",
+          "enum": [
+            "left",
+            "center",
+            "right",
+            "start",
+            "middle",
+            "end"
+          ],
+          "type": "string"
+        },
+        "anchor": {
+          "description": "which point of the box sits at (x, y): [0.5, 0.5] = centre (default), [0, 0] = top-left, [1, 1] = bottom-right",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "background": {
+          "$ref": "#/$defs/TextBg"
+        },
+        "bars": {
+          "description": "waveform: number of bars (default 48)",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "blur": {
+          "default": 0.0,
+          "description": "image: blur radius in px (done once, cheap)",
+          "type": "number"
+        },
+        "border": {
+          "$ref": "#/$defs/Border"
+        },
+        "children": {
+          "description": "group: child layers (positioned and timed relative to the group)",
+          "items": {
+            "$ref": "#/$defs/Layer"
+          },
+          "type": "array"
+        },
+        "clip": {
+          "default": false,
+          "description": "clip children to the group's box (groups)",
+          "type": "boolean"
+        },
+        "color": {
+          "$ref": "#/$defs/Color",
+          "description": "rect: fill colour; text/counter/captions: text colour (default white)"
+        },
+        "comment": {
+          "description": "Free-form note for humans; ignored by flits.",
+          "type": "string"
+        },
+        "decimals": {
+          "description": "counter: digits after the decimal mark",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "duration": {
+          "description": "lifetime in seconds (videos default to their (re-timed) length)",
+          "type": "number"
+        },
+        "end": {
+          "description": "end time in seconds (alternative to `duration`)",
+          "type": "number"
+        },
+        "fadeIn": {
+          "default": 0.0,
+          "description": "video: audio fade-in in seconds",
+          "type": "number"
+        },
+        "fadeOut": {
+          "default": 0.0,
+          "description": "video: audio fade-out in seconds",
+          "type": "number"
+        },
+        "filter": {
+          "$ref": "#/$defs/Filter",
+          "description": "colour grading (image, video)"
+        },
+        "fit": {
+          "description": "How an image/video fills its box: cover (default, crop), contain (letterbox), fill (stretch; alias stretch).",
+          "enum": [
+            "cover",
+            "contain",
+            "fill",
+            "stretch"
+          ],
+          "type": "string"
+        },
+        "font": {
+          "description": "installed font name (\"Segoe UI Black\"), a .ttf/.otf path or a `fonts` alias",
+          "type": "string"
+        },
+        "gain": {
+          "description": "waveform: amplification",
+          "type": "number"
+        },
+        "gap": {
+          "description": "waveform: gap between bars as a fraction of a slot (0..1)",
+          "type": "number"
+        },
+        "gradient": {
+          "$ref": "#/$defs/Gradient",
+          "description": "rect: gradient fill (instead of `color`)"
+        },
+        "height": {
+          "description": "box height in px (see `width`)",
+          "type": "number"
+        },
+        "highlight": {
+          "$ref": "#/$defs/Color",
+          "description": "captions: colour of the active word (default yellow)"
+        },
+        "highlightBg": {
+          "$ref": "#/$defs/Color",
+          "description": "captions: pill colour behind the active word"
+        },
+        "id": {
+          "description": "optional name (for your own bookkeeping)",
+          "type": "string"
+        },
+        "in": {
+          "$ref": "#/$defs/Transition",
+          "description": "enter transition"
+        },
+        "letterSpacing": {
+          "default": 0.0,
+          "description": "extra space between letters in px",
+          "type": "number"
+        },
+        "lineHeight": {
+          "description": "line height as a multiple of the font size (default 1.15)",
+          "type": "number"
+        },
+        "loop": {
+          "default": false,
+          "description": "video: loop the clip",
+          "type": "boolean"
+        },
+        "maxWidth": {
+          "description": "wrap text at this width in px",
+          "type": "number"
+        },
+        "maxWords": {
+          "description": "captions: words per chunk",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mirror": {
+          "default": false,
+          "description": "waveform: bars grow from the centre line",
+          "type": "boolean"
+        },
+        "opacity": {
+          "$ref": "#/$defs/Animated",
+          "description": "0..1"
+        },
+        "out": {
+          "$ref": "#/$defs/Transition",
+          "description": "exit transition"
+        },
+        "overlap": {
+          "default": 0.0,
+          "description": "group with `sequence`: seconds consecutive children overlap (use with \"in\": \"fade\" for crossfades)",
+          "type": "number"
+        },
+        "panX": {
+          "$ref": "#/$defs/Animated",
+          "description": "image/video: horizontal pan inside the box, -1..1"
+        },
+        "panY": {
+          "$ref": "#/$defs/Animated",
+          "description": "image/video: vertical pan inside the box, -1..1"
+        },
+        "prefix": {
+          "description": "counter: text before the number",
+          "type": "string"
+        },
+        "radius": {
+          "default": 0.0,
+          "description": "corner radius in px (>= half the size gives a circle/pill)",
+          "type": "number"
+        },
+        "reveal": {
+          "description": "Reveal the text piece by piece over `revealDuration` seconds: words, lines, chars or typewriter.",
+          "enum": [
+            "words",
+            "lines",
+            "chars",
+            "typewriter",
+            "none"
+          ],
+          "type": "string"
+        },
+        "revealDuration": {
+          "description": "seconds over which the `reveal` pieces appear",
+          "type": "number"
+        },
+        "rotation": {
+          "$ref": "#/$defs/Animated",
+          "description": "rotation in degrees (clockwise)"
+        },
+        "scale": {
+          "$ref": "#/$defs/Animated",
+          "description": "uniform scale (1 = 100%)"
+        },
+        "scaleX": {
+          "$ref": "#/$defs/Animated",
+          "description": "horizontal scale"
+        },
+        "scaleY": {
+          "$ref": "#/$defs/Animated",
+          "description": "vertical scale"
+        },
+        "separator": {
+          "description": "counter: thousands separator: \",\" (default, 1,234.5), \".\" (1.234,5) or \"none\"",
+          "type": "string"
+        },
+        "sequence": {
+          "default": false,
+          "description": "group: play children one after another (each needs a duration; clips use their length)",
+          "type": "boolean"
+        },
+        "shadow": {
+          "$ref": "#/$defs/Shadow"
+        },
+        "size": {
+          "description": "font size in px (text 64, counter 96)",
+          "type": "number"
+        },
+        "speed": {
+          "description": "playback speed for video (0.5 = slow motion, 2 = double speed)",
+          "type": "number"
+        },
+        "src": {
+          "description": "image/video: media file (jpg/png/webp/gif/bmp/svg, HEIC/AVIF via ffmpeg, any video ffmpeg reads); captions: transcript (.words.json/.srt/.vtt); waveform: audio or video file",
+          "type": "string"
+        },
+        "start": {
+          "default": 0.0,
+          "description": "start time in seconds (relative to the parent group)",
+          "type": "number"
+        },
+        "stroke": {
+          "$ref": "#/$defs/StrokeSpec"
+        },
+        "style": {
+          "description": "Captions style: karaoke (default; active word highlighted), pop (words pop in as spoken, TikTok-style), word (one big word at a time), line (plain subtitles). Aliases: highlight, tiktok, single, plain, subtitle.",
+          "enum": [
+            "karaoke",
+            "pop",
+            "word",
+            "line",
+            "highlight",
+            "tiktok",
+            "single",
+            "plain",
+            "subtitle"
+          ],
+          "type": "string"
+        },
+        "suffix": {
+          "description": "counter: text after the number",
+          "type": "string"
+        },
+        "text": {
+          "description": "text: the text (\\n for line breaks; &shy; or U+00AD for soft hyphens)",
+          "type": "string"
+        },
+        "trim": {
+          "default": 0.0,
+          "description": "video/captions/waveform: seconds to skip at the start of the source",
+          "type": "number"
+        },
+        "type": {
+          "description": "Layer type. rect: solid colour or gradient box; image: photo/SVG; video: clip (with sound); text: styled text; counter: animated number; captions: word-by-word subtitles from a transcript; waveform: live audio spectrum; group: container for `children`.",
+          "enum": [
+            "rect",
+            "image",
+            "video",
+            "text",
+            "counter",
+            "captions",
+            "waveform",
+            "group"
+          ],
+          "type": "string"
+        },
+        "uppercase": {
+          "default": false,
+          "type": "boolean"
+        },
+        "value": {
+          "$ref": "#/$defs/Animated",
+          "description": "counter: the number (animate it, e.g. {\"from\": 0, \"to\": 12840, \"ease\": \"out\", \"end\": 2.5})"
+        },
+        "volume": {
+          "$ref": "#/$defs/Animated",
+          "description": "video: audio volume (default 1, 0 = mute)"
+        },
+        "weight": {
+          "description": "weight for variable fonts / font families (e.g. 900)",
+          "type": "number"
+        },
+        "width": {
+          "description": "box width in px (default: parent width; text sizes itself; image/video keep their aspect ratio when only one side is given)",
+          "type": "number"
+        },
+        "wrap": {
+          "description": "\"balance\": even line lengths when wrapping (default: greedy)",
+          "enum": [
+            "balance",
+            "greedy"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "$ref": "#/$defs/Animated",
+          "description": "x of the anchor point in px (default: centre of the parent)"
+        },
+        "y": {
+          "$ref": "#/$defs/Animated",
+          "description": "y of the anchor point in px (default: centre of the parent)"
+        },
+        "zoom": {
+          "$ref": "#/$defs/Animated",
+          "description": "image/video: zoom inside the box (Ken Burns), 1 = fit"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "Padding": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      ],
+      "description": "Padding in px: one number or [horizontal, vertical]."
+    },
+    "Shadow": {
+      "additionalProperties": false,
+      "description": "Drop shadow (text: text shadow; other layers: box shadow).",
+      "properties": {
+        "blur": {
+          "default": 24.0,
+          "description": "blur radius in px",
+          "type": "number"
+        },
+        "color": {
+          "$ref": "#/$defs/Color",
+          "description": "default rgba(0,0,0,0.5)"
+        },
+        "comment": {
+          "description": "Free-form note for humans; ignored by flits.",
+          "type": "string"
+        },
+        "x": {
+          "default": 0.0,
+          "description": "horizontal offset in px",
+          "type": "number"
+        },
+        "y": {
+          "default": 12.0,
+          "description": "vertical offset in px",
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "StrokeSpec": {
+      "additionalProperties": false,
+      "description": "Text outline.",
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/Color"
+        },
+        "comment": {
+          "description": "Free-form note for humans; ignored by flits.",
+          "type": "string"
+        },
+        "width": {
+          "description": "px",
+          "type": "number"
+        }
+      },
+      "required": [
+        "width",
+        "color"
+      ],
+      "type": "object"
+    },
+    "TextBg": {
+      "additionalProperties": false,
+      "description": "Box (or one pill per line) behind text.",
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/Color"
+        },
+        "comment": {
+          "description": "Free-form note for humans; ignored by flits.",
+          "type": "string"
+        },
+        "mode": {
+          "description": "\"box\" (one box around the block) or \"lines\" (one pill per line)",
+          "enum": [
+            "box",
+            "lines"
+          ],
+          "type": "string"
+        },
+        "padding": {
+          "$ref": "#/$defs/Padding",
+          "description": "px: one number or [horizontal, vertical]"
+        },
+        "radius": {
+          "description": "corner radius in px (default: a quarter of the font size)",
+          "type": "number"
+        }
+      },
+      "required": [
+        "color"
+      ],
+      "type": "object"
+    },
+    "Transition": {
+      "anyOf": [
+        {
+          "pattern": "^\\s*(fade|slide-up|slide-down|slide-left|slide-right|zoom-in|zoom-out|pop|wipe-left|wipe-right|wipe-up|wipe-down|up|down|left|right|zoom|wipe)(\\s+([0-9]+\\.?[0-9]*|\\.[0-9]+)s?)?\\s*$",
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/TransitionSpec"
+        }
+      ],
+      "description": "Enter (`in`) or exit (`out`) transition: \"fade\", \"pop 0.4\" (type + seconds) or {\"type\", \"duration\", \"ease\", \"distance\"}.",
+      "examples": [
+        "fade",
+        "pop 0.4",
+        {
+          "distance": 200,
+          "duration": 0.6,
+          "ease": "out",
+          "type": "slide-up"
+        }
+      ]
+    },
+    "TransitionSpec": {
+      "additionalProperties": false,
+      "description": "Enter/exit transition as an object.",
+      "properties": {
+        "comment": {
+          "description": "Free-form note for humans; ignored by flits.",
+          "type": "string"
+        },
+        "distance": {
+          "description": "slide distance in px (default 120)",
+          "type": "number"
+        },
+        "duration": {
+          "description": "seconds (default 0.5; pop 0.45)",
+          "type": "number"
+        },
+        "ease": {
+          "$ref": "#/$defs/Ease",
+          "description": "easing curve (default: out; pop: back-out; wipes: in-out)"
+        },
+        "type": {
+          "$ref": "#/$defs/TransitionType",
+          "description": "transition type (default fade)"
+        }
+      },
+      "type": "object"
+    },
+    "TransitionType": {
+      "description": "fade, slide-up/down/left/right, zoom-in, zoom-out, pop, wipe-left/right/up/down (aliases: up, down, left, right, zoom = zoom-in, wipe = wipe-right).",
+      "enum": [
+        "fade",
+        "slide-up",
+        "slide-down",
+        "slide-left",
+        "slide-right",
+        "zoom-in",
+        "zoom-out",
+        "pop",
+        "wipe-left",
+        "wipe-right",
+        "wipe-up",
+        "wipe-down",
+        "up",
+        "down",
+        "left",
+        "right",
+        "zoom",
+        "wipe"
+      ],
+      "type": "string"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/ArjandenHartog/flits/main/schema/scene.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A flits scene: one video described as layers on a canvas. Units are pixels (origin top-left) and seconds; relative file paths resolve against the scene file's folder.",
+  "properties": {
+    "$schema": {
+      "description": "Optional URL or path of this JSON Schema (for editor completion); ignored by flits.",
+      "type": "string"
+    },
+    "audio": {
+      "description": "soundtrack: music, voice-over, effects (audio of video layers is mixed in automatically)",
+      "items": {
+        "$ref": "#/$defs/AudioTrack"
+      },
+      "type": "array"
+    },
+    "background": {
+      "$ref": "#/$defs/Color",
+      "description": "canvas colour behind all layers (default black)"
+    },
+    "comment": {
+      "description": "Free-form note for humans; ignored by flits.",
+      "type": "string"
+    },
+    "duration": {
+      "description": "length in seconds (default: the end of the last layer)",
+      "type": "number"
+    },
+    "fonts": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {},
+      "description": "font aliases usable in a layer's `font`, e.g. {\"brand\": \"fonts/Rubik-Black.ttf\"}",
+      "type": "object"
+    },
+    "fps": {
+      "default": 30.0,
+      "description": "frames per second",
+      "minimum": 1,
+      "type": "number"
+    },
+    "height": {
+      "description": "canvas height in pixels",
+      "minimum": 1,
+      "type": "integer"
+    },
+    "layers": {
+      "description": "layers, drawn in order: the first is at the bottom",
+      "items": {
+        "$ref": "#/$defs/Layer"
+      },
+      "type": "array"
+    },
+    "loudness": {
+      "description": "normalize the final mix to this loudness (LUFS, e.g. -14 for social, -16 for podcasts)",
+      "type": "number"
+    },
+    "width": {
+      "description": "canvas width in pixels",
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "width",
+    "height"
+  ],
+  "title": "flits scene",
+  "type": "object"
+}

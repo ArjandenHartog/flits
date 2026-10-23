@@ -9,9 +9,26 @@ A scene is one JSON file. flits renders it to MP4 (H.264/HEVC/AV1 + AAC):
     flits still scene.json --at 12.5 -o f.png # single frame(s)
     flits check scene.json                    # validate (typos are reported) + print the resolved timeline
     flits new                                 # list example scenes; `flits new intro -o intro.json`
+    flits schema                              # JSON Schema of this format (also schema/scene.schema.json)
 
 Units: pixels (canvas coordinates, origin top-left) and seconds. Relative file
 paths resolve against the scene file's folder.
+
+**JSON Schema.** `flits schema` prints a JSON Schema (draft 2020-12) generated from the
+same structs flits parses, with a description for every property and enums for layer
+types, eases, transitions, captions styles, `fit`, `align`, `wrap` and `reveal`. Point a
+scene at it for editor completion and validation:
+
+```jsonc
+{ "$schema": "https://raw.githubusercontent.com/ArjandenHartog/flits/main/schema/scene.schema.json",
+  "width": 1920, "height": 1080, "layers": [] }
+```
+
+`"$schema"` (at the top level) and `"comment"` (on any object) are ignored by flits and
+allowed by the schema; every other unknown key is a typo (a warning in `flits check`, an
+error in the schema). The schema is stricter than flits in two places: enum values are
+lowercase only (flits ignores case), and it cannot see files, fonts or media lengths —
+`flits check` remains the final word.
 
 ## Scene
 
@@ -211,3 +228,10 @@ name the speaker when it changes, VTT uses `<v SPEAKER_00>` voice tags.
 huggingface.co/settings/tokens, accept the conditions of `pyannote/speaker-diarization-community-1` (pyannote.audio 4;
 `pyannote/speaker-diarization-3.1` + `pyannote/segmentation-3.0` for 3.x) and set `HF_TOKEN`. `FLITS_DIARIZE_MODEL`
 picks another pipeline. With `--python`, install `pyannote.audio` into that Python yourself.
+
+## From other languages
+
+`bindings/typescript` (types + `render`/`still`/`sheet`/`check`/`transcribe` wrapping the CLI) and
+`bindings/python` (TypedDicts + the same functions) build scenes as plain objects and run the
+`flits` executable (`$FLITS_BIN` or PATH). The `Dockerfile` builds a Linux image with ffmpeg,
+fonts and Vulkan drivers and `flits` as the entrypoint.

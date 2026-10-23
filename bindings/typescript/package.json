@@ -1,0 +1,29 @@
+{
+  "name": "@flits/scene",
+  "version": "0.1.0",
+  "description": "Types for the flits scene format and a tiny wrapper that renders scenes with the flits CLI",
+  "license": "MIT",
+  "private": false,
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./scene": {
+      "types": "./scene.d.ts"
+    }
+  },
+  "files": ["index.js", "index.d.ts", "scene.d.ts"],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ArjandenHartog/flits",
+    "directory": "bindings/typescript"
+  },
+  "keywords": ["flits", "video", "rendering", "json", "scene"]
+}
