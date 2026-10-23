@@ -1,0 +1,20 @@
+{
+  "name": "flits-bench-remotion",
+  "private": true,
+  "description": "Renders a flits scene.json with Remotion, for the flits benchmark (see ../README.md).",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts FlitsScene",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.538",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.538"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "typescript": "5.9.3"
+  }
+}

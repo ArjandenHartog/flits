@@ -1,0 +1,12 @@
+{
+  "name": "flits-bench-editly",
+  "private": true,
+  "type": "module",
+  "description": "Renders the flits benchmark scene with editly (scene converted by convert.mjs).",
+  "scripts": {
+    "convert": "node convert.mjs"
+  },
+  "dependencies": {
+    "editly": "0.14.2"
+  }
+}

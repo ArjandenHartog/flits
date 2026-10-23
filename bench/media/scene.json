@@ -1,0 +1,367 @@
+{
+ "width": 1920,
+ "height": 1080,
+ "fps": 30,
+ "duration": 15.0,
+ "background": "#1b1020",
+ "audio": [
+  {
+   "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-iets-maken-wat-podcast-0d540757\\flits\\.claude\\worktrees\\agent-a92ab419fbeb6ef47\\bench\\media\\music.m4a",
+   "volume": 0.8,
+   "fadeOut": 2
+  }
+ ],
+ "layers": [
+  {
+   "type": "group",
+   "sequence": true,
+   "overlap": 0.6,
+   "children": [
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-iets-maken-wat-podcast-0d540757\\flits\\.claude\\worktrees\\agent-a92ab419fbeb6ef47\\bench\\media\\photo00.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      },
+      {
+       "type": "text",
+       "text": "Shot 1",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "align": "left",
+       "shadow": {
+        "blur": 18,
+        "y": 4
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-iets-maken-wat-podcast-0d540757\\flits\\.claude\\worktrees\\agent-a92ab419fbeb6ef47\\bench\\media\\photo01.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-iets-maken-wat-podcast-0d540757\\flits\\.claude\\worktrees\\agent-a92ab419fbeb6ef47\\bench\\media\\photo01.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-iets-maken-wat-podcast-0d540757\\flits\\.claude\\worktrees\\agent-a92ab419fbeb6ef47\\bench\\media\\photo02.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-iets-maken-wat-podcast-0d540757\\flits\\.claude\\worktrees\\agent-a92ab419fbeb6ef47\\bench\\media\\photo02.jpg",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         -7
+        ],
+        [
+         0.8,
+         -1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-iets-maken-wat-podcast-0d540757\\flits\\.claude\\worktrees\\agent-a92ab419fbeb6ef47\\bench\\media\\photo03.jpg",
+       "blur": 40,
+       "zoom": {
+        "from": 1.1,
+        "to": 1.18
+       }
+      },
+      {
+       "type": "video",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-iets-maken-wat-podcast-0d540757\\flits\\.claude\\worktrees\\agent-a92ab419fbeb6ef47\\bench\\media\\clip3.mp4",
+       "height": 860,
+       "x": 1267.2,
+       "y": 545,
+       "border": {
+        "width": 14,
+        "color": "#fffaf3"
+       },
+       "radius": 6,
+       "shadow": {
+        "blur": 36,
+        "y": 26,
+        "color": "rgba(10,0,15,0.55)"
+       },
+       "rotation": [
+        [
+         0,
+         7
+        ],
+        [
+         0.8,
+         1.8,
+         "back-out"
+        ]
+       ],
+       "scale": [
+        [
+         0,
+         0.85
+        ],
+        [
+         0.8,
+         1,
+         "back-out"
+        ]
+       ],
+       "zoom": {
+        "from": 1.03,
+        "to": 1.1
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.6,
+        "distance": 220
+       },
+       "volume": 0
+      },
+      {
+       "type": "text",
+       "text": "Shot 4",
+       "x": 140,
+       "y": 860,
+       "anchor": [
+        0,
+        1
+       ],
+       "size": 62,
+       "align": "left",
+       "shadow": {
+        "blur": 18,
+        "y": 4
+       },
+       "in": {
+        "type": "slide-up",
+        "duration": 0.7,
+        "distance": 60
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    },
+    {
+     "type": "group",
+     "duration": 3.8,
+     "children": [
+      {
+       "type": "image",
+       "src": "C:\\Users\\Arjan\\.t3\\scratch\\2026-10-23-ga-iets-maken-wat-podcast-0d540757\\flits\\.claude\\worktrees\\agent-a92ab419fbeb6ef47\\bench\\media\\photo04.jpg",
+       "zoom": {
+        "from": 1.08,
+        "to": 1.2
+       },
+       "panX": {
+        "from": 0.5,
+        "to": -0.5
+       }
+      },
+      {
+       "type": "rect",
+       "gradient": {
+        "angle": 180,
+        "stops": [
+         [
+          0,
+          "rgba(20,5,25,0.25)"
+         ],
+         [
+          0.5,
+          "rgba(20,5,25,0)"
+         ],
+         [
+          1,
+          "rgba(30,8,35,0.75)"
+         ]
+        ]
+       }
+      }
+     ],
+     "in": {
+      "type": "fade",
+      "duration": 0.6
+     }
+    }
+   ]
+  },
+  {
+   "type": "rect",
+   "x": 0,
+   "y": 1075,
+   "anchor": [
+    0,
+    0.5
+   ],
+   "width": 1920,
+   "height": 10,
+   "color": "#f26328",
+   "scaleX": {
+    "from": 0,
+    "to": 1
+   }
+  }
+ ]
+}

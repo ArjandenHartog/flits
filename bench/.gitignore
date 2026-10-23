@@ -1,0 +1,3 @@
+node_modules/
+bench/media/*.mp4
+bench/out/
