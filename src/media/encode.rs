@@ -106,8 +106,23 @@ impl Settings {
     }
 }
 
+/// The VAAPI render node: `FLITS_VAAPI_DEVICE`, else the first /dev/dri/renderD* this user can open.
 pub fn vaapi_device() -> String {
-    std::env::var("FLITS_VAAPI_DEVICE").unwrap_or_else(|_| "/dev/dri/renderD128".into())
+    if let Ok(d) = std::env::var("FLITS_VAAPI_DEVICE") {
+        return d;
+    }
+    let mut nodes: Vec<_> = std::fs::read_dir("/dev/dri")
+        .map(|rd| {
+            rd.flatten().map(|e| e.path()).filter(|p| p.file_name().is_some_and(|n| n.to_string_lossy().starts_with("renderD"))).collect()
+        })
+        .unwrap_or_default();
+    nodes.sort();
+    nodes
+        .iter()
+        .find(|p| std::fs::OpenOptions::new().read(true).write(true).open(p).is_ok())
+        .or(nodes.first())
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "/dev/dri/renderD128".into())
 }
 
 pub fn encoder_works(codec: &str) -> bool {
@@ -198,7 +213,9 @@ pub fn spawn_encoder(s: &Settings, in_w: u32, w: u32, h: u32, fps: f64, out: &Pa
             cmd.args(["-preset", preset, "-global_quality", &q]);
         }
         Encoder::Vaapi => {
-            cmd.args(["-qp", &q]);
+            // constant QP (the rate control every VAAPI driver has): QP = CRF + 4 gives about the size
+            // and quality of x264 at that CRF (measured on Intel iHD, HD 630)
+            cmd.args(["-rc_mode", "CQP", "-qp", &(s.quality + 4).min(51).to_string()]);
         }
         Encoder::Cpu => {
             match s.codec {

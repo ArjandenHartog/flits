@@ -68,10 +68,36 @@ fn render_chunk(p: &Prepared, fr: &mut FrameRenderer, opts: &RenderOpts, (a, b):
     }
     drop(stdin);
     let out = profile::time(profile::Stage::EncoderSetup, || enc.wait_with_output())?;
-    if res.is_ok() && !out.status.success() {
-        res = Err(anyhow!("encoder failed: {}", String::from_utf8_lossy(&out.stderr)));
+    if !out.status.success() && (res.is_ok() || stdin_closed(&res)) {
+        res =
+            Err(anyhow!("encoder {} failed: {}{}", opts.encode.codec_name(), ffmpeg_error(&out.stderr), encoder_hint(opts.encode.encoder)));
     }
     res
+}
+
+/// The encoder closed its input early: its own error message says why.
+fn stdin_closed(res: &Result<()>) -> bool {
+    res.as_ref().is_err_and(|e| e.to_string().starts_with("encoder stopped"))
+}
+
+/// The lines of ffmpeg's stderr that explain a failure (its error lines, else the last few lines).
+fn ffmpeg_error(stderr: &[u8]) -> String {
+    let text = String::from_utf8_lossy(stderr);
+    let lines: Vec<&str> = text.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+    let errors: Vec<&str> = lines.iter().copied().filter(|l| l.contains("rror") || l.contains("failed")).take(6).collect();
+    let pick = if errors.is_empty() { lines[lines.len().saturating_sub(5)..].to_vec() } else { errors };
+    pick.join("\n  ")
+}
+
+fn encoder_hint(e: Encoder) -> &'static str {
+    match e {
+        Encoder::Qsv => {
+            "\n(QSV needs Intel's oneVPL GPU runtime (Tiger Lake and newer) or the legacy Media SDK runtime; on Linux --encoder vaapi works on any Intel GPU since Broadwell)"
+        }
+        Encoder::Vaapi => "\n(VAAPI needs read access to the render node: FLITS_VAAPI_DEVICE, default /dev/dri/renderD128, and the `render` group)",
+        Encoder::Nvenc => "\n(NVENC needs an NVIDIA GPU and driver; `flits doctor` shows what works)",
+        Encoder::Cpu | Encoder::Null => "",
+    }
 }
 
 pub fn render(p: &Prepared, out: &Path, opts: &RenderOpts) -> Result<()> {

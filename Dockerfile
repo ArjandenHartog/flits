@@ -11,6 +11,10 @@
 #
 #   docker run --rm --gpus all -v "$PWD:/work" flits render scene.json -o out.mp4
 #
+# With an Intel or AMD GPU, pass the DRI devices: Vulkan (Mesa) for the compositor, VAAPI/QSV for encoding:
+#
+#   docker run --rm --device /dev/dri -v "$PWD:/work" flits render scene.json -o out.mp4
+#
 # Transcription (`flits transcribe`, `captions`, `podcast`, `cut --fillers`) installs faster-whisper through
 # uv on first use; mount a volume on /cache to keep the models between runs:
 #
@@ -32,7 +36,8 @@ FROM debian:${DEBIAN}-slim
 
 # ffmpeg: decoding/encoding/audio; fonts: DejaVu (flits' Linux default), Liberation (Arial/Helvetica metrics), Noto;
 # libvulkan1 + mesa-vulkan-drivers: Vulkan loader and drivers for the GPU compositor (Intel/AMD; NVIDIA's driver is
-# injected by the NVIDIA Container Toolkit). Without a usable GPU flits falls back to its CPU compositor.
+# injected by the NVIDIA Container Toolkit); intel-media-va-driver + mesa-va-drivers: VAAPI encoding on Intel
+# (Broadwell and newer) and AMD. Without a usable GPU flits falls back to its CPU compositor and x264.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
@@ -40,7 +45,9 @@ RUN apt-get update \
         fonts-dejavu-core \
         fonts-liberation \
         fonts-noto-core \
+        intel-media-va-driver \
         libvulkan1 \
+        mesa-va-drivers \
         mesa-vulkan-drivers \
     && rm -rf /var/lib/apt/lists/*
 
