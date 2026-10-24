@@ -303,6 +303,9 @@ temp folder; without flits the SDK estimates).
     flits reel interview.mp4 --focus 0.3 --format 4:5     # fixed framing, other format
     flits reel interview.mp4 --fit fit                    # whole picture, captions underneath
     flits reel interview.mp4 --logo logo.png --accent "#f39200" --progress --music bed.mp3   # branded
+    flits reel interview.mp4 --pick                       # rank the parts that work as a reel, render nothing
+    flits reel interview.mp4 --auto 45 --candidates 3     # render the 3 best parts: <out>-1.mp4, -2, -3
+    flits reel interview.mp4 --from 1:12 --to 2:10 --logo logo.png --end "Volg ons"   # end card
 
 One command from raw footage to a reel, in one render of just the reel's length: the transcript
 (`<input>.words.json`, made once and reused), the chosen part(s) with silences (and with `--fillers` /
@@ -318,6 +321,30 @@ top right on a soft shade, sized by height so wordmarks and marks look alike), `
 bar and active caption word), `--progress` (a bar along the bottom), `--music` (looped under the voice,
 ducked while someone speaks, faded out). The scene is written next to the
 output (`<out>.scene.json`) to tweak and re-render.
+
+**Picking the part** (`--auto [SECONDS]`, default 45, 15..90; `--pick` / `--dry-run` only prints): the
+transcript is split into sentences and every run of whole sentences of about the target length (counted with
+long pauses shortened, as the reel cuts them) is scored with named reasons; a candidate never starts or ends
+mid-sentence (a sentence start follows sentence punctuation and is not lower case; the end is a sentence end).
+Points go to the **hook** (a question, a number, hook words like "the reason" / "het probleem", a contrast;
+against: starting with a conjunction "and/but/so/en/maar/dus", a reply "ja/nou/yes/well", a back reference "dat
+is/die gaan/that was", a verb or "dat zij ..." fragment, a greeting, answering a question that isn't in the clip;
+a leading "Ja," / "Nou," / "So," is trimmed off), the **end** (a full stop followed by a pause, a conclusion "dus /
+so / that's why / dan denk ik", a call to action "kom / volg / word lid / follow / join", an exclamation; against: a
+trailing "...", a question, a next sentence that completes the thought "maar/dus ...", a thank-you/goodbye, a
+one-word reaction), the **body** (against: an interviewer's new question halfway, short back-and-forth
+reactions, a goodbye halfway, broken-off sentences, silences over 1.5 s, slow speech, filler words) and the
+**length**. Structure works in any language; the cue lists cover English and Dutch. `--pick` prints the five best
+non-overlapping parts with times, score, the first and last sentence, every reason and the `--from/--to` command
+(`--json`: the same as JSON: `rank`, `from`, `to`, `length`, `score`, `first`, `last`, `reasons`). `--candidates N`
+(1..3) renders the N best (`<out>-1.mp4`, ...).
+
+**End card** (`--end "Volg ons"`, `--end-logo [PATH]` (default: the `--logo`), `--end-duration` 2 s): after the
+last clip the picture goes soft (a blurred still of the last frame, framed like the clip, drifting in on an
+expo curve; without a still: the accent colour opening as an iris), the logo zooms in and the call to action
+rises out of a mask word by word above an accent rule that draws itself. The voice ends with the last clip; the
+`--music` carries on and fades out with the card; captions, the progress bar and the corner logo stop where the
+card starts.
 
 ## Cutting: `flits cut`
 
@@ -400,7 +427,8 @@ picks another pipeline. With `--python`, install `pyannote.audio` into that Pyth
 
 ## From other languages
 
-`bindings/typescript` (types + `render`/`still`/`sheet`/`check`/`transcribe` wrapping the CLI) and
-`bindings/python` (TypedDicts + the same functions) build scenes as plain objects and run the
+`bindings/typescript` (types + `render`/`still`/`sheet`/`check`/`transcribe`/`reel` wrapping the CLI; `reel`
+takes typed options for every `flits reel` flag and returns the written videos, or with `pick` the ranked candidates) and
+`bindings/python` (TypedDicts + the same functions; `flits.reel(video, out, from_=..., ...)`) build scenes as plain objects and run the
 `flits` executable (`$FLITS_BIN` or PATH). The `Dockerfile` builds a Linux image with ffmpeg,
 fonts and Vulkan drivers and `flits` as the entrypoint.

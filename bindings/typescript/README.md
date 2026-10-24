@@ -70,4 +70,15 @@ export default defineVideo(({ name }: { name: string }) => Composition({ ...form
 `render(scene, "out.mp4", options)`, `still`, `sheet`, `check`, `transcribe`, `schema` run the CLI (`$FLITS_BIN` or
 `flits` on PATH); `scene` is an object (compiled with `compile()` first) or a file path (`.json`, `.ts`, `.js`).
 
+`reel(video, out, options)` runs `flits reel` (raw footage to a 9:16 reel) with typed options for every flag
+(`ReelOptions`: `from`/`to`/`clips`, `auto`, `candidates`, `end`, `endLogo`, `logo`, `music`, ...) and resolves with
+the written videos; with `pick: true` it renders nothing and resolves with the ranked parts (`ReelCandidate[]`: `from`,
+`to`, `score`, `first` sentence and `reasons`) to choose from:
+
+```ts
+import { reel } from "flits-video";
+const [best] = await reel("talk.mp4", null, { pick: true, auto: 45 });
+await reel("talk.mp4", "out/reel.mp4", { from: best.from, to: best.to, fillers: true, logo: "logo.png", end: "Follow for more" });
+```
+
 Tests: `node --test "test/*.test.js"`.

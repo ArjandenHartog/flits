@@ -6,6 +6,7 @@ pub mod cut;
 pub mod edit;
 pub mod export;
 pub mod fillers;
+pub mod highlights;
 pub mod podcast;
 pub mod project;
 pub mod reel;

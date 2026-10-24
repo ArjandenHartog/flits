@@ -421,6 +421,7 @@ pub fn transcribe(
     Ok(())
 }
 
+#[derive(Clone)]
 pub struct ReelArgs {
     pub windows: Vec<(f64, f64)>,
     pub format: String,
@@ -441,6 +442,11 @@ pub struct ReelArgs {
     pub logo: Option<PathBuf>,
     pub progress: bool,
     pub accent: Option<String>,
+    /// end card: call to action
+    pub end_text: Option<String>,
+    /// end card: logo (an empty path = the `logo`)
+    pub end_logo: Option<PathBuf>,
+    pub end_duration: f64,
 }
 
 /// Who is where, shot by shot, over the parts of the footage the reel uses.
@@ -531,6 +537,8 @@ pub fn reel(video: &Path, out: Option<PathBuf>, a: &ReelArgs, transcript: Option
     } else {
         None
     };
+    let end_still = with_suffix(&out, ".end.jpg");
+    let end = end_card(video, a, &ranges, &end_still)?;
     templates::reel::write_words(&templates::reel::remap_words(&words, &ranges), tr.language.as_deref(), &words_path)?;
     let scene = templates::reel::reel(&templates::reel::ReelOpts {
         video,
@@ -552,8 +560,126 @@ pub fn reel(video: &Path, out: Option<PathBuf>, a: &ReelArgs, transcript: Option
         preset: a.preset.clone(),
         highlight: a.highlight.clone(),
         position: a.position,
+        end,
     })?;
     write_scene_and_render(scene, &out, r)?;
     eprintln!("flits: footage to reel in {:.1}s", t0.elapsed().as_secs_f64());
+    println!("{}", out.display());
+    Ok(())
+}
+
+/// The end card's logo and text from the arguments, with a still of the last frame (blurred on the card).
+fn end_card<'a>(video: &Path, a: &'a ReelArgs, ranges: &[(f64, f64)], still: &'a Path) -> Result<Option<templates::reel::EndCard<'a>>> {
+    let logo = match &a.end_logo {
+        Some(p) if p.as_os_str().is_empty() => Some(
+            a.logo.as_deref().ok_or_else(|| anyhow!("--end-logo without a path needs --logo (or name the logo: --end-logo logo.png)"))?,
+        ),
+        Some(p) => Some(p.as_path()),
+        // a text card shows the brand's logo when there is one
+        None if a.end_text.is_some() => a.logo.as_deref(),
+        None => None,
+    };
+    let text = a.end_text.clone().filter(|t| !t.trim().is_empty());
+    if logo.is_none() && text.is_none() {
+        return Ok(None);
+    }
+    if !(0.5..=6.0).contains(&a.end_duration) {
+        bail!("--end-duration: 0.5 to 6 seconds (1.5 to 2.5 reads well)");
+    }
+    let last = ranges.last().map(|r| (r.1 - 0.05).max(r.0)).unwrap_or(0.0);
+    let mut cmd = media::ffmpeg();
+    cmd.args(["-y", "-ss", &format!("{last:.3}")]).arg("-i").arg(video).args(["-frames:v", "1", "-vf", "scale=540:-2"]).arg(still);
+    let still = media::run(&mut cmd, "end card still").ok().map(|_| still);
+    Ok(Some(templates::reel::EndCard { text, logo, still, duration: a.end_duration }))
+}
+
+/// How `flits reel --auto` picks.
+pub struct AutoArgs {
+    /// target length (seconds)
+    pub target: f64,
+    /// reels to render
+    pub candidates: usize,
+    /// only print the candidates
+    pub pick: bool,
+    pub json: bool,
+}
+
+fn round2(x: f64) -> f64 {
+    (x * 100.0).round() / 100.0
+}
+
+/// `flits reel --auto` / `--pick`: rank the parts of the recording from its transcript, then print
+/// them or render the best one(s) with `reel`.
+pub fn reel_auto(
+    video: &Path,
+    out: Option<PathBuf>,
+    a: &ReelArgs,
+    auto: &AutoArgs,
+    transcript: Option<PathBuf>,
+    w: &WhisperArgs,
+    r: &RenderArgs,
+) -> Result<()> {
+    if !(15.0..=90.0).contains(&auto.target) {
+        bail!("--auto: a length of 15 to 90 seconds (30 to 75 works best for reels)");
+    }
+    if !(1..=3).contains(&auto.candidates) {
+        bail!("--candidates: 1 to 3");
+    }
+    let info = media::probe(video)?;
+    let mut wo = w.opts()?;
+    if (a.fillers || a.repeats) && wo.initial_prompt.is_none() {
+        wo.initial_prompt = fillers::verbatim_prompt(&wo.language).map(str::to_string);
+    }
+    let tr_path = transcribe::ensure(video, transcript.as_deref(), &wo)?;
+    let words = load_transcript_full(&tr_path)?.words();
+    let n = if auto.pick { 5 } else { auto.candidates };
+    let picks = templates::highlights::pick(&words, auto.target, n, info.duration);
+    if picks.is_empty() {
+        bail!("the transcript has no sentences to pick from");
+    }
+    if auto.json {
+        let v: Vec<serde_json::Value> = picks
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                let reasons: Vec<serde_json::Value> =
+                    p.reasons.iter().map(|(pts, why)| serde_json::json!({"points": round2(*pts), "why": why})).collect();
+                serde_json::json!({"rank": i + 1, "from": round2(p.from), "to": round2(p.to), "length": round2(p.length),
+                    "score": round2(p.score), "first": p.first, "last": p.last, "reasons": reasons})
+            })
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&v)?);
+        return Ok(());
+    }
+    for (i, p) in picks.iter().enumerate() {
+        let why: String = p.reasons.iter().map(|(pts, why)| format!("    {pts:+.1}  {why}\n")).collect();
+        let text = format!(
+            "#{}  {} - {}  ~{:.0} s  score {:+.1}\n    \"{}\"\n    ... \"{}\"\n{why}    flits reel {} --from {:.2} --to {:.2}\n",
+            i + 1,
+            fmt_ts(p.from),
+            fmt_ts(p.to),
+            p.length,
+            p.score,
+            p.first,
+            p.last,
+            video.display(),
+            p.from,
+            p.to
+        );
+        if auto.pick {
+            println!("{text}");
+        } else {
+            eprint!("flits: picked {text}");
+        }
+    }
+    if auto.pick {
+        return Ok(());
+    }
+    let out = out.unwrap_or_else(|| with_suffix(video, "-reel.mp4"));
+    for (i, p) in picks.iter().enumerate() {
+        let o = if picks.len() == 1 { out.clone() } else { with_suffix(&out, &format!("-{}.mp4", i + 1)) };
+        let a = ReelArgs { windows: vec![(p.from, p.to)], ..a.clone() };
+        reel(video, Some(o), &a, Some(tr_path.clone()), w, r)?;
+    }
     Ok(())
 }

@@ -133,6 +133,39 @@ export async function transcribe(inputs, options = {}) {
   return lines(await run(["transcribe", ...files, ...toArgs(flags)], ro));
 }
 
+const REEL_PATHS = ["music", "logo", "transcript", "vocab", "python"];
+
+/**
+ * The `flits reel` arguments for `reel(video, out, options)` (run options are left out). `clips` may be a string
+ * ("0:40-1:05,3:10-3:32") or a list of `[from, to]` pairs; `endLogo: true` uses the `logo`; `pick` adds `--json`.
+ */
+export function reelArgs(video, out, options = {}) {
+  const [, flags] = split(options);
+  const { clips, endLogo, ...rest } = flags;
+  for (const k of REEL_PATHS) if (typeof rest[k] === "string") rest[k] = resolve(rest[k]);
+  const args = ["reel", resolve(video)];
+  if (out) args.push("-o", resolve(out));
+  if (clips !== undefined && clips !== null) {
+    args.push("--clips", Array.isArray(clips) ? clips.map((c) => (Array.isArray(c) ? `${c[0]}-${c[1]}` : String(c))).join(",") : String(clips));
+  }
+  if (endLogo === true) args.push("--end-logo");
+  else if (typeof endLogo === "string") args.push("--end-logo", resolve(endLogo));
+  args.push(...toArgs(rest));
+  if (rest.pick && !rest.json) args.push("--json");
+  return args;
+}
+
+/**
+ * Raw footage to a reel (`flits reel`). Resolves with the written video paths (one per candidate). With
+ * `pick: true` nothing is rendered: resolves with the ranked candidates instead.
+ */
+export async function reel(video, out, options = {}) {
+  const [ro] = split(options);
+  const stdout = await run(reelArgs(video, out, options), ro);
+  if (options.pick) return JSON.parse(stdout);
+  return lines(stdout).filter((l) => /\.(mp4|mov|webm|mkv)$/i.test(l));
+}
+
 /** The JSON Schema of the scene format (from the installed flits). */
 export async function schema(options = {}) {
   const [ro] = split(options);

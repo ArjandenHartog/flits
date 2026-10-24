@@ -13,8 +13,23 @@ against `base_dir` (default: the current directory).
 """
 
 from .compile import compile, flatten, sample
-from ._cli import CheckResult, FlitsError, binary, check, render, run, scene_file, schema, sheet, still, to_args, transcribe
-from .types import Layer, Scene
+from ._cli import (
+    CheckResult,
+    FlitsError,
+    binary,
+    check,
+    reel,
+    reel_args,
+    render,
+    run,
+    scene_file,
+    schema,
+    sheet,
+    still,
+    to_args,
+    transcribe,
+)
+from .types import Layer, ReelCandidate, ReelOptions, Scene
 
 __all__ = [
     "compile",
@@ -23,9 +38,13 @@ __all__ = [
     "CheckResult",
     "FlitsError",
     "Layer",
+    "ReelCandidate",
+    "ReelOptions",
     "Scene",
     "binary",
     "check",
+    "reel",
+    "reel_args",
     "render",
     "run",
     "scene_file",
