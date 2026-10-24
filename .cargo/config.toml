@@ -1,2 +1,4 @@
-[build]
+# x86-64-v3 (AVX2, Haswell / Zen and newer): faster blur, YUV and resize loops. Only for x86_64 targets:
+# Apple silicon and other ARM targets keep their default CPU features.
+[target.'cfg(target_arch = "x86_64")']
 rustflags = ["-C", "target-cpu=x86-64-v3"]
