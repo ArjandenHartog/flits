@@ -35,6 +35,14 @@ pub struct ReelOpts<'a> {
     pub fps: Option<f64>,
     /// punch in on every other jump cut, so cut-out pauses don't read as hiccups
     pub punch: bool,
+    /// music under the voice (ducked while someone speaks, faded out at the end)
+    pub music: Option<&'a Path>,
+    /// logo in the top corner (png/svg)
+    pub logo: Option<&'a Path>,
+    /// a thin progress bar along the bottom
+    pub progress: bool,
+    /// accent colour (progress bar; captions highlight when none is given)
+    pub accent: Option<String>,
     pub title: Option<String>,
     pub preset: Option<String>,
     pub highlight: Option<String>,
@@ -201,7 +209,7 @@ pub fn reel(o: &ReelOpts) -> Result<Value> {
             caps["highlight"] = json!("#ffd60a");
         }
     }
-    if let Some(c) = &o.highlight {
+    if let Some(c) = o.highlight.as_ref().or(o.accent.as_ref()) {
         caps["highlight"] = json!(c);
     }
     layers.push(caps);
@@ -215,10 +223,33 @@ pub fn reel(o: &ReelOpts) -> Result<Value> {
             "shadow": {"blur": 30, "y": 10, "color": "rgba(0,0,0,0.35)"},
             "duration": total.min(4.5), "in": {"type": "zoom-in", "duration": 0.45, "ease": "expo-out"}, "out": "fade 0.3"}));
     }
+    if let Some(logo) = o.logo {
+        // in the top right corner, inside the safe area the apps leave free: a fixed height, so
+        // wide wordmarks and square marks look about as big (wide ones capped at a third of the width)
+        let (iw, ih) = media::image::image_size(logo)?;
+        let aspect = iw as f64 / ih.max(1) as f64;
+        let lh = (hf * 0.034).min(wf * 0.34 / aspect).max(hf * 0.02);
+        let lh = if aspect < 1.6 { lh * 1.8 } else { lh };
+        let lw = lh * aspect;
+        // a soft shade behind it: white logos stay visible against a bright sky
+        layers.push(json!({"type": "rect", "anchor": [0.5, 0], "y": 0, "height": hf * 0.16, "motionBlur": false,
+            "gradient": {"type": "linear", "angle": 180, "stops": [[0, "#00000073"], [1, "#00000000"]]}}));
+        layers.push(json!({"type": "image", "src": abs(logo), "fit": "contain", "width": lw, "height": lh,
+            "anchor": [1, 0], "x": wf - wf * 0.06, "y": hf * 0.06, "opacity": 0.9, "motionBlur": false}));
+    }
+    if o.progress {
+        let accent = o.accent.as_deref().or(o.highlight.as_deref()).unwrap_or("#ffd60a");
+        layers.push(json!({"type": "rect", "anchor": [0, 1], "x": 0, "y": hf, "width": wf, "height": (hf * 0.006).round().max(6.0),
+            "color": accent, "scaleX": {"from": 0, "to": 1, "ease": "linear"}, "motionBlur": false}));
+    }
+    let mut audio = vec![json!({"src": abs(o.audio)})];
+    if let Some(m) = o.music {
+        audio.push(json!({"src": abs(m), "volume": 0.5, "duck": 0.18, "loop": true, "fadeIn": 0.5, "fadeOut": 2.0}));
+    }
     Ok(json!({
         "width": w, "height": h, "fps": fps, "duration": total, "loudness": -14,
         "motionBlur": true,
-        "audio": [{"src": abs(o.audio)}],
+        "audio": audio,
         "layers": layers
     }))
 }

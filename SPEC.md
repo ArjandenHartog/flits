@@ -302,6 +302,7 @@ temp folder; without flits the SDK estimates).
     flits reel interview.mp4 --clips "0:40-1:05,3:10-3:32"     # several parts, in this order
     flits reel interview.mp4 --focus 0.3 --format 4:5     # fixed framing, other format
     flits reel interview.mp4 --fit fit                    # whole picture, captions underneath
+    flits reel interview.mp4 --logo logo.png --accent "#f39200" --progress --music bed.mp3   # branded
 
 One command from raw footage to a reel, in one render of just the reel's length: the transcript
 (`<input>.words.json`, made once and reused), the chosen part(s) with silences (and with `--fillers` /
@@ -311,7 +312,11 @@ follows the people: shot changes are detected on every frame and faces a few tim
 (built-in SeetaFace model, no extra install), and every shot gets one steady framing that jumps
 exactly on the cut; shots without a face are framed in the middle, and footage without any face (a
 podcast cover, slides) is shown whole on a blurred backdrop. Reels play at 30 fps at most (50 -> 25,
-60 -> 30; `--fps` overrides). The hook title is black on a white box, readable on any footage. The scene is written next to the
+60 -> 30; `--fps` overrides). The hook title is black on a white box, readable on any footage. Jump cuts (removed pauses) alternate between
+the framing and a 10% punch-in so they don't read as hiccups (`--no-punch`). Branding: `--logo` (png/svg,
+top right on a soft shade, sized by height so wordmarks and marks look alike), `--accent` (progress
+bar and active caption word), `--progress` (a bar along the bottom), `--music` (looped under the voice,
+ducked while someone speaks, faded out). The scene is written next to the
 output (`<out>.scene.json`) to tweak and re-render.
 
 ## Cutting: `flits cut`

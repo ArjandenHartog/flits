@@ -180,6 +180,7 @@ transcript is reused), cuts silences (`--fillers`: also uh/ehm), follows the fac
 flits transcribe talk.mp4 --lang nl                 # first: read talk.words.txt (or .srt for times) to pick the best part
 flits reel talk.mp4 --from 1:12 --to 2:10 --fillers --title "Hook in a few words" --preset tiktok
 flits reel talk.mp4 --clips "0:40-1:05,3:10-3:32"   # several parts, in this order
+flits reel talk.mp4 --logo logo.png --accent "#f39200" --progress --music bed.mp3   # branded (ask for their logo/colour)
 flits still talk-reel.scene.json --at 2 --at 20 -o out/r.png   # check the framing and captions
 ```
 

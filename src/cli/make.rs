@@ -437,6 +437,10 @@ pub struct ReelArgs {
     pub keep: f64,
     pub fps: Option<f64>,
     pub punch: bool,
+    pub music: Option<PathBuf>,
+    pub logo: Option<PathBuf>,
+    pub progress: bool,
+    pub accent: Option<String>,
 }
 
 /// Who is where, shot by shot, over the parts of the footage the reel uses.
@@ -536,6 +540,10 @@ pub fn reel(video: &Path, out: Option<PathBuf>, a: &ReelArgs, transcript: Option
         backdrop: backdrop.as_deref(),
         fps: a.fps,
         punch: a.punch,
+        music: a.music.as_deref(),
+        logo: a.logo.as_deref(),
+        progress: a.progress,
+        accent: a.accent.clone(),
         title: a.title.clone(),
         preset: a.preset.clone(),
         highlight: a.highlight.clone(),

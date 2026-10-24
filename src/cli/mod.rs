@@ -430,6 +430,18 @@ enum Cmd {
         /// don't punch in on jump cuts (by default every other cut-out pause zooms in 10%)
         #[arg(long)]
         no_punch: bool,
+        /// music under the voice: ducked while someone speaks, looped, faded out at the end
+        #[arg(long)]
+        music: Option<PathBuf>,
+        /// logo (png/svg) in the top right corner
+        #[arg(long)]
+        logo: Option<PathBuf>,
+        /// a thin progress bar along the bottom
+        #[arg(long)]
+        progress: bool,
+        /// brand colour: progress bar and active caption word
+        #[arg(long)]
+        accent: Option<String>,
         /// existing transcript (.json/.srt/.vtt) instead of transcribing
         #[arg(long)]
         transcript: Option<PathBuf>,
@@ -659,6 +671,10 @@ fn run(cli: Cli) -> Result<()> {
             keep,
             fps,
             no_punch,
+            music,
+            logo,
+            progress,
+            accent,
             transcript,
             w,
             r,
@@ -693,6 +709,10 @@ fn run(cli: Cli) -> Result<()> {
                 keep,
                 fps,
                 punch: !no_punch,
+                music,
+                logo,
+                progress,
+                accent,
             };
             make::reel(&video, out, &a, transcript, &w, &r)
         }
