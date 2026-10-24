@@ -13,6 +13,8 @@ pub const SDK: &[(&str, &str)] = &[
     ("compile.d.ts", include_str!("../../bindings/typescript/compile.d.ts")),
     ("components.js", include_str!("../../bindings/typescript/components.js")),
     ("components.d.ts", include_str!("../../bindings/typescript/components.d.ts")),
+    ("motion.js", include_str!("../../bindings/typescript/motion.js")),
+    ("motion.d.ts", include_str!("../../bindings/typescript/motion.d.ts")),
     ("jsx-runtime.js", include_str!("../../bindings/typescript/jsx-runtime.js")),
     ("jsx-runtime.d.ts", include_str!("../../bindings/typescript/jsx-runtime.d.ts")),
     ("jsx-dev-runtime.js", include_str!("../../bindings/typescript/jsx-dev-runtime.js")),
@@ -88,6 +90,7 @@ mod tests {
         let files = init(&dir.join("My Video")).unwrap();
         let root = dir.join("My Video");
         assert!(files.contains(&root.join("src/video.ts")) && root.join("flits/components.js").is_file());
+        assert!(root.join("flits/motion.js").is_file() && root.join("flits/motion.d.ts").is_file());
         assert!(std::fs::read_to_string(root.join("package.json")).unwrap().contains("\"name\": \"my-video\""));
         assert_eq!(project_root(&root.join("src")).unwrap(), std::fs::canonicalize(&root).unwrap());
         assert!(init(&root).is_err(), "refuses a non-empty folder");

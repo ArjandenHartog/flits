@@ -43,6 +43,20 @@ Text({ text: "Hi", duration: 2,
 delay })`, `easing.<name>(x)` (the scene format's curves), `random(seed)` (deterministic), `formats.youtube | reel |
 square | ...`, `fromTo()`, `keyframes()`, `frames()`/`seconds()`.
 
+## Motion design components
+
+`motion.js` (exported from the package root too) turns the patterns of a polished brand film into one-call components
+with designed defaults: `at` = when it comes in, `exit` = when it leaves, everything else from a theme set once with
+`setTheme({ colors: { accent }, fonts: { display } })`.
+
+* text: `MaskLine`, `KineticTitle`, `Eyebrow` (`Label`), `Typewriter`, `HighlightRule`, `Quote`
+* structure: `Rule`, `Outline`, `Tag`, `Grid`, `Hud`, `LowerThird`, `EndCard`, `Backdrop`
+* data: `StatCounter`, `BarChart`, `LineChart`, `ProgressRing`, `Checklist`, `ProgressBars`
+* timing: `Act`, `timeline()`, `Stagger`, `Whip`
+* theme: `setTheme`, `createTheme`, `getTheme`, `resetTheme`, `themeScene`, `defaultTheme`, `measureText`, `withAlpha`, `mix`
+
+Every prop is documented in `motion.d.ts`; [`example-motion.ts`](example-motion.ts) is a complete film made with them.
+
 ## Parametrized videos
 
 ```ts

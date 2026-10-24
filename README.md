@@ -71,6 +71,43 @@ export default defineVideo(({ title = "Our year" }: { title?: string }) =>
 * **Runtimes**: Bun, Deno or Node 22.6+ (whichever is installed, or `FLITS_JS`); only `.ts`/`.js` scenes need one.
   JSON scenes, the schema and everything else stay as they are — a TypeScript scene compiles to the same JSON.
 
+### Motion design components
+
+For the look of a polished brand film without writing keyframes, the SDK has a library of motion components
+([`motion.js`](bindings/typescript/motion.js), typed and documented in `motion.d.ts`). Each is one call with good
+defaults: `at` is when it comes in, `exit` when it leaves, and colours, fonts and timings come from one theme.
+
+```ts
+import { Composition, Act, Hud, KineticTitle, HighlightRule, LineChart, StatCounter, EndCard, Whip,
+         setTheme, themeScene, timeline } from "#flits";
+
+setTheme({ colors: { accent: "#ff4a2b" } });  // restyles everything; own fonts: fontFiles: { brand: "fonts/X.ttf" }, fonts: { display: "brand" }
+const acts = timeline({ claim: 5, method: 5, end: 4 });                    // { claim: { at, end, duration }, ..., total }
+
+export default Composition({ width: 1920, height: 1080, fps: 30, duration: acts.total, motionBlur: true, ...themeScene(),
+  children: [
+    Hud({ duration: acts.total, title: "Product film", chapters: [[0.5, "01 Claim"], [acts.method.at, "02 Method"]] }),
+    Act({ ...acts.claim, children: KineticTitle({ text: "Motion design,\nwritten as code.", eyebrow: "New", rule: true, at: 0.5 }) }),
+    Act({ ...acts.method, exit: "none", children: Whip({ exit: 4, children: [
+      HighlightRule({ text: "Write it. Render it. Ship it.", x: 160, y: 400, size: 104,
+                      marks: [["Write it.", 0.8], ["Render it.", 1.6], ["Ship it.", 2.4]] }),
+    ] }) }),
+    EndCard({ at: acts.end.at, duration: 4, title: "Make it move.", url: "example.com", fadeOut: true }),
+  ] });
+```
+
+| group | components |
+|---|---|
+| text | `MaskLine` (a line sliding up out of its own mask), `KineticTitle` (multi-line, staggered, eyebrow + accent rule, exit), `Eyebrow`/`Label` (tracked mono capitals), `Typewriter` (with a cursor that follows), `HighlightRule` (an accent rule gliding under words), `Quote` |
+| structure | `Rule` (drawing hairline), `Outline` (stroke-drawn box or corner brackets), `Tag` (outlined chip), `Grid`, `Hud` (rules, tick ruler, playhead, timecode, chapters), `LowerThird`, `EndCard`, `Backdrop` |
+| data | `StatCounter`, `BarChart`, `LineChart` (draws itself, a dot riding the tip), `ProgressRing`, `Checklist`, `ProgressBars` |
+| timing | `Act` (a chapter with an exit), `timeline()`, `Stagger`, `Whip` (whips out sideways; pair with `motionBlur`) |
+| theme | `setTheme`, `createTheme`, `getTheme`, `themeScene` (scene `background` + `fonts`), `measureText` |
+
+Rules under words, cursors and chips are sized from real text metrics: the SDK asks the running flits
+(`flits measure`), so they line up exactly with the rendered glyphs. A complete 33 s film made only of these
+components: [`bindings/typescript/example-motion.ts`](bindings/typescript/example-motion.ts).
+
 ## Speed (laptop: i7-11800H + RTX 3050 Ti)
 
 | task | before | flits |

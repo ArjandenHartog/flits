@@ -19,6 +19,10 @@
       "types": "./components.d.ts",
       "default": "./components.js"
     },
+    "./motion": {
+      "types": "./motion.d.ts",
+      "default": "./motion.js"
+    },
     "./jsx-runtime": {
       "types": "./jsx-runtime.d.ts",
       "default": "./jsx-runtime.js"
@@ -28,7 +32,7 @@
       "default": "./jsx-dev-runtime.js"
     }
   },
-  "files": ["index.js", "index.d.ts", "scene.d.ts", "compile.js", "compile.d.ts", "components.js", "components.d.ts", "jsx-runtime.js", "jsx-runtime.d.ts", "jsx-dev-runtime.js", "jsx-dev-runtime.d.ts"],
+  "files": ["index.js", "index.d.ts", "scene.d.ts", "compile.js", "compile.d.ts", "components.js", "components.d.ts", "motion.js", "motion.d.ts", "jsx-runtime.js", "jsx-runtime.d.ts", "jsx-dev-runtime.js", "jsx-dev-runtime.d.ts"],
   "scripts": {
     "test": "node --test \"test/*.test.js\""
   },
