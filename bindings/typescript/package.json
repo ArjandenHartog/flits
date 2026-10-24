@@ -1,6 +1,6 @@
 {
   "name": "flits-video",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "Write flits videos in TypeScript: components, motion helpers and types for the scene format, plus a wrapper around the flits CLI",
   "license": "MIT",
   "private": false,
