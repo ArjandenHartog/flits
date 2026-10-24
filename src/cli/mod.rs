@@ -110,7 +110,7 @@ pub struct ReelExtra {
     /// 15..90), favouring a strong first sentence and a conclusive end
     #[arg(long, value_name = "SECONDS", num_args = 0..=1, default_missing_value = "45", conflicts_with_all = ["from", "to", "clips"])]
     pub auto: Option<f64>,
-    /// with --auto: render the N best parts that don't overlap (<out>-1.mp4, ...; at most 3)
+    /// with --auto: render the N best parts, each another story (<out>-1.mp4, ...; at most 5)
     #[arg(long, default_value_t = 1)]
     pub candidates: usize,
     /// only print the ranked candidates (times, score, first sentence and why) to choose from;

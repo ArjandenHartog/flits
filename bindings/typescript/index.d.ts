@@ -86,8 +86,8 @@ export interface ReelOptions extends RunOptions {
   clips?: string | (string | [ReelTime, ReelTime])[];
   /** pick the best part from the transcript: `true` (about 45 s) or a target length in seconds (15..90) */
   auto?: boolean | number;
-  /** with `auto`: render the N best parts that don't overlap (<out>-1.mp4, ...; 1..3) */
-  candidates?: 1 | 2 | 3;
+  /** with `auto`: render the N best parts, each another story (<out>-1.mp4, ...; 1..5) */
+  candidates?: 1 | 2 | 3 | 4 | 5;
   /** only rank the candidates (implies `auto`); `reel()` then resolves with `ReelCandidate[]` */
   pick?: boolean;
   /** "9:16" (default) | "1:1" | "4:5" | "16:9" */

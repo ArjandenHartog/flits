@@ -4,7 +4,9 @@
 //! edits) are found on every frame from the picture difference; faces are looked for a few times
 //! per second with SeetaFace (pure Rust, model built in). Each shot then gets one framing, the way
 //! an editor would set it: no drifting crop inside a shot, a jump exactly on the cut. Framings
-//! also carry the height of the faces in the crop, so captions can keep clear of them.
+//! also carry the height of the faces in the crop, so captions can keep clear of them, and of
+//! text already burned into the picture (subtitles, lower thirds; see [`super::textbands`]),
+//! found on the same frames.
 //!
 //! A two-shot whose people don't fit the crop together follows the speaker instead: a hard cut
 //! to whoever talks, only on turns that last (see [`turns`]). Who talks comes from the
@@ -12,6 +14,7 @@
 //! from the mouth movement alone, read from a second, sharper decode of just that shot.
 
 use super::ffmpeg;
+use super::textbands::{self, TextBand};
 use crate::compose::captions::Word;
 use anyhow::{bail, Context, Result};
 use rayon::prelude::*;
@@ -40,6 +43,9 @@ pub struct Framing {
     pub face: bool,
     /// vertical extent (top, bottom; 0..1 of the source height) of the faces the crop shows
     pub band: Option<(f64, f64)>,
+    /// vertical extent (top, bottom; 0..1 of the source height) of the text burned into the
+    /// picture that the crop shows
+    pub text: Option<(f64, f64)>,
 }
 
 /// A face in one picture, in fractions of the picture: centre `x`, `top` and `bottom` of the
@@ -66,6 +72,8 @@ pub struct Shot {
     pub end: f64,
     /// (source time, faces) a few times per second
     pub probes: Vec<(f64, Vec<Face>)>,
+    /// text burned into the picture (subtitles, lower thirds) throughout most of the shot
+    pub text: Vec<TextBand>,
     src: PathBuf,
     fps: f64,
 }
@@ -130,6 +138,25 @@ fn analyse_uncached(src: &Path, a: f64, b: f64, fps: f64) -> Result<Vec<Shot>> {
     if debug {
         eprintln!("reframe: {n} frames decoded, {} probes detected in {:.1}s", probes.len(), t_dec.elapsed().as_secs_f64());
     }
+    // burned-in text on the same pictures, faces left out
+    let t_text = std::time::Instant::now();
+    let lines: Vec<Vec<TextBand>> = probes
+        .par_iter()
+        .zip(&found)
+        .map(|((_, px), (_, fs))| {
+            let avoid: Vec<[f64; 4]> = fs
+                .iter()
+                .map(|f| {
+                    let fh = f.bottom - f.top;
+                    [f.x - f.w * 0.75, f.top - fh * 0.5, f.x + f.w * 0.75, f.bottom + fh * 0.6]
+                })
+                .collect();
+            textbands::lines(px, w, h, &avoid)
+        })
+        .collect();
+    if debug {
+        eprintln!("reframe: text looked for in {:.2}s", t_text.elapsed().as_secs_f64());
+    }
 
     let mut shots: Vec<Shot> = shots
         .windows(2)
@@ -137,6 +164,9 @@ fn analyse_uncached(src: &Path, a: f64, b: f64, fps: f64) -> Result<Vec<Shot>> {
             start: a + s[0] as f64 / fps,
             end: a + s[1] as f64 / fps,
             probes: found.iter().filter(|(i, _)| *i >= s[0] && *i < s[1]).map(|(i, f)| (a + *i as f64 / fps, f.clone())).collect(),
+            text: textbands::stable(
+                &found.iter().zip(&lines).filter(|((i, _), _)| *i >= s[0] && *i < s[1]).map(|(_, l)| l.clone()).collect::<Vec<_>>(),
+            ),
             src: src.to_path_buf(),
             fps,
         })
@@ -208,10 +238,14 @@ pub fn framings(shots: &[Shot], visible: f64, words: &[Word]) -> Vec<Framing> {
                 .map(|p| format!("x {:.2} y {:.2}-{:.2} w {:.3} seen {}", p.face.x, p.face.top, p.face.bottom, p.face.w, p.seen))
                 .collect();
             eprintln!("shot {:7.2}s..{:7.2}s  {} probes  people [{}]", s.start, s.end, s.probes.len(), p.join("; "));
+            for t in &s.text {
+                eprintln!("    text y {:.2}-{:.2} x {:.2}-{:.2}", t.top, t.bottom, t.x0, t.x1);
+            }
         }
-        let at = |start: f64, x: f64| Framing { start, x, face: true, band: band(&ppl, x, visible) };
+        let text = |x: f64| textbands::visible_band(&s.text, x, visible);
+        let at = |start: f64, x: f64| Framing { start, x, face: true, band: band(&ppl, x, visible), text: text(x) };
         match ppl.as_slice() {
-            [] => push(Framing { start: s.start, x: 0.5, face: false, band: None }),
+            [] => push(Framing { start: s.start, x: 0.5, face: false, band: None, text: text(0.5) }),
             // two people about as big: together when they fit, else whoever talks
             [p, q, ..] if q.face.w > p.face.w * 0.7 => {
                 if (p.face.x - q.face.x).abs() < visible * 0.75 {
@@ -237,12 +271,12 @@ pub fn framings(shots: &[Shot], visible: f64, words: &[Word]) -> Vec<Framing> {
 impl Framing {
     /// Same picture as `o` (no new key needed).
     fn same(&self, o: &Framing) -> bool {
-        let band = match (self.band, o.band) {
+        let near = |p: Option<(f64, f64)>, q: Option<(f64, f64)>| match (p, q) {
             (None, None) => true,
             (Some(a), Some(b)) => (a.0 - b.0).abs() < 0.03 && (a.1 - b.1).abs() < 0.03,
             _ => false,
         };
-        (self.x - o.x).abs() <= 0.02 && band
+        (self.x - o.x).abs() <= 0.02 && near(self.band, o.band) && near(self.text, o.text)
     }
 }
 
@@ -753,13 +787,13 @@ mod tests {
 /// The analysis cache: `<stem>.faces.json` next to the video, valid while the file keeps its size
 /// and modification time. It holds the analysed spans; a window inside one is served from it.
 mod cache {
-    use super::{Face, Shot};
+    use super::{Face, Shot, TextBand};
     use serde::{Deserialize, Serialize};
     use std::path::{Path, PathBuf};
     use std::sync::Mutex;
 
     /// bump when the analysis changes what it finds
-    const VERSION: u32 = 1;
+    const VERSION: u32 = 2;
     static LOCK: Mutex<()> = Mutex::new(());
 
     #[derive(Serialize, Deserialize, Default)]
@@ -783,6 +817,8 @@ mod cache {
         start: f64,
         end: f64,
         probes: Vec<(f64, Vec<Face>)>,
+        #[serde(default)]
+        text: Vec<TextBand>,
     }
 
     fn path(src: &Path) -> PathBuf {
@@ -818,6 +854,7 @@ mod cache {
                         start,
                         end,
                         probes: s.probes.iter().filter(|(t, _)| *t >= start && *t < end).cloned().collect(),
+                        text: s.text.clone(),
                         src: src.to_path_buf(),
                         fps,
                     }
@@ -833,7 +870,8 @@ mod cache {
         let mut f = load(src, fps).unwrap_or(File { version: VERSION, size, modified, fps, spans: vec![] });
         // a new span replaces the ones it covers
         f.spans.retain(|s| !(s.a >= a && s.b <= b));
-        let shots = shots.iter().map(|s| CachedShot { start: s.start, end: s.end, probes: s.probes.clone() }).collect();
+        let shots =
+            shots.iter().map(|s| CachedShot { start: s.start, end: s.end, probes: s.probes.clone(), text: s.text.clone() }).collect();
         f.spans.push(Span { a, b, shots });
         let p = path(src);
         let tmp = p.with_extension(format!("json.{}.tmp", std::process::id()));

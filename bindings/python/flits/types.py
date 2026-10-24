@@ -420,7 +420,7 @@ class ReelOptions(TypedDict, total=False):
     to: ReelTime  # end of the part to use
     clips: Union[str, List[Union[str, Tuple[ReelTime, ReelTime]]]]  # "0:40-1:05,3:10-3:32" or [(40, 65), ...]
     auto: Union[bool, float]  # pick the best part from the transcript: True (about 45 s) or a target length (15..90)
-    candidates: int  # with auto: render the N best parts that don't overlap (<out>-1.mp4, ...; 1..3)
+    candidates: int  # with auto: render the N best parts, each another story (<out>-1.mp4, ...; 1..5)
     pick: bool  # only rank the candidates (implies auto); reel() then returns List[ReelCandidate]
     format: str  # "9:16" (default) | "1:1" | "4:5" | "16:9"
     fit: Literal["crop", "fit"]

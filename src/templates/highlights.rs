@@ -21,6 +21,7 @@
 
 use super::fillers::{norm_word, DEFAULT_FILLERS};
 use crate::compose::captions::Word;
+use std::collections::HashSet;
 
 /// A sentence: words `first..=last` of the word list.
 #[derive(Clone, Debug)]
@@ -587,6 +588,22 @@ impl Scorer<'_> {
             r.push((-1.5, format!("short exchanges ({per_sentence:.0} words a sentence, {shorts} of {n} one or two words)")));
         }
 
+        // one voice telling it (with diarization labels): the guest's answer, not a back-and-forth
+        let labelled: Vec<&String> = ws.iter().filter_map(|w| w.speaker.as_ref()).collect();
+        if !labelled.is_empty() && labelled.len() * 10 >= ws.len() * 8 {
+            let mut count: Vec<(&String, usize)> = vec![];
+            for s in &labelled {
+                match count.iter_mut().find(|(k, _)| k == s) {
+                    Some(c) => c.1 += 1,
+                    None => count.push((s, 1)),
+                }
+            }
+            let (who, n) = count.iter().max_by_key(|c| c.1).copied().unwrap();
+            if n * 100 >= labelled.len() * 85 {
+                r.push((0.75, format!("one voice ({who}) tells it")));
+            }
+        }
+
         // the length
         let off = (length - self.target).abs() / self.target;
         if off > 0.08 {
@@ -639,16 +656,101 @@ pub fn pick(words: &[Word], target: f64, count: usize, total: f64) -> Vec<Pick> 
         }
     }
     cands.sort_by(|p, q| q.score.total_cmp(&p.score));
-    let mut out: Vec<Pick> = vec![];
+    // several picks should be several stories: apart in time (in a long recording) and about
+    // something else (few content words in common)
+    let gap = if total > 600.0 { (total * 0.03).min(90.0) } else { 0.0 };
+    let topic = |p: &Pick| content_words(words.iter().filter(|w| w.start >= p.from && w.end <= p.to));
+    let mut out: Vec<(Pick, HashSet<String>)> = vec![];
     for c in cands {
         if out.len() >= count {
             break;
         }
-        if out.iter().all(|o| c.to <= o.from || c.from >= o.to) {
-            out.push(c);
+        if !out.iter().all(|(o, _)| c.to + gap <= o.from || c.from >= o.to + gap) {
+            continue;
         }
+        let words = topic(&c);
+        if out.iter().any(|(_, w)| similarity(&words, w) > MAX_TOPIC_OVERLAP) {
+            continue;
+        }
+        out.push((c, words));
     }
-    out
+    out.into_iter().map(|(p, _)| p).collect()
+}
+
+/// Two picks sharing more than this share of the smaller one's content words tell the same story.
+const MAX_TOPIC_OVERLAP: f64 = 0.35;
+
+/// Common long words that say nothing about the topic.
+const STOP_WORDS: &[&str] = &[
+    "eigenlijk",
+    "gewoon",
+    "natuurlijk",
+    "zeker",
+    "echt",
+    "heel",
+    "allemaal",
+    "wordt",
+    "worden",
+    "hebben",
+    "zijn",
+    "kunnen",
+    "moeten",
+    "zouden",
+    "willen",
+    "gaan",
+    "gaat",
+    "denk",
+    "vind",
+    "weet",
+    "zeggen",
+    "zegt",
+    "beetje",
+    "misschien",
+    "omdat",
+    "waarom",
+    "wanneer",
+    "daarom",
+    "daarna",
+    "toen",
+    "andere",
+    "ander",
+    "mensen",
+    "dingen",
+    "about",
+    "because",
+    "there",
+    "their",
+    "would",
+    "could",
+    "should",
+    "really",
+    "think",
+    "people",
+    "things",
+    "actually",
+    "which",
+    "where",
+    "these",
+    "those",
+    "being",
+    "going",
+];
+
+/// The topic of a stretch of words: its content words (5+ letters, not a stop word), lower case.
+fn content_words<'a>(words: impl Iterator<Item = &'a Word>) -> HashSet<String> {
+    words
+        .map(|w| w.text.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase())
+        .filter(|t| t.chars().count() >= 5 && !STOP_WORDS.contains(&t.as_str()))
+        .collect()
+}
+
+/// Overlap of two word sets: the share of the smaller set the other also has (a short part that
+/// repeats a long one's subject counts as the same story).
+fn similarity(a: &HashSet<String>, b: &HashSet<String>) -> f64 {
+    if a.is_empty() || b.is_empty() {
+        return 0.0;
+    }
+    a.intersection(b).count() as f64 / a.len().min(b.len()) as f64
 }
 
 #[cfg(test)]
@@ -668,6 +770,41 @@ mod tests {
             t += 0.35;
         }
         out
+    }
+
+    #[test]
+    fn several_picks_are_several_stories() {
+        let a = "Waarom kiezen jongeren voor de waterbeheer politiek? Waterbeheer raakt iedereen die dichtbij rivieren woont.                  Daarom stemmen jongeren vaker voor waterbeheer en dijken. Dijken beschermen onze dorpen tegen rivieren.";
+        let b = "Hoe kijken jongeren naar waterbeheer en rivieren? Rivieren en dijken vragen onderhoud van waterbeheer.                  Daarom vinden jongeren waterbeheer belangrijk voor dijken. Dijken en rivieren horen bij onze dorpen.";
+        let c = "Wat betekent muziek voor studenten tijdens examens? Muziek helpt studenten zich concentreren tijdens studeren.                  Daarom luisteren studenten vaker naar rustige muziek. Examens voelen dan minder zwaar voor studenten.";
+        // a, then the same story told again, then another story; | is a pause
+        let w = talk(&format!("{a} | | {b} | | {c}"));
+        let picks = pick(&w, 10.0, 3, w.last().unwrap().end + 1.0);
+        let firsts: Vec<&str> = picks.iter().map(|p| p.first.as_str()).collect();
+        assert!(firsts.iter().any(|f| f.contains("muziek")), "{firsts:?}");
+        // the two water stories don't both make it
+        assert!(firsts.iter().filter(|f| f.contains("waterbeheer") || f.contains("rivieren")).count() <= 1, "{firsts:?}");
+        // the overlap measure itself
+        let set = |t: &str| content_words(talk(t).iter());
+        assert!(similarity(&set(a), &set(b)) > MAX_TOPIC_OVERLAP);
+        assert!(similarity(&set(a), &set(c)) < MAX_TOPIC_OVERLAP);
+    }
+
+    #[test]
+    fn one_voice_scores_above_a_back_and_forth() {
+        let mut solo = talk("Waarom is dit belangrijk voor ons allemaal? Omdat het over onze toekomst gaat. Daarom doen we mee.");
+        solo.iter_mut().for_each(|w| w.speaker = Some("SPEAKER_01".into()));
+        let mut mixed = solo.clone();
+        for (i, w) in mixed.iter_mut().enumerate() {
+            if (i / 4) % 2 == 1 {
+                w.speaker = Some("SPEAKER_00".into());
+            }
+        }
+        let total = solo.last().unwrap().end + 1.0;
+        let s = pick(&solo, 6.0, 1, total);
+        assert!(s[0].reasons.iter().any(|(_, why)| why.contains("one voice")), "{:?}", s[0].reasons);
+        let m = pick(&mixed, 6.0, 1, total);
+        assert!(m.iter().all(|p| !p.reasons.iter().any(|(_, why)| why.contains("one voice"))));
     }
 
     #[test]
