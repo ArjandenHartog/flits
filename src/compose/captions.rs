@@ -339,7 +339,8 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
         let gx = (o.box_w - lay.width) / 2.0;
         let gy = (o.box_h - lay.height) / 2.0;
         let lh = style.line_px();
-        let centres = spread_for_scale(&lay, active_scale);
+        let spread = spread_for_scale(&lay, active_scale, o.box_w);
+        let centres = &spread.centres;
         let next_start = chunks.get(ci + 1).map(|n| n[0].start).unwrap_or(f64::INFINITY);
         let start = c[0].start;
         // keep the chunk up until the next one starts if the gap is short
@@ -372,13 +373,20 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
                 let half = (style.size * 0.6 + py).min(lh / 2.0 + py);
                 lay.lines
                     .iter()
-                    .map(|(lx, ly, lw)| {
+                    .enumerate()
+                    .map(|(li, &(lx, ly, lw))| {
+                        // around the words where they are drawn: spread for the growing word
+                        let (lx, lw) = spread.lines.get(li).copied().filter(|l| l.1 > 0.0).unwrap_or((lx, lw));
                         let cy = gy + ly + lh / 2.0;
                         [gx + lx - px, cy - half, gx + lx + lw + px, cy + half].map(|v| v / o.q)
                     })
                     .collect()
             }
-            Some((_, px, py, _, false)) => vec![[gx - px, gy - py, gx + lay.width + px, gy + lay.height + py].map(|v| v / o.q)],
+            Some((_, px, py, _, false)) => {
+                let x0 = spread.lines.iter().filter(|l| l.1 > 0.0).map(|l| l.0).fold(0.0, f32::min);
+                let x1 = spread.lines.iter().map(|l| l.0 + l.1).fold(lay.width, f32::max);
+                vec![[gx + x0 - px, gy - py, gx + x1 + px, gy + lay.height + py].map(|v| v / o.q)]
+            }
             None => vec![],
         };
         groups.push(CapGroup { start, end, cx: o.box_w / 2.0 / o.q, cy: o.box_h / 2.0 / o.q, words, boxes });
@@ -425,15 +433,22 @@ fn lerp(a: f32, b: f32, k: f32) -> f32 {
     a + (b - a) * k
 }
 
-/// Word centres (x in the chunk's layout) with room for the active word to grow: an active word is
-/// scaled about its centre, so neighbours get `(scale - 1) / 2` of the wider word's width extra
-/// space; each line is centred again. Without growth, the layout's own positions.
-fn spread_for_scale(lay: &crate::text::TextLayout, scale: f32) -> Vec<f32> {
+/// Where a chunk's words go when the active word grows (x in the chunk's layout).
+#[derive(Debug, PartialEq)]
+struct Spread {
+    /// centre of each word
+    centres: Vec<f32>,
+    /// (left, width) of each line, words included (their background boxes follow these)
+    lines: Vec<(f32, f32)>,
+}
+
+/// Word centres with room for the active word to grow: an active word is scaled about its centre,
+/// so neighbours get `(scale - 1) / 2` of the wider word's width extra space; each line is centred
+/// again and kept within `max_w` (a line that would get wider gets less room). Without growth, the
+/// layout's own positions.
+fn spread_for_scale(lay: &crate::text::TextLayout, scale: f32, max_w: f32) -> Spread {
     let grow = (scale - 1.0).max(0.0);
-    let mut out: Vec<f32> = lay.words.iter().map(|w| w.x + w.w / 2.0).collect();
-    if grow == 0.0 {
-        return out;
-    }
+    let mut out = Spread { centres: lay.words.iter().map(|w| w.x + w.w / 2.0).collect(), lines: vec![] };
     let mut i = 0;
     while i < lay.words.len() {
         let line = lay.words[i].line;
@@ -442,21 +457,29 @@ fn spread_for_scale(lay: &crate::text::TextLayout, scale: f32) -> Vec<f32> {
             j += 1;
         }
         let ws = &lay.words[i..j];
+        let (left, right) = (ws[0].x, ws[ws.len() - 1].x + ws[ws.len() - 1].w);
+        // the room each gap gets, all of it scaled down as far as the line must stay within max_w
+        let extra: Vec<f32> = ws.windows(2).map(|p| grow * p[0].w.max(p[1].w) / 2.0).collect();
+        let total: f32 = extra.iter().sum();
+        let k = if total > 0.0 { ((max_w - (right - left)) / total).clamp(0.0, 1.0) } else { 0.0 };
         // place the line's words left to right with the extra room, then centre it where it was
-        let mut x = ws[0].x;
+        let mut x = left;
         let mut xs = vec![];
-        for (k, w) in ws.iter().enumerate() {
-            if k > 0 {
-                let gap = w.x - (ws[k - 1].x + ws[k - 1].w);
-                x += gap + grow * ws[k - 1].w.max(w.w) / 2.0;
+        for (n, w) in ws.iter().enumerate() {
+            if n > 0 {
+                x += w.x - (ws[n - 1].x + ws[n - 1].w) + extra[n - 1] * k;
             }
             xs.push(x + w.w / 2.0);
             x += w.w;
         }
-        let (old_mid, new_mid) = ((ws[0].x + ws[ws.len() - 1].x + ws[ws.len() - 1].w) / 2.0, (ws[0].x + x) / 2.0);
-        for (k, c) in xs.into_iter().enumerate() {
-            out[i + k] = c - (new_mid - old_mid);
+        let shift = (left + x) / 2.0 - (left + right) / 2.0;
+        for (n, c) in xs.into_iter().enumerate() {
+            out.centres[i + n] = c - shift;
         }
+        while out.lines.len() < line {
+            out.lines.push((0.0, 0.0)); // a line without words
+        }
+        out.lines.push((left - shift, x - left));
         i = j;
     }
     out
@@ -672,8 +695,11 @@ mod tests {
             height: 0.0,
         };
         // no growth: the layout's own centres
-        assert_eq!(spread_for_scale(&lay, 1.0), vec![30.0, 180.0, 120.0]);
-        let c = spread_for_scale(&lay, 1.12);
+        let s = spread_for_scale(&lay, 1.0, 1000.0);
+        assert_eq!(s.centres, vec![30.0, 180.0, 120.0]);
+        assert_eq!(s.lines, vec![(0.0, 280.0), (100.0, 40.0)]);
+        let s = spread_for_scale(&lay, 1.12, 1000.0);
+        let c = &s.centres;
         // the gap grows by 12% of half the wider word (12 px), and the line stays centred
         let (left, right) = (c[0] + 30.0, c[1] - 100.0);
         assert!((right - left - 32.0).abs() < 1e-4, "gap {}", right - left);
@@ -681,6 +707,27 @@ mod tests {
         // a scaled "vertrouwen" (1.12 x 200 about its centre) stays clear of "het"
         assert!(c[1] - 112.0 > c[0] + 30.0);
         assert_eq!(c[2], 120.0);
+        // the line (its background) spans the spread words: 12 px wider, centred
+        assert!((s.lines[0].0 - -6.0).abs() < 1e-4 && (s.lines[0].1 - 292.0).abs() < 1e-4, "{:?}", s.lines);
+        assert!((s.lines[0].0 - (c[0] - 30.0)).abs() < 1e-4 && (s.lines[0].0 + s.lines[0].1 - (c[1] + 100.0)).abs() < 1e-4);
+        // a line already as wide as the box gets no room beyond it
+        let s = spread_for_scale(&lay, 1.12, 286.0);
+        assert!((s.lines[0].1 - 286.0).abs() < 1e-4, "{:?}", s.lines);
+    }
+
+    #[test]
+    fn line_backgrounds_cover_the_spread_words_within_the_box() {
+        // pop: the active word grows, so the words of a line are spread apart
+        let caps = build(&words(30, 100), 20.0, &opts(CapKind::Pop)).unwrap();
+        let pad = 10.0; // the background's horizontal padding (see `opts`)
+        for g in &caps.groups {
+            for w in &g.words {
+                let (x0, x1) = (w.cx - w.normal.w / 2.0, w.cx + w.normal.w / 2.0);
+                let b = g.boxes.iter().find(|b| w.cy >= b[1] && w.cy <= b[3]).expect("a box for each line");
+                assert!(x0 >= b[0] + pad - 1e-3 && x1 <= b[2] - pad + 1e-3, "word {x0:.1}..{x1:.1} outside its line's box {b:?}");
+                assert!(x0 >= -1e-3 && x1 <= caps.box_w + 1e-3, "word {x0:.1}..{x1:.1} past the layer (0..{})", caps.box_w);
+            }
+        }
     }
 
     #[test]

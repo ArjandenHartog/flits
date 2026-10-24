@@ -11,7 +11,7 @@ use anyhow::{Context, Result};
 use std::io::Read;
 use std::path::Path;
 use std::process::{Child, Stdio};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{sync_channel, Receiver, RecvTimeoutError, SyncSender, TryRecvError};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
@@ -32,6 +32,10 @@ fn start_hw() -> Duration {
         Duration::from_millis(ms)
     })
 }
+
+/// How much earlier than asked decoders seek (s): breaks ties between two source frames
+/// equally near an output frame the same way at the first frame as everywhere else.
+const TIE: f64 = 1e-4;
 
 /// Part of the picture to decode: a `w`x`h` rect of the displayed (rotated) source, scaled to
 /// `dw`x`dh`. Its position may change at given source times: layers that show the same footage
@@ -87,8 +91,84 @@ pub fn stored_rect(rotation: i64, (dw, dh): (u32, u32), (x, y, w, h): (u32, u32,
     }
 }
 
-/// set when ffmpeg can't crop CUDA frames (older versions): crop after decoding in software then
-static CUDA_CROP_BAD: AtomicBool = AtomicBool::new(false);
+/// Whether this ffmpeg crops CUDA frames right (`crop` before `scale_cuda`). Older versions refuse
+/// hardware frames in `crop`, and one that only marks the crop on the frame and scales the whole
+/// picture would squeeze it without any error, so it is checked once, in the background: a test
+/// picture cropped on the GPU must match the same crop done in software. `None` while that runs
+/// (CUDA decoders deliver whole frames meanwhile).
+fn cuda_crop_ok() -> Option<bool> {
+    // 0 not checked, 1 checking, 2 works, 3 doesn't
+    static STATE: AtomicUsize = AtomicUsize::new(0);
+    match STATE.load(Ordering::Acquire) {
+        0 => {
+            if STATE.compare_exchange(0, 1, Ordering::AcqRel, Ordering::Acquire).is_ok() {
+                let spawned = std::thread::Builder::new().name("flits-crop-check".into()).spawn(|| {
+                    let ok = cuda_crop_works();
+                    if std::env::var_os("FLITS_DEBUG").is_some() {
+                        eprintln!("flits: cropping CUDA frames {}", if ok { "works" } else { "doesn't work: whole frames" });
+                    }
+                    STATE.store(if ok { 2 } else { 3 }, Ordering::Release);
+                });
+                if spawned.is_err() {
+                    STATE.store(3, Ordering::Release);
+                }
+            }
+            None
+        }
+        2 => Some(true),
+        3 => Some(false),
+        _ => None,
+    }
+}
+
+/// Start checking whether CUDA frames can be cropped, ahead of the first decoder that needs it.
+pub fn check_gpu_crop() {
+    if hw_backend() == Some(Hw::Cuda) {
+        cuda_crop_ok();
+    }
+}
+
+/// Wait for [`check_gpu_crop`]'s answer: can CUDA decoders crop? (`None`: no CUDA decoding here)
+pub fn gpu_crop_works() -> Option<bool> {
+    if hw_backend() != Some(Hw::Cuda) {
+        return None;
+    }
+    loop {
+        if let Some(ok) = cuda_crop_ok() {
+            return Some(ok);
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+/// Crop + scale a test picture on the GPU and in software: the same picture (up to resampling)?
+fn cuda_crop_works() -> bool {
+    let run = |vf: &str| {
+        ffmpeg()
+            .args(["-f", "lavfi", "-i", "testsrc2=s=320x240:r=25:d=1", "-frames:v", "1", "-vf", vf, "-f", "rawvideo", "-"])
+            .stdin(Stdio::null())
+            .stderr(Stdio::null())
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| o.stdout)
+    };
+    // the same kind of filters a decoder uses, with a crop position given as an expression
+    let gpu = run(
+        "format=nv12,hwupload_cuda,crop=w=100:h=180:x='if(lt(t,1),150,0)':y=30,scale_cuda=50:90:format=yuv420p,hwdownload,format=yuv420p",
+    );
+    let cpu = run("crop=w=100:h=180:x=150:y=30,scale=50:90:flags=bicubic,format=yuv420p");
+    match (gpu, cpu) {
+        (Some(g), Some(c)) if g.len() == c.len() && g.len() >= 50 * 90 => same_picture(&g[..50 * 90], &c[..50 * 90]),
+        _ => false,
+    }
+}
+
+/// Two renderings of one picture by different scalers: small differences, not another picture.
+fn same_picture(a: &[u8], b: &[u8]) -> bool {
+    let diff: u64 = a.iter().zip(b).map(|(x, y)| x.abs_diff(*y) as u64).sum();
+    (diff as f64 / a.len() as f64) < 8.0
+}
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Hw {
@@ -98,8 +178,8 @@ enum Hw {
 
 /// hardware decoders currently open (each holds a few hundred MB of video memory)
 static HW_ACTIVE: AtomicUsize = AtomicUsize::new(0);
-/// set after hardware decoding failed where software worked: stop trying
-static HW_BROKEN: AtomicBool = AtomicBool::new(false);
+/// files whose hardware decoding failed where software decoding then worked: not tried again
+static HW_BROKEN: std::sync::Mutex<Vec<std::path::PathBuf>> = std::sync::Mutex::new(Vec::new());
 
 fn hw_backend() -> Option<Hw> {
     static B: OnceLock<Option<Hw>> = OnceLock::new();
@@ -141,8 +221,8 @@ fn hw_max() -> usize {
 }
 
 /// Can the hardware decoder take this stream? (10-bit H.264 isn't supported by NVDEC/VAAPI)
-fn hw_ok(hw: Hw, info: &MediaInfo) -> bool {
-    if HW_BROKEN.load(Ordering::Relaxed) {
+fn hw_ok(hw: Hw, src: &Path, info: &MediaInfo) -> bool {
+    if HW_BROKEN.lock().is_ok_and(|b| b.iter().any(|p| p == src)) {
         return false;
     }
     match info.codec.as_str() {
@@ -210,6 +290,8 @@ pub struct VideoReader {
     pub h: u32,
     /// frames hold only the part of the picture the crop plan names (else the whole picture)
     pub cropped: bool,
+    /// a hardware decoder ended without a frame: if software then delivers, hardware is broken for this file
+    hw_failed: bool,
     /// layer-local frame index of the frame currently in `frame` (first - 1 = none yet)
     pub cur: i64,
     first: i64,
@@ -242,7 +324,7 @@ impl VideoReader {
         let mut fmt = info.color;
         fmt.high_bit = high_bit && (fmt.high_bit || fmt.is_hdr());
         // reserve a hardware decoder slot, or decode in software when all are taken
-        let hw = hw_backend().filter(|b| hw_ok(*b, info)).filter(|_| {
+        let hw = hw_backend().filter(|b| hw_ok(*b, src, info)).filter(|_| {
             let ok = HW_ACTIVE.fetch_add(1, Ordering::Relaxed) < hw_max();
             if !ok {
                 HW_ACTIVE.fetch_sub(1, Ordering::Relaxed);
@@ -253,7 +335,7 @@ impl VideoReader {
         let cropped = plan.is_some()
             && match hw {
                 None => true,
-                Some(Hw::Cuda) => !CUDA_CROP_BAD.load(Ordering::Relaxed),
+                Some(Hw::Cuda) => cuda_crop_ok() == Some(true),
                 Some(Hw::Vaapi) => false,
             };
         let args = SpawnArgs {
@@ -287,7 +369,7 @@ impl VideoReader {
             frame[..(w * h) as usize].fill(16);
             frame[(w * h) as usize..].fill(128);
         }
-        Ok(VideoReader { proc, hw, args, started: false, frame, fmt, w, h, cropped, cur: first - 1, first, eof: false })
+        Ok(VideoReader { proc, hw, args, started: false, frame, fmt, w, h, cropped, hw_failed: false, cur: first - 1, first, eof: false })
     }
 
     /// Spawn ffmpeg (hardware or software decode) plus the read-ahead thread.
@@ -302,6 +384,10 @@ impl VideoReader {
         // seek drops every frame before the seek point, so the first slot got a copy of the second
         // whenever the nearest frame lay just before it: a frozen frame wherever a decoder started
         // (every chunk). Seek to the keyframe only and keep frames from half a frame early instead.
+        // A frame exactly half a frame from a slot goes to the later slot (the frame rate
+        // conversion rounds halves away from zero); so that one exactly half a frame before the seek
+        // point lands in slot 0 too and not in a slot -1 (a repeated frame, all one frame late),
+        // the timeline starts `TIE` early.
         let keep = format!("select='gte(t,{:.6})',", -0.5 / fps);
         // only the part of the picture that is shown: cut out before scaling
         let crop = |rotated: bool| match (&a.plan, a.cropped) {
@@ -356,7 +442,7 @@ impl VideoReader {
         if a.looped {
             cmd.args(["-stream_loop", "-1"]);
         }
-        cmd.args(["-ss", &format!("{:.4}", a.seek), "-noaccurate_seek"]).arg("-i").arg(&a.src);
+        cmd.args(["-ss", &format!("{:.6}", (a.seek - TIE).max(0.0)), "-noaccurate_seek"]).arg("-i").arg(&a.src);
         cmd.args(["-an", "-sn", "-vf", &vf, "-f", "rawvideo", "-"]);
         if std::env::var_os("FLITS_DEBUG").is_some() {
             eprintln!("flits: decode {:?} {} from {:.3} -vf {vf}", hw, a.src.display(), a.seek);
@@ -429,18 +515,17 @@ impl VideoReader {
             match self.proc.frames.recv_timeout(wait) {
                 Ok(buf) => self.take(buf),
                 Err(RecvTimeoutError::Timeout) if self.hw.is_some() && !self.started => {
-                    // slow to start, not stalled: take whichever decoder delivers first
-                    if let Some(buf) = self.race_software()? {
-                        self.take(buf);
+                    // slow to start, not stalled: take whichever decoder delivers first; when
+                    // neither does there is nothing to show (once: the render must never hang)
+                    match self.race_software()? {
+                        Some(buf) => self.take(buf),
+                        None => self.eof = true,
                     }
                 }
                 Err(e) if self.hw.is_some() => {
                     // the hardware path stalled or produced nothing: continue in software
                     let timeout = matches!(e, RecvTimeoutError::Timeout);
-                    if !self.started && !timeout && self.cropped {
-                        // most likely an ffmpeg that can't crop CUDA frames: from now on crop in software
-                        CUDA_CROP_BAD.store(true, Ordering::Relaxed);
-                    }
+                    self.hw_failed |= !self.started && !timeout;
                     if !self.started || timeout {
                         let why = if timeout { "stalled" } else { "failed" };
                         eprintln!("flits: hardware decoding {why} on {}, continuing in software", self.args.src.display());
@@ -460,6 +545,13 @@ impl VideoReader {
     }
 
     fn take(&mut self, buf: Vec<u8>) {
+        if self.hw_failed && self.hw.is_none() {
+            // software decodes what the hardware decoder couldn't: don't try that again on this file
+            self.hw_failed = false;
+            if let Ok(mut b) = HW_BROKEN.lock() {
+                b.push(self.args.src.clone());
+            }
+        }
         let old = std::mem::replace(&mut self.frame, buf);
         let _ = self.proc.recycle.try_send(old);
         self.cur += 1;
@@ -511,7 +603,10 @@ impl VideoReader {
                         sw.kill();
                         return Ok(Some(buf));
                     }
-                    Err(TryRecvError::Disconnected) => hw_alive = false,
+                    Err(TryRecvError::Disconnected) => {
+                        hw_alive = false;
+                        self.hw_failed = true;
+                    }
                     Err(TryRecvError::Empty) => {}
                 }
             }
@@ -524,13 +619,15 @@ impl VideoReader {
                     return Ok(Some(buf));
                 }
                 Err(RecvTimeoutError::Disconnected) => {
-                    // software can't decode it either: leave it to the hardware decoder
+                    // nothing from software (past the end, or it can't decode this): the hardware
+                    // decoder gets one more stall timeout, no more
                     sw.kill();
-                    return Ok(None);
+                    return Ok(if hw_alive { self.proc.frames.recv_timeout(STALL_HW).ok() } else { None });
                 }
                 Err(RecvTimeoutError::Timeout) => {}
             }
         }
+        eprintln!("flits: decoder stalled on {}; holding the last frame", self.args.src.display());
         sw.kill();
         Ok(None)
     }
