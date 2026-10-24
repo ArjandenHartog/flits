@@ -265,7 +265,7 @@ def reel(
 
     options (see flits.types.ReelOptions) are the `flits reel` flags: from_ / to ("from" is a keyword) or
     clips ("0:40-1:05,3:10-3:32" or [(40, 65), ...]); auto (True or a target length in seconds) with
-    candidates (1..3); format, fit, focus, title, preset, highlight, position; fillers, repeats, no_silence, keep;
+    candidates (1..5); format, fit, focus, title, preset, highlight, position; fillers, repeats, no_silence, keep;
     fps, no_punch; music, logo, progress, accent; the end card: end (call to action), end_logo (True = logo, or a
     path), end_duration; transcript; whisper options (model, lang, ...) and render options (scale, quality, ...).
 

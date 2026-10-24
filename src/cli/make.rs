@@ -644,8 +644,8 @@ pub fn reel_auto(
     if !(15.0..=90.0).contains(&auto.target) {
         bail!("--auto: a length of 15 to 90 seconds (30 to 75 works best for reels)");
     }
-    if !(1..=3).contains(&auto.candidates) {
-        bail!("--candidates: 1 to 3");
+    if !(1..=5).contains(&auto.candidates) {
+        bail!("--candidates: 1 to 5");
     }
     let info = media::probe(video)?;
     let mut wo = w.opts()?;

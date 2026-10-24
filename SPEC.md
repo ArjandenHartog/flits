@@ -348,7 +348,10 @@ reactions, a goodbye halfway, broken-off sentences, silences over 1.5 s, slow sp
 **length**. Structure works in any language; the cue lists cover English and Dutch. `--pick` prints the five best
 non-overlapping parts with times, score, the first and last sentence, every reason and the `--from/--to` command
 (`--json`: the same as JSON: `rank`, `from`, `to`, `length`, `score`, `first`, `last`, `reasons`). `--candidates N`
-(1..3) renders the N best (`<out>-1.mp4`, ...).
+(1..5) renders the N best (`<out>-1.mp4`, ...). Several picks are several stories: they don't overlap, they share
+few content words (a second part about the same subject is skipped), and in recordings over 10 minutes they lie
+apart (3% of the length, up to 90 s). With diarization labels (`--diarize`), a part where one voice tells it
+scores higher than a back-and-forth.
 
 **End card** (`--end "Volg ons"`, `--end-logo [PATH]` (default: the `--logo`), `--end-duration` 2 s): after the
 last clip the picture goes soft (a blurred still of the last frame, framed like the clip, drifting in on an
