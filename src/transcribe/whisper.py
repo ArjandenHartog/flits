@@ -1,12 +1,23 @@
 # flits transcription helper (faster-whisper). Loads the model once and transcribes
 # every job; writes JSON with word timestamps per job.
 # usage: python whisper.py <jobs.json>
+#        python whisper.py --serve <state.json>   keep models loaded; take jobs over localhost
+#          (state.json gets {"port", "token", "pid"}; the worker exits after FLITS_WHISPER_IDLE s idle, default 600)
 #   jobs.json: {"model": "default", "lang": "nl"|"auto", "device": "auto"|"cuda"|"cpu",
 #               "words": true, "prompt": "names, jargon" | null, "hotwords": "a, b" | null,
 #               "diarize": false, "speakers": null | 2,
 #               "jobs": [{"pcm": "a.f32", "out": "a.words.json"}, ...]}
 # Diarization (speaker labels) needs pyannote.audio and a Hugging Face token in HF_TOKEN.
-import json, os, sys, time, glob, site
+import json, os, sys, time, glob, site, socket, secrets
+
+class LOG:
+    # where progress goes: stderr, or the client's connection in --serve mode
+    out = sys.stderr
+
+
+class Fail(Exception):
+    pass
+
 
 # Whisper's favourite inventions on silence (lower case, substring match)
 HALLUCINATIONS = (
@@ -42,13 +53,13 @@ def load(model_name, device):
         try:
             compute = os.environ.get("FLITS_COMPUTE") or ("int8_float16" if dev == "cuda" else "int8")
             name = model_name if model_name != "default" else ("large-v3-turbo" if dev == "cuda" else "small")
-            print(f"flits: loading whisper '{name}' on {dev}...", file=sys.stderr, flush=True)
+            print(f"flits: loading whisper '{name}' on {dev}...", file=LOG.out, flush=True)
             model = WhisperModel(name, device=dev, compute_type=compute)
             return BatchedInferencePipeline(model=model), name, dev
         except Exception as e:  # fall back to CPU when CUDA libs are missing
             tried.append(f"{dev}: {e}")
-            print(f"flits: {dev} failed ({e})", file=sys.stderr, flush=True)
-    sys.exit("transcription failed: " + " | ".join(tried))
+            print(f"flits: {dev} failed ({e})", file=LOG.out, flush=True)
+    raise Fail("transcription failed: " + " | ".join(tried))
 
 
 def load_diarizer():
@@ -64,7 +75,7 @@ def load_diarizer():
     major = int(pyannote.audio.__version__.split(".")[0])
     name = os.environ.get("FLITS_DIARIZE_MODEL") or (
         "pyannote/speaker-diarization-community-1" if major >= 4 else "pyannote/speaker-diarization-3.1")
-    print(f"flits: loading diarization '{name}'...", file=sys.stderr, flush=True)
+    print(f"flits: loading diarization '{name}'...", file=LOG.out, flush=True)
     try:
         pipe = Pipeline.from_pretrained(name, token=token)
     except TypeError:  # pyannote.audio 3.x
@@ -85,7 +96,7 @@ def diarize(pipe, audio, speakers):
     # pyannote 4: DiarizeOutput (the exclusive variant has no overlapping turns); 3.x: Annotation
     ann = getattr(out, "exclusive_speaker_diarization", None) or getattr(out, "speaker_diarization", out)
     turns = [(t.start, t.end, spk) for t, _, spk in ann.itertracks(yield_label=True)]
-    print(f"flits: {len(set(s for _, _, s in turns))} speaker(s) in {time.time() - t0:.1f}s", file=sys.stderr, flush=True)
+    print(f"flits: {len(set(s for _, _, s in turns))} speaker(s) in {time.time() - t0:.1f}s", file=LOG.out, flush=True)
     return turns
 
 
@@ -105,15 +116,19 @@ def speaker_at(turns, a, b):
     return best
 
 
-def main():
-    cfg = json.load(open(sys.argv[1], encoding="utf-8"))
-    add_cuda_dlls()
+MODELS = {}  # (model, device) -> (pipeline, name, device), kept by --serve
+
+
+def run(cfg):
     import numpy as np
 
     lang = None if cfg.get("lang", "auto") == "auto" else cfg["lang"]
     words_wanted = cfg.get("words", os.environ.get("FLITS_WORDS", "1") == "1")
     diarizer = load_diarizer() if cfg.get("diarize") else None
-    pipe, name, dev = load(cfg.get("model", "default"), cfg.get("device", "auto"))
+    key = (cfg.get("model", "default"), cfg.get("device", "auto"))
+    if key not in MODELS:
+        MODELS[key] = load(*key)
+    pipe, name, dev = MODELS[key]
     extra = {}
     if cfg.get("prompt"):
         extra["initial_prompt"] = cfg["prompt"]
@@ -146,7 +161,7 @@ def main():
                 for w in (s.words or [])
             ]
             segs.append({"start": round(s.start, 3), "end": round(s.end, 3), "text": text, "words": words})
-            print(f"  [{s.start:7.1f}s] {text}", file=sys.stderr, flush=True)
+            print(f"  [{s.start:7.1f}s] {text}", file=LOG.out, flush=True)
         result = {"language": info_lang, "duration": round(dur, 3), "model": name, "device": dev, "seconds": round(time.time() - t0, 2)}
         if diarizer is not None and len(audio) >= 1600:
             turns = diarize(diarizer, audio, cfg.get("speakers"))
@@ -164,6 +179,74 @@ def main():
         result["segments"] = segs
         with open(job["out"], "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=1)
+
+
+class Lines:
+    # a file-like that sends text to the client, line by line
+    def __init__(self, conn):
+        self.conn, self.buf = conn, ""
+
+    def write(self, text):
+        self.buf += text
+        while "\n" in self.buf:
+            line, self.buf = self.buf.split("\n", 1)
+            self.conn.sendall(("LOG " + line + "\n").encode("utf-8"))
+
+    def flush(self):
+        pass
+
+
+def serve(state_path):
+    idle = float(os.environ.get("FLITS_WHISPER_IDLE") or 600)
+    token = secrets.token_hex(16)
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(4)
+    srv.settimeout(5)
+    tmp = state_path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump({"port": srv.getsockname()[1], "token": token, "pid": os.getpid()}, f)
+    os.replace(tmp, state_path)
+    last = time.time()
+    while time.time() - last < idle:
+        try:
+            conn, _ = srv.accept()
+        except socket.timeout:
+            continue
+        with conn:
+            conn.settimeout(None)
+            try:
+                req = json.loads(conn.makefile("r", encoding="utf-8").readline())
+                if req.get("token") != token:
+                    conn.sendall(b"ERR bad token\n")
+                    continue
+                LOG.out = Lines(conn)
+                run(json.load(open(req["job"], encoding="utf-8")))
+                conn.sendall(b"OK\n")
+            except (Fail, Exception) as e:  # report, keep serving
+                try:
+                    conn.sendall(("ERR " + str(e).replace("\n", " ") + "\n").encode("utf-8"))
+                except OSError:
+                    pass
+            finally:
+                LOG.out = sys.stderr
+                last = time.time()
+    try:
+        if json.load(open(state_path, encoding="utf-8")).get("pid") == os.getpid():
+            os.remove(state_path)
+    except (OSError, ValueError):
+        pass
+
+
+def main():
+    add_cuda_dlls()
+    if sys.argv[1] == "--serve":
+        serve(sys.argv[2])
+        return
+    try:
+        run(json.load(open(sys.argv[1], encoding="utf-8")))
+    except Fail as e:
+        sys.exit(str(e))
 
 
 if __name__ == "__main__":

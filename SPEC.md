@@ -375,6 +375,11 @@ audio-only timeline at 30 fps.
     flits transcribe rec.m4a --segments-only                   # no word timestamps (faster)
     flits transcribe rec.m4a --diarize [--speakers 2]          # speaker labels (optional, see below)
 
+**Warm worker.** The first transcription starts a helper that keeps the model loaded (it stops by
+itself after 10 idle minutes; `FLITS_WHISPER_IDLE` seconds, `FLITS_WHISPER_DAEMON=0` to run whisper
+fresh every time). Starting Python and loading the model is most of the time for short clips: a 35 s
+clip takes ~11 s the first time and under 2 s after that. Diarization always runs on its own.
+
 `--initial-prompt`, `--vocab`, `--diarize` also work on `captions`, `podcast` and `cut` (whenever they transcribe).
 The JSON has `language`, `duration` and `segments` (`start`, `end`, `text`, `words`: `word`, `start`, `end`, `prob`),
 with `--diarize` plus `speaker` per segment and word (`"SPEAKER_00"`, ...) and a `speakers` list. SRT/TXT then
