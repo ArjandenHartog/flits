@@ -512,6 +512,9 @@ fn rescale(mut s: Sprite, q: f32) -> Sprite {
     s
 }
 
+/// Largest side of a rasterized image, in px (8192 is the texture limit every GPU backend offers).
+const MAX_RASTER: f64 = 8192.0;
+
 fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale: f64, ctx: &mut Ctx) -> Result<Node> {
     let id = ctx.next_id;
     ctx.next_id += 1;
@@ -564,7 +567,8 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
             };
             let s = s0 * zoom.max_abs().max(1.0) * max_scale * rs;
             // bitmaps are never upscaled; vectors are rasterized at their on-screen size
-            let cap = if assets::is_vector(&src) { f64::INFINITY } else { 1.0 };
+            // and no texture is larger than GPUs accept (a layer that zooms 30x would ask for 70,000 px)
+            let cap = if assets::is_vector(&src) { f64::INFINITY } else { 1.0 }.min(MAX_RASTER / iw.max(ih) as f64);
             let tw = (iw as f64 * s.min(cap)).ceil() as u32;
             let th = (ih as f64 * s.min(cap)).ceil() as u32;
             // blur is specified in screen px; convert to the loaded image's px
