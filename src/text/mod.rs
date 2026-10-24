@@ -249,9 +249,50 @@ fn is_rtl(c: char) -> bool {
     matches!(c as u32, 0x0590..=0x07FF | 0x0860..=0x08FF | 0xFB1D..=0xFDFF | 0xFE70..=0xFEFF)
 }
 
-/// Emoji presentation: pictographs, or any character followed by VS16 or the keycap mark.
+/// Emoji presentation: pictographs, the BMP characters that default to emoji presentation
+/// (Unicode `Emoji_Presentation`: ⚡ ✨ ⭐ ⌛ ✅ ❌ ...), or any character followed by VS16 or the
+/// keycap mark. Followed by VS15 (U+FE0E) it stays text.
 fn is_emoji(c: char, next: Option<char>) -> bool {
-    matches!(c as u32, 0x1F000..=0x1FAFF) || matches!(next, Some('\u{FE0F}' | '\u{20E3}'))
+    if next == Some('\u{FE0E}') {
+        return false;
+    }
+    matches!(
+        c as u32,
+        0x1F000..=0x1FAFF
+            | 0x231A..=0x231B
+            | 0x23E9..=0x23EC
+            | 0x23F0
+            | 0x23F3
+            | 0x25FD..=0x25FE
+            | 0x2614..=0x2615
+            | 0x2648..=0x2653
+            | 0x267F
+            | 0x2693
+            | 0x26A1
+            | 0x26AA..=0x26AB
+            | 0x26BD..=0x26BE
+            | 0x26C4..=0x26C5
+            | 0x26CE
+            | 0x26D4
+            | 0x26EA
+            | 0x26F2..=0x26F3
+            | 0x26F5
+            | 0x26FA
+            | 0x26FD
+            | 0x2705
+            | 0x270A..=0x270B
+            | 0x2728
+            | 0x274C
+            | 0x274E
+            | 0x2753..=0x2755
+            | 0x2757
+            | 0x2795..=0x2797
+            | 0x27B0
+            | 0x27BF
+            | 0x2B1B..=0x2B1C
+            | 0x2B50
+            | 0x2B55
+    ) || matches!(next, Some('\u{FE0F}' | '\u{20E3}'))
 }
 
 /// Characters that attach to the one before them: ZWJ, variation selectors, skin tones, tags, keycap.
@@ -539,6 +580,7 @@ mod tests {
             assert!(is_joiner(c), "{c:?}");
         }
         assert!(is_emoji('😀', None) && is_emoji('1', Some('\u{FE0F}')) && !is_emoji('1', None) && !is_emoji('a', Some('b')));
+        assert!(is_emoji('⚡', None) && is_emoji('✨', None) && !is_emoji('⚡', Some('\u{FE0E}')) && !is_emoji('✓', None));
         assert!(is_rtl('ש') && is_rtl('م') && !is_rtl('a') && !is_rtl('日'));
     }
 

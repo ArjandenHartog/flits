@@ -39,8 +39,9 @@ pub fn sheet(scene: &Path, out: &Path, count: usize, cols: usize, thumb: u32) ->
 pub fn new(starter: Option<String>, out: Option<PathBuf>) -> Result<()> {
     let Some(name) = starter else {
         println!("starters (flits new <name> -o scene.json):");
+        let width = starters::STARTERS.iter().map(|(n, _)| n.len()).max().unwrap_or(0);
         for (n, d) in starters::STARTERS {
-            println!("  {n:<12} {d}");
+            println!("  {n:<width$}  {d}");
         }
         return Ok(());
     };
