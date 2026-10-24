@@ -184,37 +184,54 @@ fn clip_parts(framings: &[Framing], (a, b): (f64, f64), start: f64, fps: f64, pa
 const SAFE_TOP: f64 = 0.12;
 const SAFE_BOTTOM: f64 = 0.85;
 
-/// Where the captions go (centre of the block, fraction of the height) when a face is in
-/// `protect` (top, bottom; fractions): the first of a few fixed slots that keeps clear of it
-/// (the default, as low as the app UI allows, near the top), else the one covering least.
-/// `half` = half the height of a two-line caption block; `top_ok`: the top slot is free (no
-/// hook title there).
-fn caption_slot(default: f64, half: f64, protect: Option<(f64, f64)>, top_ok: bool) -> f64 {
-    let Some((y0, y1)) = protect else { return default };
+/// Where the captions go (centre of the block, fraction of the height) when a face (`face`) or
+/// text burned into the picture (`text`) is on screen (top, bottom; fractions): the first of a
+/// few slots that keeps clear of both (the default, as low as the app UI allows, just above or
+/// below the text, near the top), else one clear of the face that covers the least text (a
+/// face matters more than old subtitles), else the one covering least of the face. `half` =
+/// half the height of a two-line caption block; `top_ok`: the top of the picture is free (no
+/// hook title there). Also returns whether the slot covers text.
+fn caption_slot(default: f64, half: f64, face: Option<(f64, f64)>, text: Option<(f64, f64)>, top_ok: bool) -> (f64, bool) {
+    if face.is_none() && text.is_none() {
+        return (default, false);
+    }
     // the face box ends about at the mouth: keep the chin clear too, plus a margin
-    let (y0, y1) = (y0 - 0.02, y1 + (y1 - y0) * 0.3 + 0.02);
+    let face = face.map(|(y0, y1)| (y0 - 0.02, y1 + (y1 - y0) * 0.3 + 0.02));
+    let text = text.map(|(y0, y1)| (y0 - 0.02, y1 + 0.02));
     let low = (SAFE_BOTTOM - half).max(default);
     let high = SAFE_TOP + half + 0.01;
     let mut slots = vec![default, low];
+    if let Some((t0, t1)) = text {
+        // right above or below the text, the one nearer the default first; not up where the
+        // hook title is while it shows
+        let top = if top_ok { high } else { 0.3 + half };
+        let mut next: Vec<f64> =
+            [t0 - half, t1 + half].into_iter().filter(|c| *c >= top - 1e-9 && c + half <= SAFE_BOTTOM + 1e-9).collect();
+        next.sort_by(|a, b| (a - default).abs().total_cmp(&(b - default).abs()));
+        slots.extend(next);
+    }
     if top_ok {
         slots.push(high);
     }
-    let cover = |c: f64| ((c + half).min(y1) - (c - half).max(y0)).max(0.0);
-    let mut best = default;
-    for s in slots {
-        if cover(s) < 1e-9 {
-            return s;
+    let cover = |c: f64, zone: Option<(f64, f64)>| zone.map_or(0.0, |(y0, y1)| ((c + half).min(y1) - (c - half).max(y0)).max(0.0));
+    let mut best = slots[0];
+    for &s in &slots {
+        let (f, t) = (cover(s, face), cover(s, text));
+        if f < 1e-9 && t < 1e-9 {
+            return (s, false);
         }
-        if cover(s) < cover(best) - 1e-9 {
+        let (bf, bt) = (cover(best, face), cover(best, text));
+        if f < bf - 1e-9 || (f < bf + 1e-9 && t < bt - 1e-9) {
             best = s;
         }
     }
-    best
+    (best, cover(best, text) > 1e-9)
 }
 
 /// `y` of the captions layer (px): per shot, a slot that keeps the caption block clear of the
-/// faces in the picture; a jump (hold keyframe) exactly on the cut where the slot changes.
-/// `zooms`: zoom of each clip; `vscale`: shown height of the cover-fitted video / canvas height.
+/// faces and the burned-in text in the picture; a jump (hold keyframe) exactly on the cut where
+/// the slot changes. `zooms`: zoom of each clip; `vscale`: shown height of the cover-fitted
+/// video / canvas height.
 #[allow(clippy::too_many_arguments)]
 fn caption_y(
     framings: &[Framing],
@@ -226,16 +243,31 @@ fn caption_y(
     half: f64,
     title: f64,
 ) -> Value {
-    let at = |t: f64| framings.iter().rev().find(|f| f.start <= t + 1e-6).or(framings.first()).and_then(|f| f.band);
+    let debug = std::env::var_os("FLITS_DEBUG_REFRAME").is_some();
+    let at = |t: f64| framings.iter().rev().find(|f| f.start <= t + 1e-6).or(framings.first());
     let mut keys: Vec<(f64, f64)> = vec![];
     let mut offset = 0.0;
     for (i, &(a, b)) in ranges.iter().enumerate() {
         let k = vscale * zooms.get(i).copied().unwrap_or(1.0);
-        let shown = |band: Option<(f64, f64)>| band.map(|(y0, y1)| (0.5 + (y0 - 0.5) * k, 0.5 + (y1 - 0.5) * k));
+        // source fractions to the canvas: scaled about the middle (crops and punch-ins cut away
+        // what falls outside)
+        let shown = |band: Option<(f64, f64)>| {
+            band.map(|(y0, y1)| (0.5 + (y0 - 0.5) * k, 0.5 + (y1 - 0.5) * k)).filter(|(y0, y1)| *y1 > 0.0 && *y0 < 1.0)
+        };
         let starts = std::iter::once(a).chain(framings.iter().map(|f| f.start).filter(|s| *s > a + 1e-6 && *s < b));
         for s in starts {
             let t = offset + s - a;
-            let slot = caption_slot(default, half, shown(at(s)), t >= title);
+            let f = at(s);
+            let (face, text) = (shown(f.and_then(|f| f.band)), shown(f.and_then(|f| f.text)));
+            let (slot, on_text) = caption_slot(default, half, face, text, t >= title);
+            if debug && on_text {
+                let why = if face.is_some() {
+                    "no slot clear of both the face and the text; covering the text, not the face"
+                } else {
+                    "no slot clear of it"
+                };
+                eprintln!("captions at {t:.2}s cover burned-in text ({why})");
+            }
             if keys.last().is_none_or(|l| (l.1 - slot).abs() > 1e-9) {
                 keys.push((t, slot));
             }
@@ -262,7 +294,7 @@ fn clip_zoom(o: &ReelOpts, crop: bool, i: usize) -> f64 {
     }
 }
 
-/// Move the captions per shot so they don't cover faces (see [`caption_y`]).
+/// Move the captions per shot so they don't cover faces or burned-in text (see [`caption_y`]).
 fn place_captions(
     o: &ReelOpts,
     caps: &mut Value,
@@ -537,24 +569,59 @@ mod tests {
     fn captions_keep_clear_of_faces() {
         let half = 0.06;
         // no face, or a face high in the picture (a wide or medium shot): the default
-        assert_eq!(caption_slot(0.72, half, None, true), 0.72);
-        assert_eq!(caption_slot(0.72, half, Some((0.2, 0.45)), true), 0.72);
+        let slot = |face, top_ok| caption_slot(0.72, half, face, None, top_ok).0;
+        assert_eq!(slot(None, true), 0.72);
+        assert_eq!(slot(Some((0.2, 0.45)), true), 0.72);
         // a close-up whose chin reaches the captions: as low as the app UI allows
-        let low = caption_slot(0.72, half, Some((0.35, 0.6)), true);
+        let low = slot(Some((0.35, 0.6)), true);
         assert!((low - (SAFE_BOTTOM - half)).abs() < 1e-9);
         // a face filling the lower half: up to the top slot, unless the hook title is there
-        let high = caption_slot(0.72, half, Some((0.45, 0.75)), true);
+        let high = slot(Some((0.45, 0.75)), true);
         assert!((high - (SAFE_TOP + half + 0.01)).abs() < 1e-9);
-        assert!(caption_slot(0.72, half, Some((0.45, 0.75)), false) > 0.7);
+        assert!(slot(Some((0.45, 0.75)), false) > 0.7);
         // every slot stays inside the safe area
         for b in [None, Some((0.35, 0.6)), Some((0.45, 0.75)), Some((0.1, 0.95))] {
-            let s = caption_slot(0.72, half, b, true);
+            let s = slot(b, true);
             assert!(s - half >= SAFE_TOP - 1e-9 && s + half <= SAFE_BOTTOM + 1e-9, "{b:?} -> {s}");
         }
     }
 
+    #[test]
+    fn captions_keep_clear_of_burned_in_text() {
+        let half = 0.06;
+        let clear = |c: f64, (y0, y1): (f64, f64)| c + half <= y0 + 1e-9 || c - half >= y1 - 1e-9;
+        // old subtitles just above the default, nobody low in the picture: as low as the app UI
+        // allows, which clears them
+        let (s, on) = caption_slot(0.72, half, None, Some((0.6, 0.66)), true);
+        assert!((s - (SAFE_BOTTOM - half)).abs() < 1e-9 && !on);
+        // subtitles right on the default and the low slot: just above them
+        let text = (0.69, 0.75);
+        let (s, on) = caption_slot(0.72, half, Some((0.12, 0.16)), Some(text), true);
+        assert!(!on && clear(s, (0.68, 0.76)) && s < 0.69, "{s}");
+        assert!(s - half >= SAFE_TOP);
+        // text away from the captions changes nothing
+        assert_eq!(caption_slot(0.72, half, None, Some((0.2, 0.25)), true), (0.72, false));
+        // a lower third under the default and a face down to the default: up to the top
+        let (s, on) = caption_slot(0.72, half, Some((0.5, 0.62)), Some((0.76, 0.84)), true);
+        assert!((s - (SAFE_TOP + half + 0.01)).abs() < 1e-9 && !on, "{s}");
+        // no slot clear of both: the text gets covered, never the face
+        let face = (0.1, 0.55);
+        let (s, on) = caption_slot(0.72, half, Some(face), Some((0.68, 0.84)), true);
+        assert!(on && s - half >= face.1 + (face.1 - face.0) * 0.3, "{s}");
+        assert!((s - (SAFE_BOTTOM - half)).abs() < 1e-9);
+        // every slot stays inside the safe area, also next to the text
+        for t in [(0.3, 0.36), (0.13, 0.2), (0.78, 0.84), (0.2, 0.8)] {
+            for top_ok in [true, false] {
+                let (s, _) = caption_slot(0.72, half, None, Some(t), top_ok);
+                assert!(s - half >= SAFE_TOP - 1e-9 && s + half <= SAFE_BOTTOM + 1e-9, "{t:?} -> {s}");
+                // not up where the hook title is
+                assert!(top_ok || s - half >= 0.3 - 1e-9, "{t:?} -> {s}");
+            }
+        }
+    }
+
     fn framing(start: f64, band: Option<(f64, f64)>) -> Framing {
-        Framing { start, x: 0.5, face: band.is_some(), band }
+        Framing { start, x: 0.5, face: band.is_some(), band, text: None }
     }
 
     #[test]
@@ -579,6 +646,17 @@ mod tests {
         let f = [framing(0.0, Some((0.47, 0.6)))];
         assert_eq!(caption_y(&f, &[(0.0, 2.0)], &[1.0], 1.0, 1000.0, 0.72, 0.06, 0.0), json!(720.0));
         assert_ne!(caption_y(&f, &[(0.0, 2.0)], &[1.1], 1.0, 1000.0, 0.72, 0.06, 0.0), json!(720.0));
+        // burned-in subtitles in one shot: the captions step aside there only
+        let f = [framing(0.0, None), Framing { text: Some((0.69, 0.75)), ..framing(2.0, None) }, framing(4.0, None)];
+        let y = caption_y(&f, &[(0.0, 6.0)], &[1.0], 1.0, 1000.0, 0.72, 0.06, 0.0);
+        let keys = y.as_array().unwrap();
+        assert_eq!(keys.len(), 3, "{y}");
+        assert_eq!((&keys[1][0], &keys[2][0], &keys[2][1]), (&json!(2.0), &json!(4.0), &json!(720.0)));
+        let moved = keys[1][1].as_f64().unwrap();
+        assert!(moved + 60.0 <= 680.0 || moved - 60.0 >= 760.0, "{moved}");
+        // text the crop cuts away (a cover fit showing the middle of a tall picture) doesn't count
+        let f = [Framing { text: Some((0.0, 0.05)), ..framing(0.0, None) }];
+        assert_eq!(caption_y(&f, &[(0.0, 2.0)], &[1.0], 1.0 / 0.8, 1000.0, 0.72, 0.06, 0.0), json!(720.0));
     }
 
     /// Play a clip's parts as a render does (a part draws frame `f` from its start on; it shows
@@ -611,7 +689,7 @@ mod tests {
 
     #[test]
     fn clips_split_where_the_shots_change_on_the_reel_frames() {
-        let f = |start: f64, x: f64| Framing { start, x, face: true, band: None };
+        let f = |start: f64, x: f64| Framing { start, x, face: true, band: None, text: None };
         let shots = [f(0.0, 0.3), f(10.05, 0.9), f(12.33, 0.7), f(15.0, 0.7), f(18.0, 0.5), f(30.0, 0.2)];
         let pan = |x: f64| x * 2.0 - 1.0;
         let shot_pan = |t: f64| pan(shots.iter().rev().find(|s| s.start <= t + 1e-6).unwrap().x);

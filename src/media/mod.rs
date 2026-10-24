@@ -8,6 +8,7 @@ pub mod image;
 pub mod probe;
 pub mod process;
 pub mod reframe;
+pub mod textbands;
 pub mod video;
 
 pub use encode::Encoder;

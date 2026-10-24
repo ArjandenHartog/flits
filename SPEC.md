@@ -324,8 +324,14 @@ labels are matched to faces by mouth movement) or, without them, from the mouth 
 (read from a sharper decode of just that shot, with head movement compensated). Captions keep
 clear of faces: per shot they stay at the default height, or move to the lowest position the app UI
 leaves free (bottom ~15%) or near the top (below ~12%; not while the hook title shows) when the
-caption block would cover a face and chin; a jump exactly on the cut. An explicit `--position`
-keeps them fixed. Reels play at 30 fps at most (50 -> 25,
+caption block would cover a face and chin; a jump exactly on the cut. Text already burned into the
+footage (subtitles of an earlier edit, lower thirds, name straps, slide text) is avoided the same way, with
+two more slots right above and below it: it is found on the frames the face search decodes anyway (rows of
+dense, high-contrast strokes of even width in a free-standing band 2..12% of the picture high, with edges
+across as letters have; textures, railings, faces, pages of text and anything at the picture's edge don't
+count) and only when it stays in its band for most of the shot or 3 s in a row, in the part the crop
+shows. When no slot is clear of both, the captions cover the text rather than a face
+(`FLITS_DEBUG_REFRAME=1` says so). An explicit `--position` keeps them fixed. Reels play at 30 fps at most (50 -> 25,
 60 -> 30; `--fps` overrides). The hook title is black on a white box, readable on any footage. Jump cuts (removed pauses) alternate between
 the framing and a 10% punch-in so they don't read as hiccups (`--no-punch`). Branding: `--logo` (png/svg,
 top right on a soft shade, sized by height so wordmarks and marks look alike), `--accent` (progress
