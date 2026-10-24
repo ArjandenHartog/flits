@@ -516,7 +516,6 @@ pub fn reel(video: &Path, out: Option<PathBuf>, a: &ReelArgs, transcript: Option
     let tr = load_transcript_full(&tr_path)?;
     let words = tr.words();
     let cropped = shots.as_ref().is_some_and(|s| s.0 < 1.0);
-    let framings = shots.map(|(visible, shots)| auto_framings(&shots, visible, &words));
     let lang = if w.lang != "auto" { Some(w.lang.as_str()) } else { tr.language.as_deref() };
     let o = cut::CutOpts {
         threshold_db: -35.0,
@@ -526,15 +525,25 @@ pub fn reel(video: &Path, out: Option<PathBuf>, a: &ReelArgs, transcript: Option
         fillers: if a.fillers { fillers::for_language(lang) } else { vec![] },
         repeats: a.repeats,
     };
-    let ranges = templates::reel::within(&cut::plan(video, info.duration, &o, &words, &[])?, &windows);
-    let kept: f64 = ranges.iter().map(|(s, e)| e - s).sum();
-    let chosen: f64 = windows.iter().map(|(s, e)| e.min(info.duration) - s).sum();
-    eprintln!("flits: reel of {} from {} of footage ({} cuts)", fmt_ts(kept), fmt_ts(chosen), ranges.len().saturating_sub(1));
-
     // next to the output: the written scene refers to them
     let audio = with_suffix(&out, ".audio.m4a");
     let words_path = with_suffix(&out, ".words.json");
-    cut::cut_audio(video, &ranges, &audio)?;
+    // the framing per shot (incl. reading mouths in two-shots) and the cut + soundtrack don't need
+    // each other: side by side
+    let (framings, ranges) = std::thread::scope(|s| {
+        let framing_job = s.spawn(|| shots.map(|(visible, shots)| auto_framings(&shots, visible, &words)));
+        let cut = || -> Result<Vec<(f64, f64)>> {
+            let ranges = templates::reel::within(&cut::plan(video, info.duration, &o, &words, &[])?, &windows);
+            let kept: f64 = ranges.iter().map(|(s, e)| e - s).sum();
+            let chosen: f64 = windows.iter().map(|(s, e)| e.min(info.duration) - s).sum();
+            eprintln!("flits: reel of {} from {} of footage ({} cuts)", fmt_ts(kept), fmt_ts(chosen), ranges.len().saturating_sub(1));
+            cut::cut_audio(video, &ranges, &audio)?;
+            Ok(ranges)
+        };
+        let ranges = cut();
+        (framing_job.join().map_err(|_| anyhow!("reframing thread panicked")), ranges)
+    });
+    let (framings, ranges) = (framings?, ranges?);
     // no face anywhere (a static cover, slides, a landscape): don't crop it, show it whole
     let mut fit = a.fit.clone();
     if cropped && framings.as_ref().is_some_and(|f| !f.is_empty() && f.iter().all(|f| !f.face)) {
