@@ -21,19 +21,46 @@ pub fn enabled() -> bool {
     std::env::var("FLITS_WHISPER_DAEMON").map_or(true, |v| v != "0")
 }
 
+/// One start at a time within this process: the prewarm thread and the transcription itself may
+/// both find no worker, and must not start two.
+static STARTING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Run `job` (a jobs.json for whisper.py) on the warm worker, starting one with `cmd` (the helper
 /// command line, up to and including the interpreter) when none answers.
-pub fn run(dir: &Path, mut cmd: Command, script: &Path, job: &Path) -> Result<()> {
+pub fn run(dir: &Path, cmd: &dyn Fn() -> Result<Command>, script: &Path, job: &Path) -> Result<()> {
+    request(dir, cmd, script, serde_json::json!({"job": job}))
+}
+
+/// Make sure a worker runs and has `model` loaded on `device`.
+pub fn warm(dir: &Path, cmd: &dyn Fn() -> Result<Command>, script: &Path, model: &str, device: &str) -> Result<()> {
+    request(dir, cmd, script, serde_json::json!({"warm": {"model": model, "device": device}}))
+}
+
+/// Send `req` to the worker (starting one if needed); a worker that vanished in between is replaced once.
+fn request(dir: &Path, cmd: &dyn Fn() -> Result<Command>, script: &Path, req: serde_json::Value) -> Result<()> {
     let state = dir.join("whisper-worker.json");
-    if let Some(conn) = connect(&state) {
-        match send(conn, job) {
-            Err(Send::NotAWorker) => {}
+    for _ in 0..2 {
+        let conn = {
+            let _one = STARTING.lock().unwrap_or_else(|e| e.into_inner());
+            match connect(&state) {
+                Some(c) => c,
+                None => start(dir, cmd()?, script, &state)?,
+            }
+        };
+        match send(conn, &req) {
+            Err(Send::NotAWorker) => {
+                let _ = std::fs::remove_file(&state);
+            }
             other => return other.map_err(Send::into_error),
         }
     }
-    // start one, detached from us: it should outlive this flits
+    bail!("the whisper worker did not answer")
+}
+
+/// Start a worker, detached from us (it should outlive this flits), and connect to it.
+fn start(dir: &Path, mut cmd: Command, script: &Path, state: &Path) -> Result<(TcpStream, String)> {
     let log = std::fs::File::create(dir.join("whisper-worker.log"))?;
-    cmd.arg("-I").arg(script).arg("--serve").arg(&state);
+    cmd.arg("-I").arg(script).arg("--serve").arg(state);
     cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(log);
     #[cfg(windows)]
     {
@@ -53,12 +80,12 @@ pub fn run(dir: &Path, mut cmd: Command, script: &Path, job: &Path) -> Result<()
             }
         }
     }
-    let _ = std::fs::remove_file(&state);
+    let _ = std::fs::remove_file(state);
     let mut child = cmd.spawn().context("starting the whisper worker")?;
     let t = Instant::now();
     loop {
-        if let Some(conn) = connect(&state) {
-            return send(conn, job).map_err(Send::into_error);
+        if let Some(conn) = connect(state) {
+            return Ok(conn);
         }
         if let Some(status) = child.try_wait()? {
             let log = std::fs::read_to_string(dir.join("whisper-worker.log")).unwrap_or_default();
@@ -97,10 +124,11 @@ impl Send {
     }
 }
 
-/// Hand the job over and relay the worker's progress to stderr.
-fn send((mut conn, token): (TcpStream, String), job: &Path) -> Result<(), Send> {
+/// Hand a request over (with the token) and relay the worker's progress to stderr.
+fn send((mut conn, token): (TcpStream, String), req: &serde_json::Value) -> Result<(), Send> {
     let io = |e: std::io::Error| Send::Failed(e.into());
-    let req = serde_json::json!({"token": token, "job": job});
+    let mut req = req.clone();
+    req["token"] = serde_json::json!(token);
     if conn.write_all(format!("{req}\n").as_bytes()).is_err() {
         return Err(Send::NotAWorker);
     }

@@ -1,6 +1,6 @@
 [package]
 name = "flits"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Blazing-fast GPU video and podcast renderer (JSON scene -> MP4) with built-in transcription"
 license = "MIT"
