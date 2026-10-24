@@ -76,6 +76,7 @@ export type TransitionType =
   | "zoom-in"
   | "zoom-out"
   | "zoom-fade"
+  | "zoom-blur"
   | "pop"
   | "wipe-left"
   | "wipe-right"
@@ -126,7 +127,11 @@ export type Duck = boolean | number;
 /** Padding in px: one number or [horizontal, vertical]. */
 export type Padding = number | [x: number, y: number];
 
-export type LayerType = "rect" | "image" | "video" | "text" | "counter" | "captions" | "waveform" | "group";
+export type LayerType = "rect" | "image" | "video" | "text" | "counter" | "captions" | "waveform" | "shape" | "group";
+/** rect (default), ellipse, circle, line, arrow, polygon, star, path (SVG path data in `d`) */
+export type ShapeKind = "rect" | "ellipse" | "circle" | "line" | "arrow" | "polygon" | "star" | "path";
+/** round (default), butt, square */
+export type LineCap = "round" | "butt" | "square";
 /** cover (default, crop), contain (letterbox), fill (stretch; alias "stretch") */
 export type Fit = "cover" | "contain" | "fill" | "stretch";
 /** left, center (default), right (aliases start, middle, end) */
@@ -351,6 +356,25 @@ export interface LayerProps {
   /** captions: word colour per diarization speaker label, e.g. { SPEAKER_00: "#ffffff" } */
   speakerColors?: Record<string, Color>;
 
+  /** shape: what to draw */
+  shape?: ShapeKind;
+  /** shape: points [[x, y], ...] in the layer box (line, arrow: a polyline; polygon: its corners) */
+  points?: [x: number, y: number][];
+  /** shape "path": SVG path data in layer-box units, e.g. "M 0 100 C 50 0 150 0 200 100" */
+  d?: string;
+  /** shape: corners of a regular polygon (default 6) or points of a star (default 5) */
+  sides?: number;
+  /** shape "star": inner radius as a fraction of the outer one (default 0.5) */
+  innerRadius?: number;
+  /** shape: ends of lines and dashes */
+  lineCap?: LineCap;
+  /** shape: dash pattern of the stroke in px, e.g. [20, 10] */
+  dash?: number[];
+  /** shape: how much of the outline is drawn, 0..1 (animate it to draw the shape on; default 1) */
+  progress?: Animated;
+  /** shape "arrow": length of the arrow head in px (default 4 x the stroke width) */
+  headSize?: number;
+
   /** waveform: number of bars (default 48) */
   bars?: number;
   /** waveform: bars grow from the centre line */
@@ -409,7 +433,10 @@ export interface GroupLayer extends LayerProps {
   children?: Layer[];
 }
 
-export type Layer = RectLayer | ImageLayer | VideoLayer | TextLayer | CounterLayer | CaptionsLayer | WaveformLayer | GroupLayer;
+export interface ShapeLayer extends LayerProps {
+  type: "shape";
+}
+export type Layer = RectLayer | ImageLayer | VideoLayer | TextLayer | CounterLayer | CaptionsLayer | WaveformLayer | ShapeLayer | GroupLayer;
 
 /** A flits scene: one video described as layers on a canvas. */
 export interface Scene {

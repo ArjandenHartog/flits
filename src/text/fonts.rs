@@ -317,11 +317,34 @@ fn quick_alias(name: &str) -> Option<&'static str> {
         "tahomabold" => "tahomabd.ttf",
         "trebuchetms" => "trebuc.ttf",
         "trebuchetmsbold" => "trebucbd.ttf",
+        "segoeuiemoji" => "seguiemj.ttf",
+        "segoeuisymbol" => "seguisym.ttf",
         _ => return None,
     })
 }
 
 pub const DEFAULT_FONT: &str = "Segoe UI Bold";
+
+/// Installed fonts to use for a well-known Windows font that is missing (Linux, macOS, Docker), by weight.
+fn standin(name: &str) -> &'static [&'static str] {
+    if quick_alias(name).is_none() && !norm(name).starts_with("segoeui") {
+        return &[];
+    }
+    let n = norm(name);
+    if n.contains("black") || n.contains("heavy") || n == "impact" {
+        &["Noto Sans Black", "Noto Sans ExtraBold", "DejaVu Sans Bold", "Liberation Sans Bold", "Helvetica Bold", "Arial Bold"]
+    } else if n.contains("semibold") {
+        &["Noto Sans SemiBold", "DejaVu Sans Bold", "Liberation Sans Bold", "Helvetica Bold", "Arial Bold"]
+    } else if n.contains("bold") || n.ends_with("bd") {
+        &["Noto Sans Bold", "DejaVu Sans Bold", "Liberation Sans Bold", "Helvetica Bold", "Arial Bold"]
+    } else if n.contains("consola") {
+        &["DejaVu Sans Mono", "Liberation Mono", "Noto Sans Mono", "Menlo"]
+    } else if n.contains("georgia") {
+        &["DejaVu Serif", "Liberation Serif", "Noto Serif", "Georgia"]
+    } else {
+        &["Noto Sans", "DejaVu Sans", "Liberation Sans", "Helvetica", "Arial"]
+    }
+}
 
 impl FontDb {
     pub fn new(aliases: HashMap<String, PathBuf>) -> FontDb {
@@ -395,15 +418,8 @@ impl FontDb {
     pub fn get(&self, name: Option<&str>, weight: Option<f64>) -> Result<FontRef> {
         let name = name.unwrap_or(DEFAULT_FONT);
         let (path, index) = self.find(name, weight).or_else(|e| {
-            if name == DEFAULT_FONT {
-                // non-Windows fallback
-                ["DejaVu Sans Bold", "Arial Bold", "Helvetica Bold", "Liberation Sans Bold", "Noto Sans Bold"]
-                    .iter()
-                    .find_map(|n| self.find(n, None).ok())
-                    .ok_or(e)
-            } else {
-                Err(e)
-            }
+            // the Windows fonts flits defaults to (and presets use) get a look-alike elsewhere
+            standin(name).iter().find_map(|n| self.find(n, None).ok()).ok_or(e)
         })?;
         let key = (path.clone(), index, weight.map(|w| w as i32).unwrap_or(-1));
         if let Some(f) = self.cache.lock().unwrap().get(&key) {

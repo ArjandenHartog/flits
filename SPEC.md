@@ -66,7 +66,7 @@ voice, video sound — plays). Audio from video layers is mixed in automatically
 
 | key | meaning |
 |---|---|
-| `type` | `rect`, `image`, `video`, `text`, `counter`, `captions`, `waveform`, `group` |
+| `type` | `rect`, `image`, `video`, `text`, `counter`, `captions`, `waveform`, `shape`, `group` |
 | `start`, `end` / `duration` | lifetime in seconds (relative to the parent group) |
 | `x`, `y` | position of the anchor point (default: centre of the parent) |
 | `width`, `height` | box size (default: parent size; text sizes itself; image/video with one side given keep their aspect ratio) |
@@ -101,6 +101,7 @@ As `out`, every transition plays mirrored (it leaves the way it came, continuing
 | `slide-fade` | a soft rise: `distance` (default 40) px up with the opacity following the ease; nice for text |
 | `zoom-in`, `zoom-out` | scales from 85% / 115% while fading |
 | `zoom-fade` | scales from 125% (exit: to 125%) while crossfading, like flying through the layer |
+| `zoom-blur` | rushes in from 130% with a radial (zoom) blur that settles as it stops (exit: blurs out to 130%) |
 | `pop` | scales up from 0 with overshoot (default ease `back-out`) |
 | `push-left`, `push-right`, `push-up`, `push-down` | slides in from fully outside the **parent box** (moves exactly one parent width/height, no fade). An `out` and an `in` of the same length line up seamlessly: in a `sequence` with `"overlap"` equal to the duration, the next layer pushes the previous one out |
 | `rotate-in` | turns from `-angle` degrees (default 90; exit: to `+angle`) while scaling up from 50% and fading |
@@ -171,6 +172,22 @@ with a bounce as spoken) | `word` (one big word at a time) | `line` (plain),
 
 **waveform** — live audio spectrum bars: `src` (audio/video file), `trim`, `bars` (48), `color`, `mirror`
 (bars grow from the centre line), `gap` (0..1 of a slot), `gain`, `radius`.
+
+**shape** — vector shapes without an SVG file, filled with `color` or `gradient` and/or outlined with
+`stroke` `{width,color}`. `shape`: `rect` (default; `radius` rounds it), `ellipse` (fills the box), `circle`,
+`line` and `arrow` (from the left to the right middle of the box, or through `points` `[[x,y], ...]` in the layer
+box; stroked in `color`, default 8 px, unless `stroke` is set), `polygon` (`sides`, default 6, or `points`), `star`
+(`sides` points, default 5; `innerRadius` 0.5), `path` (SVG path data in `d`, in layer-box units: `"M 0 80 Q 100 0
+200 80"`). Closed shapes are filled (white by default) unless only `stroke` is given. `lineCap`: `round` (default) |
+`butt` | `square`; `dash`: `[on, off]` in px; `headSize`: arrow head length (default 4× the stroke width).
+`progress` (0..1, animatable) draws the outline on, starting at the top of circles/ellipses and running clockwise —
+a progress ring is a circle with a stroke and `"progress": {"from": 0, "to": 1}`; an arrow's head follows the drawn
+end. Shapes are rasterized once (per `progress` value), so they cost no more per frame than an image.
+
+```json
+{ "type": "shape", "shape": "arrow", "points": [[0, 120], [180, 20], [400, 60]], "width": 400, "height": 140,
+  "stroke": { "width": 10, "color": "#ffd60a" }, "progress": { "from": 0, "to": 1, "end": 0.8, "ease": "out" } }
+```
 
 **group** — `children`: layers positioned/timed relative to the group. Group transforms, opacity and
 transitions apply to all children. `"clip": true` hides everything outside the group's box.

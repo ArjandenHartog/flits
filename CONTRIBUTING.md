@@ -33,8 +33,8 @@ scene.json --(scene/)--> Scene --(compose/)--> Prepared (everything static pre-r
 
 - **CPU and GPU draw the same.** Every visual feature works on both backends; `tests/parity.rs`
   compares the pixels. Extend that test when you draw something new.
-- **Speed is a feature.** Measure before and after with `examples/benchmark.py` and
-  `FLITS_PROFILE=1 flits render bench/scene.json --encoder null`, and put the numbers in your PR.
+- **Speed is a feature.** Measure before and after with `python bench/run.py --tools flits` and
+  `FLITS_PROFILE=1 flits render bench/media/scene.json --encoder null`, and put the numbers in your PR.
 - **Static work once.** Anything that doesn't change per frame belongs in `compose/` preparation,
   not in per-frame code.
 - **The scene format is the API.** Document new properties in [SPEC.md](SPEC.md); unknown fields are
@@ -55,7 +55,7 @@ scene.json --(scene/)--> Scene --(compose/)--> Prepared (everything static pre-r
 
 ## Good first ideas
 
-- More transitions (e.g. zoom-blur, which needs a per-frame blur on both backends), caption presets and starters (`flits new`).
-- A `path`/`shape` layer (lines, arrows, progress rings) without an SVG file.
-- Linux/macOS: test VAAPI/QSV/Metal paths and document the results.
+- More transitions, caption presets and starters (`flits new`).
+- VideoToolbox (macOS) and AMF (AMD on Windows) hardware encoders; macOS: test the Metal path and document the results.
+- Bidirectional text within a line (mixed left-to-right and right-to-left runs); paragraphs already run in one direction.
 - A faster CPU backend for machines without a GPU.

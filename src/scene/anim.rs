@@ -252,6 +252,7 @@ pub enum TKind {
     FlipX,
     FlipY,
     Iris,
+    ZoomBlur,
 }
 
 /// Canonical transition names (the schema and the docs list these, in this order).
@@ -265,6 +266,7 @@ pub const TRANSITION_NAMES: &[(&str, TKind)] = &[
     ("zoom-in", TKind::ZoomIn),
     ("zoom-out", TKind::ZoomOut),
     ("zoom-fade", TKind::ZoomFade),
+    ("zoom-blur", TKind::ZoomBlur),
     ("pop", TKind::Pop),
     ("wipe-left", TKind::WipeLeft),
     ("wipe-right", TKind::WipeRight),
@@ -441,6 +443,12 @@ impl Transition {
                 fx.opacity *= (raw * 4.0).min(1.0) as f32;
             }
             TKind::Iris => fx.clip = Some(Clip { side: Side::Center, frac: p }),
+            TKind::ZoomBlur => {
+                // rushes in from 130% (exit: out to 130%) with a radial blur that settles as it stops
+                fx.scale *= 1.0 + 0.3 * q;
+                fx.blur = 0.25 * q;
+                fx.opacity *= fade;
+            }
         }
     }
 }
@@ -506,11 +514,13 @@ pub struct Fx {
     /// extra rotation in degrees
     pub rot: f64,
     pub clip: Option<Clip>,
+    /// zoom blur: extra scale of the outermost of the copies the layer is drawn as (0 = sharp)
+    pub blur: f64,
 }
 
 impl Default for Fx {
     fn default() -> Self {
-        Fx { opacity: 1.0, dx: 0.0, dy: 0.0, scale: 1.0, sx: 1.0, sy: 1.0, rot: 0.0, clip: None }
+        Fx { opacity: 1.0, dx: 0.0, dy: 0.0, scale: 1.0, sx: 1.0, sy: 1.0, rot: 0.0, clip: None, blur: 0.0 }
     }
 }
 
@@ -593,14 +603,14 @@ mod tests {
 
     #[test]
     fn new_transitions_settle_at_identity() {
-        for name in ["zoom-fade", "slide-fade", "rotate-in", "flip-x", "flip-y", "iris"] {
+        for name in ["zoom-fade", "zoom-blur", "slide-fade", "rotate-in", "flip-x", "flip-y", "iris"] {
             let t = Transition::from_json(&json!(name)).unwrap();
             let mut start = Fx::default();
             t.apply_in(0.0, (100.0, 100.0), &mut start);
             let mut end = Fx::default();
             t.apply_in(t.dur * 0.999_999, (100.0, 100.0), &mut end);
             assert!((end.scale - 1.0).abs() < 1e-3 && (end.sx - 1.0).abs() < 1e-3 && end.rot.abs() < 1e-3, "{name}");
-            assert!(end.opacity > 0.99, "{name}");
+            assert!(end.opacity > 0.99 && end.blur < 1e-3, "{name}");
             let moved = start.opacity < 1.0 || start.scale != 1.0 || start.sx != 1.0 || start.sy != 1.0 || start.clip.is_some();
             assert!(moved, "{name} does something at the start");
         }

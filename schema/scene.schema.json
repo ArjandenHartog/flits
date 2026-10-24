@@ -453,7 +453,7 @@
         },
         "color": {
           "$ref": "#/$defs/Color",
-          "description": "rect: fill colour; text/counter/captions: text colour (default white)"
+          "description": "rect/shape: fill colour; text/counter/captions: text colour; line/arrow: line colour (default white)"
         },
         "colors": {
           "description": "captions: active-word colours, cycled word by word (instead of `highlight`)",
@@ -465,6 +465,17 @@
         "comment": {
           "description": "Free-form note for humans; ignored by flits.",
           "type": "string"
+        },
+        "d": {
+          "description": "shape \"path\": SVG path data in layer-box units, e.g. \"M 0 100 C 50 0 150 0 200 100\"",
+          "type": "string"
+        },
+        "dash": {
+          "description": "shape: dash pattern of the stroke in px, e.g. [20, 10]",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
         },
         "decimals": {
           "description": "counter: digits after the decimal mark",
@@ -517,7 +528,11 @@
         },
         "gradient": {
           "$ref": "#/$defs/Gradient",
-          "description": "rect: gradient fill (instead of `color`)"
+          "description": "rect/shape: gradient fill (instead of `color`)"
+        },
+        "headSize": {
+          "description": "shape \"arrow\": length of the arrow head in px (default 4 x the stroke width)",
+          "type": "number"
         },
         "height": {
           "description": "box height in px (see `width`)",
@@ -549,10 +564,23 @@
           "$ref": "#/$defs/Transition",
           "description": "enter transition"
         },
+        "innerRadius": {
+          "description": "shape \"star\": inner radius as a fraction of the outer one (default 0.5)",
+          "type": "number"
+        },
         "letterSpacing": {
           "default": 0.0,
           "description": "extra space between letters in px",
           "type": "number"
+        },
+        "lineCap": {
+          "description": "shape: ends of lines and dashes: round (default), butt or square.",
+          "enum": [
+            "round",
+            "butt",
+            "square"
+          ],
+          "type": "string"
         },
         "lineHeight": {
           "description": "line height as a multiple of the font size (default 1.15)",
@@ -603,6 +631,18 @@
           "$ref": "#/$defs/Animated",
           "description": "image/video: vertical pan inside the box, -1..1"
         },
+        "points": {
+          "description": "shape: points [[x, y], ...] in the layer box (line, arrow: a polyline; polygon: its corners)",
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "type": "array"
+        },
         "prefix": {
           "description": "counter: text before the number",
           "type": "string"
@@ -620,6 +660,10 @@
             "word-pop-big"
           ],
           "type": "string"
+        },
+        "progress": {
+          "$ref": "#/$defs/Animated",
+          "description": "shape: how much of the outline is drawn, 0..1 (animate it to draw the shape on; default 1)"
         },
         "radius": {
           "default": 0.0,
@@ -668,6 +712,25 @@
         },
         "shadow": {
           "$ref": "#/$defs/Shadow"
+        },
+        "shape": {
+          "description": "shape: rect (default; `radius` rounds the corners), ellipse (fills the box), circle, line and arrow (from the left to the right middle of the box, or through `points`), polygon (`sides` or `points`), star (`sides` points, `innerRadius`), path (SVG path data in `d`).",
+          "enum": [
+            "rect",
+            "ellipse",
+            "circle",
+            "line",
+            "arrow",
+            "polygon",
+            "star",
+            "path"
+          ],
+          "type": "string"
+        },
+        "sides": {
+          "description": "shape: corners of a regular polygon (default 6) or points of a star (default 5)",
+          "minimum": 0,
+          "type": "integer"
         },
         "size": {
           "description": "font size in px (text 64, counter 96)",
@@ -727,7 +790,7 @@
           "type": "number"
         },
         "type": {
-          "description": "Layer type. rect: solid colour or gradient box; image: photo/SVG; video: clip (with sound); text: styled text; counter: animated number; captions: word-by-word subtitles from a transcript; waveform: live audio spectrum; group: container for `children`.",
+          "description": "Layer type. rect: solid colour or gradient box; image: photo/SVG; video: clip (with sound); text: styled text; counter: animated number; captions: word-by-word subtitles from a transcript; waveform: live audio spectrum; shape: line, arrow, ellipse, polygon, star or SVG path (fill, stroke, draw-on `progress`); group: container for `children`.",
           "enum": [
             "rect",
             "image",
@@ -736,6 +799,7 @@
             "counter",
             "captions",
             "waveform",
+            "shape",
             "group"
           ],
           "type": "string"
@@ -890,7 +954,7 @@
     "Transition": {
       "anyOf": [
         {
-          "pattern": "^\\s*(fade|slide-up|slide-down|slide-left|slide-right|slide-fade|zoom-in|zoom-out|zoom-fade|pop|wipe-left|wipe-right|wipe-up|wipe-down|push-left|push-right|push-up|push-down|rotate-in|flip-x|flip-y|iris|up|down|left|right|rise|zoom|wipe|push|rotate|flip|circle)(\\s+([0-9]+\\.?[0-9]*|\\.[0-9]+)s?)?\\s*$",
+          "pattern": "^\\s*(fade|slide-up|slide-down|slide-left|slide-right|slide-fade|zoom-in|zoom-out|zoom-fade|zoom-blur|pop|wipe-left|wipe-right|wipe-up|wipe-down|push-left|push-right|push-up|push-down|rotate-in|flip-x|flip-y|iris|up|down|left|right|rise|zoom|wipe|push|rotate|flip|circle)(\\s+([0-9]+\\.?[0-9]*|\\.[0-9]+)s?)?\\s*$",
           "type": "string"
         },
         {
@@ -952,6 +1016,7 @@
         "zoom-in",
         "zoom-out",
         "zoom-fade",
+        "zoom-blur",
         "pop",
         "wipe-left",
         "wipe-right",

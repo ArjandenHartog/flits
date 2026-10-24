@@ -27,6 +27,7 @@ pub fn check(scene: &Path) -> Result<()> {
                 Kind::Counter(_) => "counter",
                 Kind::Captions(_) => "captions",
                 Kind::Waveform { .. } => "waveform",
+                Kind::Shape(_) => "shape",
             };
             println!("{:indent$}{kind:<9} {:>8.2}s -> {:>8.2}s  box {:.0}x{:.0}", "", n.start, n.end, n.w, n.h, indent = depth * 2);
             walk(&n.children, depth + 1);

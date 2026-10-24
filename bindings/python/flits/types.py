@@ -34,6 +34,8 @@ __all__ = [
     "Wrap",
     "CaptionStyle",
     "CaptionPreset",
+    "ShapeKind",
+    "LineCap",
     "HighlightBox",
     "TextBgMode",
     "GradientType",
@@ -118,6 +120,7 @@ TransitionType = Literal[
     "zoom-in",
     "zoom-out",
     "zoom-fade",
+    "zoom-blur",
     "pop",
     "wipe-left",
     "wipe-right",
@@ -166,7 +169,9 @@ Duck = Union[bool, float]
 
 Padding = Union[float, Tuple[float, float], List[float]]
 
-LayerType = Literal["rect", "image", "video", "text", "counter", "captions", "waveform", "group"]
+LayerType = Literal["rect", "image", "video", "text", "counter", "captions", "waveform", "shape", "group"]
+ShapeKind = Literal["rect", "ellipse", "circle", "line", "arrow", "polygon", "star", "path"]
+LineCap = Literal["round", "butt", "square"]
 Fit = Literal["cover", "contain", "fill", "stretch"]
 Align = Literal["left", "center", "right", "start", "middle", "end"]
 Reveal = Literal["words", "lines", "chars", "typewriter", "none"]
@@ -327,6 +332,16 @@ Layer = TypedDict(
         "colors": List[Color],  # active-word colours, cycled word by word
         "activeScale": float,  # active word size (default 1.12 for pop, 1 otherwise)
         "speakerColors": Dict[str, Color],  # word colour per diarization speaker
+        # shape
+        "shape": ShapeKind,  # rect (default), ellipse, circle, line, arrow, polygon, star, path
+        "points": List[Tuple[float, float]],  # [[x, y], ...] in the layer box
+        "d": str,  # shape "path": SVG path data in layer-box units
+        "sides": int,  # polygon corners (6) / star points (5)
+        "innerRadius": float,  # star: inner radius as a fraction of the outer one (0.5)
+        "lineCap": LineCap,
+        "dash": List[float],  # dash pattern in px, e.g. [20, 10]
+        "progress": Animated,  # how much of the outline is drawn, 0..1 (animate to draw on)
+        "headSize": float,  # arrow head length in px (default 4 x the stroke width)
         # waveform
         "bars": int,
         "mirror": bool,

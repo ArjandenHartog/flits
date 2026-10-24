@@ -317,9 +317,9 @@ pub struct Layer {
     pub fade_out: f64,
 
     // rect
-    /// rect: fill colour; text/counter/captions: text colour (default white)
+    /// rect/shape: fill colour; text/counter/captions: text colour; line/arrow: line colour (default white)
     pub color: Option<Rgba>,
-    /// rect: gradient fill (instead of `color`)
+    /// rect/shape: gradient fill (instead of `color`)
     pub gradient: Option<Gradient>,
 
     // text
@@ -373,6 +373,26 @@ pub struct Layer {
     /// captions: word colour per diarization speaker label ({"SPEAKER_00": "#ffffff", ...})
     pub speaker_colors: Option<HashMap<String, Rgba>>,
 
+    // shape
+    #[schemars(schema_with = "schema::shape_kind")]
+    pub shape: Option<String>,
+    /// shape: points [[x, y], ...] in the layer box (line, arrow: a polyline; polygon: its corners)
+    pub points: Option<Vec<[f64; 2]>>,
+    /// shape "path": SVG path data in layer-box units, e.g. "M 0 100 C 50 0 150 0 200 100"
+    pub d: Option<String>,
+    /// shape: corners of a regular polygon (default 6) or points of a star (default 5)
+    pub sides: Option<usize>,
+    /// shape "star": inner radius as a fraction of the outer one (default 0.5)
+    pub inner_radius: Option<f64>,
+    #[schemars(schema_with = "schema::line_cap")]
+    pub line_cap: Option<String>,
+    /// shape: dash pattern of the stroke in px, e.g. [20, 10]
+    pub dash: Option<Vec<f64>>,
+    /// shape: how much of the outline is drawn, 0..1 (animate it to draw the shape on; default 1)
+    pub progress: Option<Prop>,
+    /// shape "arrow": length of the arrow head in px (default 4 x the stroke width)
+    pub head_size: Option<f64>,
+
     // waveform
     /// waveform: number of bars (default 48)
     pub bars: Option<usize>,
@@ -404,7 +424,7 @@ pub struct Layer {
     pub overlap: f64,
 }
 
-const LAYER_TYPES: &[&str] = &["rect", "image", "video", "text", "counter", "captions", "waveform", "group"];
+const LAYER_TYPES: &[&str] = &["rect", "image", "video", "text", "counter", "captions", "waveform", "shape", "group"];
 
 /// Layer types are plain strings in the struct, so check them (recursively) here.
 fn check_types(v: &Value, path: &str, warnings: &mut Vec<String>) {

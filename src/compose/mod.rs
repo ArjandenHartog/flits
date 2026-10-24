@@ -3,6 +3,7 @@
 
 pub mod captions;
 pub mod draw;
+pub mod shape;
 pub mod waveform;
 
 pub use draw::{advance, draw_frame, render_frame, VideoState};
@@ -51,6 +52,7 @@ pub enum Kind {
     Counter(Arc<Counter>),
     Captions(Arc<Captions>),
     Waveform { spec: Arc<Spectrum>, color: Rgba, mirror: bool, gap: f32 },
+    Shape(Arc<shape::Shape>),
 }
 
 /// Text that appears piece by piece (words, lines or characters).
@@ -234,6 +236,7 @@ fn collect_media(layers: &[Layer], scene: &Scene, out: &mut Vec<PathBuf>) {
 
 fn transition_scale(t: &Option<Transition>) -> f64 {
     match t.as_ref().map(|t| t.kind) {
+        Some(TKind::ZoomBlur) => 1.5,
         Some(TKind::ZoomFade) => 1.25,
         Some(TKind::ZoomOut) | Some(TKind::ZoomIn) => 1.15,
         Some(TKind::Pop) => 1.1,
@@ -427,6 +430,20 @@ fn text_style(l: &Layer, ctx: &Ctx, default_font: Option<&str>, default_size: f6
     })
 }
 
+/// The `gradient` of a rect or shape layer as a fill.
+fn gradient_fill(l: &Layer) -> Result<Option<Fill>> {
+    let Some(g) = &l.gradient else { return Ok(None) };
+    let mut stops = g.stops.iter().map(|(p, c)| (*p as f32, *c)).collect::<Vec<_>>();
+    if stops.is_empty() {
+        let n = g.colors.len().max(2) - 1;
+        stops = g.colors.iter().enumerate().map(|(i, c)| (i as f32 / n as f32, *c)).collect();
+    }
+    if stops.len() < 2 {
+        bail!("gradient needs at least two stops or colors");
+    }
+    Ok(Some(if g.kind.as_deref() == Some("radial") { Fill::Radial(stops) } else { Fill::Linear(g.angle.unwrap_or(180.0), stops) }))
+}
+
 fn rescale(mut s: Sprite, q: f32) -> Sprite {
     s.w /= q;
     s.h /= q;
@@ -454,24 +471,21 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
     let mut children = Vec::new();
     let kind = match l.kind.as_str() {
         "group" => Kind::Group,
-        "rect" => Kind::Rect(match &l.gradient {
-            Some(g) => {
-                let mut stops = g.stops.iter().map(|(p, c)| (*p as f32, *c)).collect::<Vec<_>>();
-                if stops.is_empty() {
-                    let n = g.colors.len().max(2) - 1;
-                    stops = g.colors.iter().enumerate().map(|(i, c)| (i as f32 / n as f32, *c)).collect();
-                }
-                if stops.len() < 2 {
-                    bail!("gradient needs at least two stops or colors");
-                }
-                if g.kind.as_deref() == Some("radial") {
-                    Fill::Radial(stops)
-                } else {
-                    Fill::Linear(g.angle.unwrap_or(180.0), stops)
-                }
-            }
-            None => Fill::Solid(l.color.unwrap_or(Rgba::WHITE)),
-        }),
+        "rect" => Kind::Rect(gradient_fill(l)?.unwrap_or(Fill::Solid(l.color.unwrap_or(Rgba::WHITE)))),
+        "shape" => {
+            let (bw, bh) = (w.unwrap_or(pbox.0), h.unwrap_or(pbox.1));
+            let animated = l.progress.as_ref().is_some_and(|p| !p.is_const());
+            let dur = match (l.end, l.duration) {
+                (Some(e), _) => base + e - start,
+                (_, Some(d)) => d,
+                _ if default_end.is_finite() => default_end - start,
+                _ if animated => bail!("an animated progress needs a duration: set \"duration\" on the shape, its group or the scene"),
+                _ => 0.0,
+            };
+            let frames = (dur * scene.fps).ceil().max(1.0) as usize;
+            let times = (0..frames).map(move |f| (f as f64 / scene.fps, dur));
+            Kind::Shape(Arc::new(shape::build(l, bw, bh, q, gradient_fill(l)?, times)?))
+        }
         "image" => {
             let src = scene.resolve(l.src.as_deref().ok_or_else(|| anyhow!("image needs \"src\""))?);
             let (iw, ih) = assets::image_size(&src).with_context(|| format!("reading {}", src.display()))?;

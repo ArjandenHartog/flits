@@ -200,6 +200,36 @@ fn draw_node<'a>(
     if let Some(tr) = &n.exit {
         tr.apply_out(dur - lt, area, &mut fx);
     }
+    if fx.blur > 1e-3 {
+        // zoom blur: the layer drawn GHOSTS times at growing scales; copy k at 1/(k+1) opacity
+        // makes the result their average (exact for opaque layers)
+        const GHOSTS: usize = 8;
+        for k in 0..GHOSTS {
+            let mut f = fx;
+            f.blur = 0.0;
+            f.scale *= 1.0 + fx.blur * k as f64 / (GHOSTS - 1) as f64;
+            f.opacity /= (k + 1) as f32;
+            draw_fx(painter, n, t, parent, parent_op, pclip, ctx, f);
+        }
+        return;
+    }
+    draw_fx(painter, n, t, parent, parent_op, pclip, ctx, fx);
+}
+
+/// Draw a node with the transition effect `fx` already worked out.
+#[allow(clippy::too_many_arguments)]
+fn draw_fx<'a>(
+    painter: &mut dyn Painter<'a>,
+    n: &'a Node,
+    t: f64,
+    parent: Transform,
+    parent_op: f32,
+    pclip: Option<Clip>,
+    ctx: &FrameCtx<'a>,
+    fx: Fx,
+) {
+    let lt = t - n.start;
+    let dur = n.end - n.start;
     let op = parent_op * n.opacity.eval(lt, dur).clamp(0.0, 1.0) as f32 * fx.opacity;
     if op <= 0.002 {
         return;
@@ -327,6 +357,7 @@ fn draw_node<'a>(
             }
         }
         Kind::Captions(c) => c.draw(painter, lt, ts, op, clip),
+        Kind::Shape(sh) => painter.draw(sprite_op(sh.sprite(lt, dur), ts, op, clip)),
         Kind::Waveform { spec, color, mirror, gap } => {
             let fi = (lt * ctx.fps).round() as i64;
             if let Some(vals) = spec.at(fi) {

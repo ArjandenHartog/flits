@@ -553,6 +553,15 @@ mod tests {
     }
 
     #[test]
+    fn windows_default_fonts_have_stand_ins_and_typos_still_fail() {
+        let db = FontDb::new(Default::default());
+        for f in ["Segoe UI Black", "Segoe UI Semibold", "Segoe UI", "Arial Black", "Consolas"] {
+            assert!(db.get(Some(f), None).is_ok(), "{f}");
+        }
+        assert!(db.get(Some("Definitely Not A Font 42"), None).is_err());
+    }
+
+    #[test]
     fn missing_characters_fall_back_to_another_font() {
         let st = style(None);
         // some installed font has Greek, CJK or the check mark

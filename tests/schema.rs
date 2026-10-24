@@ -54,17 +54,17 @@ fn starters_validate() {
     }
 }
 
-/// Every ```json block in SPEC.md validates: full scenes (with "width") as they are, other blocks as a
-/// single layer of a scene.
+/// Every ```json block in SPEC.md validates: full scenes as they are, layers (objects with a "type")
+/// as the single layer of a scene.
 #[test]
 fn spec_examples_validate() {
     let spec = std::fs::read_to_string(repo("SPEC.md")).unwrap();
     let blocks: Vec<&str> = spec.split("```json\n").skip(1).filter_map(|s| s.split("```").next()).collect();
-    assert!(blocks.iter().any(|b| b.contains("\"width\"")), "SPEC.md has a full ```json scene example");
+    assert!(blocks.iter().any(|b| b.contains("\"layers\"")), "SPEC.md has a full ```json scene example");
     let v = validator();
     for block in blocks {
         let value: Value = serde_json::from_str(block).unwrap_or_else(|e| panic!("SPEC.md example is not valid JSON ({e}):\n{block}"));
-        let scene = if value.get("width").is_some() { value } else { scene_with(value) };
+        let scene = if value.get("type").is_some() { scene_with(value) } else { value };
         let errs = errors(&v, &scene);
         assert!(errs.is_empty(), "SPEC.md example {block}: {errs:#?}");
     }
@@ -99,6 +99,10 @@ fn accepts_every_documented_form() {
         scene_with(json!({"type": "captions", "src": "v.words.json", "preset": "karaoke-box", "highlightBox": "marker", "maxLines": 1,
                           "colors": ["#4ade80", "#facc15"], "activeScale": 1.1, "speakerColors": {"SPEAKER_00": "#fff"}})),
         scene_with(json!({"type": "rect", "in": "iris 0.6", "out": {"type": "rotate-in", "angle": 45}})),
+        scene_with(json!({"type": "shape", "shape": "arrow", "points": [[0, 0], [100, 40]], "stroke": {"width": 6, "color": "#fff"},
+                          "lineCap": "butt", "dash": [10, 5], "headSize": 30, "progress": {"from": 0, "to": 1}, "in": "zoom-blur"})),
+        scene_with(json!({"type": "shape", "shape": "star", "sides": 6, "innerRadius": 0.4, "gradient": {"colors": ["#fff", "#000"]}})),
+        scene_with(json!({"type": "shape", "d": "M 0 0 L 10 10"})),
         scene_with(json!({"type": "waveform", "src": "a.mp3", "bars": 64, "mirror": true, "gap": 0.3})),
         scene_with(json!({"type": "group", "sequence": true, "overlap": 0.5, "clip": true,
                           "children": [{"type": "rect", "duration": 1}, {"type": "text", "text": "x", "duration": 1, "in": "pop"}]})),
@@ -132,6 +136,8 @@ fn rejects_common_mistakes() {
         ("from without to", scene_with(json!({"type": "rect", "x": {"from": 0}}))),
         ("unknown fit", scene_with(json!({"type": "image", "src": "a.jpg", "fit": "zoom"}))),
         ("unknown captions style", scene_with(json!({"type": "captions", "src": "a.srt", "style": "fancy"}))),
+        ("unknown shape", scene_with(json!({"type": "shape", "shape": "blob"}))),
+        ("point with three numbers", scene_with(json!({"type": "shape", "points": [[0, 0, 0], [1, 1]]}))),
         ("unknown captions preset", scene_with(json!({"type": "captions", "src": "a.srt", "preset": "fancy"}))),
         ("unknown highlight box", scene_with(json!({"type": "captions", "src": "a.srt", "highlightBox": "circle"}))),
         ("duck level above 1", json!({"width": 10, "height": 10, "audio": [{"src": "a.mp3", "duck": 2}]})),

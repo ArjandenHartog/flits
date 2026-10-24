@@ -155,7 +155,7 @@ pub(crate) fn layer_type(_: &mut SchemaGenerator) -> Schema {
     string_enum(
         "Layer type. rect: solid colour or gradient box; image: photo/SVG; video: clip (with sound); text: styled text; \
          counter: animated number; captions: word-by-word subtitles from a transcript; waveform: live audio spectrum; \
-         group: container for `children`.",
+         shape: line, arrow, ellipse, polygon, star or SVG path (fill, stroke, draw-on `progress`); group: container for `children`.",
         LAYER_TYPES,
     )
 }
@@ -183,6 +183,19 @@ pub(crate) fn caption_style(_: &mut SchemaGenerator) -> Schema {
          Aliases: highlight, tiktok, jump, single, plain, subtitle.",
         CAPTION_STYLES,
     )
+}
+
+pub(crate) fn shape_kind(_: &mut SchemaGenerator) -> Schema {
+    string_enum(
+        "shape: rect (default; `radius` rounds the corners), ellipse (fills the box), circle, line and arrow (from the left to \
+         the right middle of the box, or through `points`), polygon (`sides` or `points`), star (`sides` points, \
+         `innerRadius`), path (SVG path data in `d`).",
+        crate::compose::shape::SHAPES,
+    )
+}
+
+pub(crate) fn line_cap(_: &mut SchemaGenerator) -> Schema {
+    string_enum("shape: ends of lines and dashes: round (default), butt or square.", crate::compose::shape::LINE_CAPS)
 }
 
 pub(crate) fn highlight_box(_: &mut SchemaGenerator) -> Schema {

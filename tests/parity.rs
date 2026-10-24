@@ -65,6 +65,28 @@ fn gpu_matches_cpu_presets_and_transitions() {
 }
 
 #[test]
+fn gpu_matches_cpu_shapes_zoom_blur_and_emoji() {
+    let scene = json!({
+        "width": 1280, "height": 720, "fps": 30, "duration": 2, "background": "#151821",
+        "layers": [
+            {"type": "shape", "shape": "circle", "x": 200, "y": 200, "width": 220, "height": 220,
+             "stroke": {"width": 22, "color": "#4ade80"}, "progress": {"from": 0, "to": 1, "end": 1.5}},
+            {"type": "shape", "shape": "star", "x": 520, "y": 200, "width": 220, "height": 220, "color": "#ffd60a",
+             "in": {"type": "zoom-blur", "duration": 1}},
+            {"type": "shape", "shape": "polygon", "sides": 6, "x": 840, "y": 200, "width": 200, "height": 200,
+             "gradient": {"colors": ["#f472b6", "#7c3aed"]}, "stroke": {"width": 6, "color": "#fff"}},
+            {"type": "shape", "shape": "arrow", "points": [[0, 120], [180, 20], [400, 60]], "x": 330, "y": 520,
+             "width": 400, "height": 140, "stroke": {"width": 10, "color": "#ffd60a"}, "progress": {"from": 0, "to": 1}},
+            {"type": "shape", "shape": "path", "d": "M 0 80 Q 100 0 200 80 T 400 80", "x": 880, "y": 540, "width": 400,
+             "height": 160, "stroke": {"width": 12, "color": "#f97316"}, "dash": [30, 12], "rotation": -8},
+            {"type": "group", "x": 640, "y": 380, "width": 700, "height": 120, "in": {"type": "zoom-blur", "duration": 1.2},
+             "children": [{"type": "text", "text": "zoom-blur 🚀 ✓ 日本", "size": 70}]}
+        ]
+    });
+    assert_parity("parity-shapes", scene, &[3, 12, 30, 59]);
+}
+
+#[test]
 fn gpu_matches_cpu() {
     if !matches!(flits::pick_gpu("auto"), Ok(Some(_))) {
         eprintln!("no GPU: skipping");
