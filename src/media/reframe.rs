@@ -44,7 +44,7 @@ pub struct Framing {
 
 /// A face in one picture, in fractions of the picture: centre `x`, `top` and `bottom` of the
 /// face box (about eyebrows to mouth), width `w`.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Face {
     pub x: f64,
     pub top: f64,
@@ -70,9 +70,25 @@ pub struct Shot {
     fps: f64,
 }
 
-/// The shots of the source window `[a, b)`, with the faces in them.
+/// The shots of the source window `[a, b)`, with the faces in them. Results are kept next to the
+/// video (`<stem>.faces.json`, see [`cache`]): the next reel from the same footage skips this.
 pub fn analyse(src: &Path, a: f64, b: f64, fps: f64) -> Result<Vec<Shot>> {
     let fps = if fps > 0.0 { fps } else { 25.0 };
+    if let Some(shots) = cache::get(src, a, b, fps) {
+        return Ok(shots);
+    }
+    let shots = analyse_uncached(src, a, b, fps)?;
+    cache::put(src, a, b, fps, &shots);
+    Ok(shots)
+}
+
+/// Shots and faces of the whole video, ahead of time (e.g. while whisper transcribes, before
+/// `--auto` knows which part it wants); errors are left for the real analysis to report.
+pub fn analyse_all(src: &Path, duration: f64, fps: f64) {
+    let _ = analyse(src, 0.0, duration, fps);
+}
+
+fn analyse_uncached(src: &Path, a: f64, b: f64, fps: f64) -> Result<Vec<Shot>> {
     let step = ((FACE_EVERY * fps).round() as usize).max(1);
     let min_shot = (fps * 0.4) as usize;
 
@@ -108,9 +124,14 @@ pub fn analyse(src: &Path, a: f64, b: f64, fps: f64) -> Result<Vec<Shot>> {
     }
     shots.push(n);
 
+    let debug = std::env::var_os("FLITS_DEBUG_REFRAME").is_some();
+    let t_dec = std::time::Instant::now();
     let found: Vec<(usize, Vec<Face>)> = probes.par_iter().map_init(detector, |det, (i, px)| (*i, faces(det.as_mut(), px, w, h))).collect();
+    if debug {
+        eprintln!("reframe: {n} frames decoded, {} probes detected in {:.1}s", probes.len(), t_dec.elapsed().as_secs_f64());
+    }
 
-    Ok(shots
+    let mut shots: Vec<Shot> = shots
         .windows(2)
         .map(|s| Shot {
             start: a + s[0] as f64 / fps,
@@ -119,7 +140,53 @@ pub fn analyse(src: &Path, a: f64, b: f64, fps: f64) -> Result<Vec<Shot>> {
             src: src.to_path_buf(),
             fps,
         })
-        .collect())
+        .collect();
+    // wide shots: faces too small for the analysis size get a second look at full resolution
+    let info = super::probe(src)?;
+    let t_res = std::time::Instant::now();
+    if info.width.max(info.height) as f64 > AW as f64 * 1.4 {
+        shots.par_iter_mut().filter(|s| s.end - s.start >= 0.8 && s.probes.iter().all(|(_, f)| f.is_empty())).for_each(|s| {
+            let found = rescue(src, s.start, s.end, (info.width, info.height), 1920);
+            if found.iter().any(|(_, f)| !f.is_empty()) {
+                s.probes = found;
+            }
+        });
+    }
+    if debug {
+        eprintln!("reframe: second look at faceless shots in {:.1}s", t_res.elapsed().as_secs_f64());
+    }
+    Ok(shots)
+}
+
+/// Look for faces in two pictures of a shot (a third and two thirds in) decoded at up to `max_w`:
+/// small faces in wide shots that the analysis size misses.
+fn rescue(src: &Path, a: f64, b: f64, size: (u32, u32), max_w: u32) -> Vec<(f64, Vec<Face>)> {
+    [1.0 / 3.0, 2.0 / 3.0]
+        .par_iter()
+        .filter_map(|k| {
+            let t = a + (b - a) * k;
+            let (w, h, mut child) = spawn_grey_frame(src, t, size, max_w).ok()?;
+            let mut px = vec![0u8; (w * h) as usize];
+            let ok = child.stdout.take()?.read_exact(&mut px).is_ok();
+            let _ = child.wait();
+            // only small faces: anything bigger was visible at the analysis size already
+            let mut det = detector();
+            det.set_max_face_size((w as f64 * 2.5 * 20.0 / AW as f64).round() as u32);
+            ok.then(|| (t, faces(det.as_mut(), &px, w, h)))
+        })
+        .collect()
+}
+
+/// ffmpeg decoding the single picture at `t` of a `(sw, sh)` video as a grey frame at most `max_w` wide.
+fn spawn_grey_frame(src: &Path, t: f64, (sw, sh): (u32, u32), max_w: u32) -> Result<(u32, u32, std::process::Child)> {
+    let aw = sw.min(max_w);
+    let (sw, sh) = (sw.max(1) as f64, sh as f64);
+    let h = ((aw as f64 * sh / sw / 2.0).round() * 2.0) as u32;
+    let mut cmd = ffmpeg();
+    cmd.args(["-ss", &format!("{t:.3}")]).arg("-i").arg(src);
+    cmd.args(["-frames:v", "1", "-an", "-vf", &format!("scale={aw}:{h},format=gray"), "-f", "rawvideo", "-"]);
+    let child = cmd.stdout(Stdio::piped()).stderr(Stdio::null()).spawn().context("starting ffmpeg for reframing")?;
+    Ok((aw, h, child))
 }
 
 /// Framings for analysed shots: one per shot, or one per speaker turn in a two-shot whose people
@@ -252,23 +319,35 @@ impl Shot {
     /// closing. The same measured around the eyes (blinks, a turning head) is subtracted.
     /// Averaged over ~0.4 s.
     fn mouths(&self, pair: &[Person; 2]) -> Result<[Vec<f64>; 2]> {
-        let (w, h, mut child) = spawn_grey(&self.src, self.start, self.end, MOUTH_W)?;
+        // each person's face as last detected (the camera may push in or pan during the shot)
+        let tracks: Vec<Vec<(f64, Face)>> = pair.iter().map(|p| track(&self.probes, p)).collect();
+        // decode just the part of the picture with the faces in it (at the same sharpness as a
+        // MOUTH_W-wide full frame): a fraction of the pixels
+        let all: Vec<Face> = tracks.iter().flatten().map(|(_, f)| *f).chain(pair.iter().map(|p| p.face)).collect();
+        let region = [
+            all.iter().map(|f| f.x - f.w * 0.8).fold(1.0, f64::min).max(0.0),
+            all.iter().map(|f| f.top - (f.bottom - f.top) * 0.4).fold(1.0, f64::min).max(0.0),
+            all.iter().map(|f| f.x + f.w * 0.8).fold(0.0, f64::max).min(1.0),
+            all.iter().map(|f| f.bottom + (f.bottom - f.top) * 0.6).fold(0.0, f64::max).min(1.0),
+        ];
+        let (w, h, mut child) = spawn_grey_region(&self.src, self.start, self.end, MOUTH_W, region)?;
         let mut out = child.stdout.take().unwrap();
-        let (wf, hf) = (w as f64, h as f64);
+        // pixels of a full frame at this sharpness, and where the region starts in it
+        let (wf, hf) = (w as f64 / (region[2] - region[0]), h as f64 / (region[3] - region[1]));
+        let (ox, oy) = (region[0] * wf, region[1] * hf);
+        let (rw, rh) = (w as f64, h as f64);
         // (mouth, eyes) boxes in px and the search radius, for a face
         let boxes = |f: Face| {
             let fh = f.bottom - f.top;
             let r = ((f.w * wf * 0.06).round() as i32).clamp(2, 8);
             let px = |x0: f64, y0: f64, x1: f64, y1: f64| {
                 let c = |v: f64, max: f64| (v.round() as i32).clamp(r, max as i32 - r - 1);
-                [c(x0 * wf, wf), c(y0 * hf, hf), c(x1 * wf, wf), c(y1 * hf, hf)]
+                [c(x0 * wf - ox, rw), c(y0 * hf - oy, rh), c(x1 * wf - ox, rw), c(y1 * hf - oy, rh)]
             };
             let mouth = px(f.x - f.w * 0.3, f.top + fh * 0.62, f.x + f.w * 0.3, f.bottom + fh * 0.1);
             let eyes = px(f.x - f.w * 0.35, f.top + fh * 0.12, f.x + f.w * 0.35, f.top + fh * 0.45);
             (mouth, eyes, r)
         };
-        // each person's face as last detected (the camera may push in or pan during the shot)
-        let tracks: Vec<Vec<(f64, Face)>> = pair.iter().map(|p| track(&self.probes, p)).collect();
         let mut frame = vec![0u8; (w * h) as usize];
         let mut prev = frame.clone();
         let mut raw: [Vec<f64>; 2] = [vec![], vec![]];
@@ -523,6 +602,21 @@ fn thumb(px: &[u8], w: u32, h: u32) -> [f64; 144] {
     t
 }
 
+/// ffmpeg decoding `[a, b)` of the video as grey frames of just `region` (x0, y0, x1, y1 in
+/// fractions of the picture), scaled as a full frame `aw` wide would be: (width, height, process).
+fn spawn_grey_region(src: &Path, a: f64, b: f64, aw: u32, region: [f64; 4]) -> Result<(u32, u32, std::process::Child)> {
+    let info = super::probe(src)?;
+    let full_h = aw as f64 * info.height as f64 / info.width.max(1) as f64;
+    let even = |v: f64| ((v / 2.0).round() * 2.0).max(16.0) as u32;
+    let (w, h) = (even((region[2] - region[0]) * aw as f64), even((region[3] - region[1]) * full_h));
+    let crop = format!("crop=iw*{:.5}:ih*{:.5}:iw*{:.5}:ih*{:.5}", region[2] - region[0], region[3] - region[1], region[0], region[1]);
+    let mut cmd = ffmpeg();
+    cmd.args(["-ss", &format!("{a:.3}"), "-t", &format!("{:.3}", (b - a).max(0.04))]).arg("-i").arg(src);
+    cmd.args(["-an", "-vf", &format!("{crop},scale={w}:{h}:flags=fast_bilinear,format=gray"), "-f", "rawvideo", "-"]);
+    let child = cmd.stdout(Stdio::piped()).stderr(Stdio::null()).spawn().context("starting ffmpeg for reframing")?;
+    Ok((w, h, child))
+}
+
 /// ffmpeg decoding `[a, b)` of the video as `aw`-wide grey frames on stdout: (width, height, process).
 fn spawn_grey(src: &Path, a: f64, b: f64, aw: u32) -> Result<(u32, u32, std::process::Child)> {
     let info = super::probe(src)?;
@@ -653,5 +747,100 @@ mod tests {
         assert_eq!(at(3.5), None); // a long pause
         assert_eq!(at(4.5), Some("B"));
         assert_eq!(at(6.0), None);
+    }
+}
+
+/// The analysis cache: `<stem>.faces.json` next to the video, valid while the file keeps its size
+/// and modification time. It holds the analysed spans; a window inside one is served from it.
+mod cache {
+    use super::{Face, Shot};
+    use serde::{Deserialize, Serialize};
+    use std::path::{Path, PathBuf};
+    use std::sync::Mutex;
+
+    /// bump when the analysis changes what it finds
+    const VERSION: u32 = 1;
+    static LOCK: Mutex<()> = Mutex::new(());
+
+    #[derive(Serialize, Deserialize, Default)]
+    struct File {
+        version: u32,
+        size: u64,
+        modified: u64,
+        fps: f64,
+        spans: Vec<Span>,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct Span {
+        a: f64,
+        b: f64,
+        shots: Vec<CachedShot>,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct CachedShot {
+        start: f64,
+        end: f64,
+        probes: Vec<(f64, Vec<Face>)>,
+    }
+
+    fn path(src: &Path) -> PathBuf {
+        let stem = src.file_stem().and_then(|s| s.to_str()).unwrap_or("video");
+        src.with_file_name(format!("{stem}.faces.json"))
+    }
+
+    fn stamp(src: &Path) -> Option<(u64, u64)> {
+        let m = std::fs::metadata(src).ok()?;
+        let t = m.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs();
+        Some((m.len(), t))
+    }
+
+    fn load(src: &Path, fps: f64) -> Option<File> {
+        let (size, modified) = stamp(src)?;
+        let f: File = serde_json::from_str(&std::fs::read_to_string(path(src)).ok()?).ok()?;
+        (f.version == VERSION && f.size == size && f.modified == modified && (f.fps - fps).abs() < 1e-6).then_some(f)
+    }
+
+    /// The shots of `[a, b)` from a cached span that covers it (clamped to the window).
+    pub fn get(src: &Path, a: f64, b: f64, fps: f64) -> Option<Vec<Shot>> {
+        let _one = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let f = load(src, fps)?;
+        let half = 0.5 / fps;
+        let span = f.spans.iter().find(|s| s.a <= a + half && s.b >= b - half)?;
+        Some(
+            span.shots
+                .iter()
+                .filter(|s| s.end > a && s.start < b)
+                .map(|s| {
+                    let (start, end) = (s.start.max(a), s.end.min(b));
+                    Shot {
+                        start,
+                        end,
+                        probes: s.probes.iter().filter(|(t, _)| *t >= start && *t < end).cloned().collect(),
+                        src: src.to_path_buf(),
+                        fps,
+                    }
+                })
+                .collect(),
+        )
+    }
+
+    /// Remember the analysis of `[a, b)` (best effort: a read-only folder just means no cache).
+    pub fn put(src: &Path, a: f64, b: f64, fps: f64, shots: &[Shot]) {
+        let _one = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let Some((size, modified)) = stamp(src) else { return };
+        let mut f = load(src, fps).unwrap_or(File { version: VERSION, size, modified, fps, spans: vec![] });
+        // a new span replaces the ones it covers
+        f.spans.retain(|s| !(s.a >= a && s.b <= b));
+        let shots = shots.iter().map(|s| CachedShot { start: s.start, end: s.end, probes: s.probes.clone() }).collect();
+        f.spans.push(Span { a, b, shots });
+        let p = path(src);
+        let tmp = p.with_extension(format!("json.{}.tmp", std::process::id()));
+        if let Ok(json) = serde_json::to_string(&f) {
+            if std::fs::write(&tmp, json).is_ok() && std::fs::rename(&tmp, &p).is_err() {
+                let _ = std::fs::remove_file(&tmp);
+            }
+        }
     }
 }

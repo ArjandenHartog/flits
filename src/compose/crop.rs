@@ -168,6 +168,10 @@ pub fn plan(nodes: &mut [Node], fps: f64) {
             }
         }
     }
+    if !crops.is_empty() {
+        // find out whether GPU decoders can crop before the first one starts
+        crate::media::video::check_gpu_crop();
+    }
     walk_mut(nodes, &mut |n| {
         if let Kind::Video { crop, .. } = &mut n.kind {
             *crop = crops.remove(&n.id);

@@ -134,3 +134,33 @@ fn footage_without_faces_is_shown_whole() {
     let scene = reel(&clip, &tr, &dir.join("crop.mp4"), &["--focus", "0.5"]);
     assert!(clips(&scene).iter().all(|c| c["panX"].as_f64() == Some(0.0)));
 }
+
+#[test]
+fn the_analysis_is_cached_next_to_the_footage() {
+    if !common::has_ffmpeg() {
+        eprintln!("no ffmpeg: skipping");
+        return;
+    }
+    let dir = common::tmp("reel-cache");
+    let (clip, tr) = (footage(&dir, true), words(&dir));
+    let first = reel(&clip, &tr, &dir.join("a.mp4"), &[]);
+    let cache = dir.join("clip.faces.json");
+    assert!(cache.is_file(), "no analysis cache written");
+    // the second reel reads it and frames exactly the same
+    let second = reel(&clip, &tr, &dir.join("b.mp4"), &[]);
+    let pans = |s: &Value| {
+        clips(s)
+            .iter()
+            .map(|c| (c["trim"].as_f64().unwrap() * 1000.0).round() as i64 * 10_000 + (c["panX"].as_f64().unwrap() * 1000.0).round() as i64)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(pans(&first), pans(&second));
+    // a changed file invalidates it: same size, other content -> modification time differs
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    let bytes = std::fs::read(&clip).unwrap();
+    std::fs::write(&clip, &bytes).unwrap();
+    let before = std::fs::read_to_string(&cache).unwrap();
+    reel(&clip, &tr, &dir.join("c.mp4"), &[]);
+    let after = std::fs::read_to_string(&cache).unwrap();
+    assert_ne!(before, after, "the cache was not renewed for a modified file");
+}
