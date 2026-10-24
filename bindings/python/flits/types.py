@@ -8,7 +8,7 @@ Units are pixels (origin top-left) and seconds; relative paths resolve against t
 """
 
 import sys
-from typing import Dict, List, Literal, Tuple, TypedDict, Union
+from typing import Callable, Dict, List, Literal, Tuple, TypedDict, Union
 
 if sys.version_info >= (3, 11):
     from typing import Required
@@ -107,7 +107,10 @@ FromTo = TypedDict(
 )
 """Animate from one value to another over the layer (or between "start" and "end")."""
 
-Animated =Union[float, List[Keyframe], FromTo]
+AnimFn = Callable[[float, Dict[str, float]], float]
+"""f(t, {"frame", "fps", "duration", "progress"}) -> value; sampled per frame by flits.compile()."""
+
+Animated = Union[float, List[Keyframe], FromTo, AnimFn]
 """A constant, keyframes [[time, value, ease?], ...] or {"from", "to", "ease", "start", "end"}."""
 
 TransitionType = Literal[

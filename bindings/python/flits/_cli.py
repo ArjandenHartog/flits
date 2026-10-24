@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Union
 
+from .compile import compile
+
 PathLike = Union[str, "os.PathLike[str]"]
 SceneInput = Union[Mapping[str, Any], PathLike]
 """A scene dict (see flits.types.Scene) or the path of a scene .json file."""
@@ -115,7 +117,7 @@ def scene_file(scene: SceneInput, base_dir: Optional[PathLike] = None) -> Iterat
     fd, path = tempfile.mkstemp(prefix=".flits-", suffix=".scene.json", dir=folder)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(scene, f, ensure_ascii=False, indent=1)
+            json.dump(compile(dict(scene)), f, ensure_ascii=False, indent=1)
         yield path
     finally:
         try:

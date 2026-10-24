@@ -187,7 +187,8 @@ await render(scene, "hello.mp4", { scale: 0.5 });  // also: still, sheet, transc
 ```
 
 **Python** ([`bindings/python`](bindings/python), `pip install ./bindings/python`, no dependencies on 3.11+):
-`TypedDict`s for the scene format and the same wrapper (`render`, `still`, `sheet`, `check`, `transcribe`, `schema`).
+`TypedDict`s for the scene format and the same wrapper (`render`, `still`, `sheet`, `check`, `transcribe`, `schema`);
+animatable properties may be Python callables `f(t, ctx)`, sampled per frame like in TypeScript.
 See [`examples/hello.py`](bindings/python/examples/hello.py).
 
 ```python

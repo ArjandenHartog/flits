@@ -12,10 +12,14 @@ The CLI is found via the `bin=` argument, $FLITS_BIN or PATH. Relative media pat
 against `base_dir` (default: the current directory).
 """
 
+from .compile import compile, flatten, sample
 from ._cli import CheckResult, FlitsError, binary, check, render, run, scene_file, schema, sheet, still, to_args, transcribe
 from .types import Layer, Scene
 
 __all__ = [
+    "compile",
+    "flatten",
+    "sample",
     "CheckResult",
     "FlitsError",
     "Layer",
