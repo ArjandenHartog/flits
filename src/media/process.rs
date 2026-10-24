@@ -75,3 +75,35 @@ pub fn contain_children() {
         }
     });
 }
+
+/// A temp folder only this user can use: `<temp>/flits` on Windows (%TEMP% is per user), and
+/// `<temp>/flits-<uid>` with mode 0700 and checked ownership elsewhere (/tmp is shared: another
+/// user could otherwise swap scripts or job files flits hands to helper processes). Being in the
+/// temp folder, it is cleared on reboot.
+pub fn user_temp_dir() -> Result<PathBuf> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
+        let uid = unsafe { libc::getuid() };
+        let dir = std::env::temp_dir().join(format!("flits-{uid}"));
+        match std::fs::DirBuilder::new().mode(0o700).create(&dir) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(e) => return Err(e).with_context(|| format!("creating {}", dir.display())),
+        }
+        let m = std::fs::symlink_metadata(&dir)?;
+        if !m.is_dir() || m.uid() != uid {
+            anyhow::bail!("{} is not a folder owned by you: remove it and try again", dir.display());
+        }
+        if m.permissions().mode() & 0o077 != 0 {
+            std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))?;
+        }
+        Ok(dir)
+    }
+    #[cfg(not(unix))]
+    {
+        let dir = std::env::temp_dir().join("flits");
+        std::fs::create_dir_all(&dir)?;
+        Ok(dir)
+    }
+}

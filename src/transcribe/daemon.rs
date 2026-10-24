@@ -2,6 +2,10 @@
 //! jobs over localhost, so only the first transcription pays for starting Python and loading the
 //! model (~8 s of a 10 s run for a short clip). It exits by itself after 10 idle minutes
 //! (`FLITS_WHISPER_IDLE` seconds); `FLITS_WHISPER_DAEMON=0` turns it off.
+//!
+//! Its address and token live in `dir` (`media::process::user_temp_dir`: private to this user,
+//! cleared on reboot). The worker acknowledges every request at once, so a port that some other
+//! program took over after the worker died is noticed within seconds instead of hanging.
 
 use anyhow::{anyhow, bail, Context, Result};
 use std::io::{BufRead, BufReader, Write};
@@ -10,16 +14,22 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+/// How long a worker may take to acknowledge a request.
+const ACK_WAIT: Duration = Duration::from_secs(3);
+
 pub fn enabled() -> bool {
     std::env::var("FLITS_WHISPER_DAEMON").map_or(true, |v| v != "0")
 }
 
 /// Run `job` (a jobs.json for whisper.py) on the warm worker, starting one with `cmd` (the helper
-/// command line, up to and including the interpreter) when none is running.
+/// command line, up to and including the interpreter) when none answers.
 pub fn run(dir: &Path, mut cmd: Command, script: &Path, job: &Path) -> Result<()> {
     let state = dir.join("whisper-worker.json");
     if let Some(conn) = connect(&state) {
-        return send(conn, job);
+        match send(conn, job) {
+            Err(Send::NotAWorker) => {}
+            other => return other.map_err(Send::into_error),
+        }
     }
     // start one, detached from us: it should outlive this flits
     let log = std::fs::File::create(dir.join("whisper-worker.log"))?;
@@ -48,7 +58,7 @@ pub fn run(dir: &Path, mut cmd: Command, script: &Path, job: &Path) -> Result<()
     let t = Instant::now();
     loop {
         if let Some(conn) = connect(&state) {
-            return send(conn, job);
+            return send(conn, job).map_err(Send::into_error);
         }
         if let Some(status) = child.try_wait()? {
             let log = std::fs::read_to_string(dir.join("whisper-worker.log")).unwrap_or_default();
@@ -66,25 +76,53 @@ pub fn run(dir: &Path, mut cmd: Command, script: &Path, job: &Path) -> Result<()
 /// A connection to the worker named in `state`, with its token.
 fn connect(state: &Path) -> Option<(TcpStream, String)> {
     let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(state).ok()?).ok()?;
-    let port = v["port"].as_u64()? as u16;
+    let port = u16::try_from(v["port"].as_u64()?).ok()?;
     let token = v["token"].as_str()?.to_string();
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     TcpStream::connect_timeout(&addr, Duration::from_millis(300)).ok().map(|s| (s, token))
 }
 
+enum Send {
+    /// whatever listens there did not acknowledge: not (or no longer) our worker
+    NotAWorker,
+    Failed(anyhow::Error),
+}
+
+impl Send {
+    fn into_error(self) -> anyhow::Error {
+        match self {
+            Send::NotAWorker => anyhow!("the whisper worker did not answer"),
+            Send::Failed(e) => e,
+        }
+    }
+}
+
 /// Hand the job over and relay the worker's progress to stderr.
-fn send((mut conn, token): (TcpStream, String), job: &Path) -> Result<()> {
+fn send((mut conn, token): (TcpStream, String), job: &Path) -> Result<(), Send> {
+    let io = |e: std::io::Error| Send::Failed(e.into());
     let req = serde_json::json!({"token": token, "job": job});
-    conn.write_all(format!("{req}\n").as_bytes())?;
-    for line in BufReader::new(conn).lines() {
-        let line = line?;
+    if conn.write_all(format!("{req}\n").as_bytes()).is_err() {
+        return Err(Send::NotAWorker);
+    }
+    conn.set_read_timeout(Some(ACK_WAIT)).map_err(io)?;
+    // read from the stream itself (not a clone): on Windows a clone keeps its own timeout
+    let mut lines = BufReader::new(&conn).lines();
+    match lines.next() {
+        Some(Ok(l)) if l == "ACK" => {}
+        Some(Ok(l)) if l.starts_with("ERR ") => return Err(Send::Failed(anyhow!("{}", &l[4..]))),
+        _ => return Err(Send::NotAWorker),
+    }
+    // a long file can take minutes between progress lines
+    conn.set_read_timeout(None).map_err(io)?;
+    for line in lines {
+        let line = line.map_err(io)?;
         if let Some(msg) = line.strip_prefix("LOG ") {
             eprintln!("{msg}");
         } else if line == "OK" {
             return Ok(());
         } else if let Some(e) = line.strip_prefix("ERR ") {
-            bail!("{e}");
+            return Err(Send::Failed(anyhow!("{e}")));
         }
     }
-    Err(anyhow!("the whisper worker hung up"))
+    Err(Send::Failed(anyhow!("the whisper worker hung up")))
 }

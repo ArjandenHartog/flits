@@ -558,6 +558,7 @@ dependencies = [
  "fast_image_resize",
  "image",
  "jsonschema",
+ "libc",
  "pollster",
  "rayon",
  "resvg",

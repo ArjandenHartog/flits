@@ -203,8 +203,10 @@ def serve(state_path):
     srv.bind(("127.0.0.1", 0))
     srv.listen(4)
     srv.settimeout(5)
-    tmp = state_path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
+    tmp = f"{state_path}.{os.getpid()}.tmp"  # two workers starting at once don't share it
+    # readable by this user only: the token is the key to the worker
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump({"port": srv.getsockname()[1], "token": token, "pid": os.getpid()}, f)
     os.replace(tmp, state_path)
     last = time.time()
@@ -220,6 +222,7 @@ def serve(state_path):
                 if req.get("token") != token:
                     conn.sendall(b"ERR bad token\n")
                     continue
+                conn.sendall(b"ACK\n")  # at once: the client knows it reached a worker
                 LOG.out = Lines(conn)
                 run(json.load(open(req["job"], encoding="utf-8")))
                 conn.sendall(b"OK\n")

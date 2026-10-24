@@ -138,8 +138,8 @@ pub fn transcribe_many(jobs: &[(PathBuf, PathBuf)], o: &TranscribeOpts) -> Resul
 
 fn transcribe_local(jobs: &[(PathBuf, PathBuf)], o: &TranscribeOpts) -> Result<()> {
     use rayon::prelude::*;
-    let dir = std::env::temp_dir().join("flits");
-    std::fs::create_dir_all(&dir)?;
+    // the helper script and its job files: in a folder no other user can write to
+    let dir = crate::media::process::user_temp_dir()?;
     let script = dir.join("whisper.py");
     std::fs::write(&script, SCRIPT)?;
     if o.diarize && !has_hf_token() {
