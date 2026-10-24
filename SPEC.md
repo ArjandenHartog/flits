@@ -309,7 +309,9 @@ One command from raw footage to a reel, in one render of just the reel's length:
 (`--preset`, `--highlight`, `--position`) and an optional hook `--title`. `--focus auto` (the default)
 follows the people: shot changes are detected on every frame and faces a few times per second
 (built-in SeetaFace model, no extra install), and every shot gets one steady framing that jumps
-exactly on the cut; shots without a face are framed in the middle. The scene is written next to the
+exactly on the cut; shots without a face are framed in the middle, and footage without any face (a
+podcast cover, slides) is shown whole on a blurred backdrop. Reels play at 30 fps at most (50 -> 25,
+60 -> 30; `--fps` overrides). The hook title is black on a white box, readable on any footage. The scene is written next to the
 output (`<out>.scene.json`) to tweak and re-render.
 
 ## Cutting: `flits cut`

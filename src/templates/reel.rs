@@ -29,6 +29,10 @@ pub struct ReelOpts<'a> {
     pub framings: Option<&'a [Framing]>,
     /// `crop` (fill the frame) or `fit` (whole picture, captions on the free space)
     pub fit: String,
+    /// `fit`: a still of the footage, shown blurred behind the picture
+    pub backdrop: Option<&'a Path>,
+    /// frame rate (default: the footage's, halved above 30: 50 -> 25, 60 -> 30)
+    pub fps: Option<f64>,
     pub title: Option<String>,
     pub preset: Option<String>,
     pub highlight: Option<String>,
@@ -86,6 +90,17 @@ pub fn within(ranges: &[(f64, f64)], windows: &[(f64, f64)]) -> Vec<(f64, f64)> 
     out
 }
 
+/// Social video plays at 30 fps at most: footage above that is halved (an exact frame step, no
+/// judder), which also halves the work.
+pub fn reel_fps(source: f64) -> f64 {
+    let f = if source > 1.0 && source <= 240.0 { (source * 1000.0).round() / 1000.0 } else { 30.0 };
+    if f > 31.0 && f / 2.0 >= 23.0 {
+        f / 2.0
+    } else {
+        f.min(30.0)
+    }
+}
+
 /// Fraction of the source width a cover crop to `canvas` shows (1 when nothing is cut sideways).
 pub fn visible_fraction(canvas: (f64, f64), source: (f64, f64)) -> f64 {
     ((canvas.0 / canvas.1) / (source.0 / source.1.max(1.0))).min(1.0)
@@ -116,7 +131,7 @@ pub fn reel(o: &ReelOpts) -> Result<Value> {
     }
     let (w, h) = canvas_for(&o.format)?;
     let (wf, hf) = (w as f64, h as f64);
-    let fps = if info.fps > 1.0 && info.fps <= 120.0 { (info.fps * 1000.0).round() / 1000.0 } else { 30.0 };
+    let fps = o.fps.unwrap_or_else(|| reel_fps(info.fps));
     let total: f64 = o.ranges.iter().map(|(a, b)| b - a).sum();
     let src = abs(o.video);
     let crop = match o.fit.as_str() {
@@ -140,7 +155,13 @@ pub fn reel(o: &ReelOpts) -> Result<Value> {
                    "fit": "cover", "panX": pan, "width": wf, "height": vh})
         })
         .collect();
-    let mut layers = vec![json!({"type": "group", "sequence": true, "y": vy, "height": vh, "children": clips})];
+    let mut layers = vec![];
+    if let (false, Some(b)) = (crop, o.backdrop) {
+        // the same picture, blurred and dimmed, fills the frame behind the fitted video
+        layers.push(json!({"type": "image", "src": abs(b), "blur": 40, "zoom": {"from": 1.15, "to": 1.3, "ease": "linear"}}));
+        layers.push(json!({"type": "rect", "color": "rgba(0,0,0,0.45)"}));
+    }
+    layers.push(json!({"type": "group", "sequence": true, "y": vy, "height": vh, "children": clips}));
     if crop {
         // keeps white captions readable on any footage
         layers.push(json!({"type": "rect", "y": hf * 0.8, "height": hf * 0.4,
@@ -168,10 +189,13 @@ pub fn reel(o: &ReelOpts) -> Result<Value> {
     layers.push(caps);
     if let Some(t) = o.title.as_deref().filter(|t| !t.trim().is_empty()) {
         // the hook: big, at the top, in for the first seconds
-        layers.push(json!({"type": "text", "text": t, "y": hf * 0.14, "size": (wf * 0.075).round(), "maxWidth": wf * 0.84,
-            "wrap": "balance", "font": "Segoe UI Black", "align": "center", "duration": total.min(4.0),
-            "shadow": {"blur": 24, "y": 6, "color": "rgba(0,0,0,0.6)"},
-            "reveal": "words", "revealStyle": "mask", "revealDuration": 0.5, "out": "fade 0.3"}));
+        // black on a white box: readable on any footage, the look viewers know from reels
+        let size = (wf * 0.068).round();
+        layers.push(json!({"type": "text", "text": t, "y": hf * 0.15, "size": size, "maxWidth": wf * 0.8,
+            "wrap": "balance", "font": "Segoe UI Black", "align": "center", "color": "#111111", "lineHeight": 1.1,
+            "background": {"color": "#ffffff", "padding": [(size * 0.45).round(), (size * 0.28).round()], "radius": (size * 0.22).round()},
+            "shadow": {"blur": 30, "y": 10, "color": "rgba(0,0,0,0.35)"},
+            "duration": total.min(4.5), "in": {"type": "zoom-in", "duration": 0.45, "ease": "expo-out"}, "out": "fade 0.3"}));
     }
     Ok(json!({
         "width": w, "height": h, "fps": fps, "duration": total, "loudness": -14,
@@ -198,6 +222,16 @@ mod tests {
         assert!((r[0].start - 0.5).abs() < 1e-9 && (r[0].end - 0.9).abs() < 1e-9);
         // "b" starts 0.1 s into the second range, which starts at 1.5 s in the reel
         assert!((r[1].start - 1.6).abs() < 1e-9 && (r[1].end - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn reels_play_at_most_30_fps() {
+        assert_eq!(reel_fps(25.0), 25.0);
+        assert_eq!(reel_fps(29.97), 29.97);
+        assert_eq!(reel_fps(50.0), 25.0);
+        assert_eq!(reel_fps(59.94), 29.97);
+        assert_eq!(reel_fps(120.0), 60.0);
+        assert_eq!(reel_fps(0.0), 30.0);
     }
 
     #[test]
