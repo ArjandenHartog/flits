@@ -5,6 +5,8 @@ use anyhow::{bail, Context, Result};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod daemon;
+
 const SCRIPT: &str = include_str!("whisper.py");
 
 fn has(cmd: &str) -> bool {
@@ -136,8 +138,8 @@ pub fn transcribe_many(jobs: &[(PathBuf, PathBuf)], o: &TranscribeOpts) -> Resul
 
 fn transcribe_local(jobs: &[(PathBuf, PathBuf)], o: &TranscribeOpts) -> Result<()> {
     use rayon::prelude::*;
-    let dir = std::env::temp_dir().join("flits");
-    std::fs::create_dir_all(&dir)?;
+    // the helper script and its job files: in a folder no other user can write to
+    let dir = crate::media::process::user_temp_dir()?;
     let script = dir.join("whisper.py");
     std::fs::write(&script, SCRIPT)?;
     if o.diarize && !has_hf_token() {
@@ -146,25 +148,27 @@ fn transcribe_local(jobs: &[(PathBuf, PathBuf)], o: &TranscribeOpts) -> Result<(
 
     let use_cuda = o.device != "cpu" && has_nvidia();
     let device = if o.device == "auto" && !use_cuda { "cpu".to_string() } else { o.device.clone() };
-    let mut cmd = if let Some(py) = &o.python.clone().or_else(|| std::env::var_os("FLITS_PYTHON").map(PathBuf::from)) {
-        Command::new(py)
-    } else if has("uv") {
-        let mut c = Command::new("uv");
-        c.args(["run", "--quiet", "--no-project", "--python", "3.12", "--with", "faster-whisper>=1.1"]);
-        if use_cuda {
-            c.args(["--with", "nvidia-cublas-cu12", "--with", "nvidia-cudnn-cu12>=9,<10"]);
-        }
-        if o.diarize {
-            // optional and heavy (PyTorch): only pulled in when asked for
-            eprintln!("flits: diarization on; the first run installs pyannote.audio + PyTorch (a large download)");
-            c.args(["--with", "pyannote.audio>=3.3"]);
-        }
-        c.arg("python");
-        c
-    } else {
-        bail!(
+    let make_cmd = || -> Result<Command> {
+        Ok(if let Some(py) = &o.python.clone().or_else(|| std::env::var_os("FLITS_PYTHON").map(PathBuf::from)) {
+            Command::new(py)
+        } else if has("uv") {
+            let mut c = Command::new("uv");
+            c.args(["run", "--quiet", "--no-project", "--python", "3.12", "--with", "faster-whisper>=1.1"]);
+            if use_cuda {
+                c.args(["--with", "nvidia-cublas-cu12", "--with", "nvidia-cudnn-cu12>=9,<10"]);
+            }
+            if o.diarize {
+                // optional and heavy (PyTorch): only pulled in when asked for
+                eprintln!("flits: diarization on; the first run installs pyannote.audio + PyTorch (a large download)");
+                c.args(["--with", "pyannote.audio>=3.3"]);
+            }
+            c.arg("python");
+            c
+        } else {
+            bail!(
             "transcription needs either `uv` (https://docs.astral.sh/uv/) or --python pointing at a Python with faster-whisper installed"
         );
+        })
     };
     // decode everything with ffmpeg in parallel (fast, any format) to raw 16 kHz mono float32
     let t = std::time::Instant::now();
@@ -185,6 +189,22 @@ fn transcribe_local(jobs: &[(PathBuf, PathBuf)], o: &TranscribeOpts) -> Result<(
         "jobs": list
     });
     std::fs::write(&job_file, cfg.to_string())?;
+    // the warm worker (model already loaded) when it can; diarization runs on its own
+    if !o.diarize && daemon::enabled() {
+        match daemon::run(&dir, make_cmd()?, &script, &job_file) {
+            Ok(()) => {
+                for p in pcms.iter().chain(std::iter::once(&job_file)) {
+                    let _ = std::fs::remove_file(p);
+                }
+                for (_, out) in jobs {
+                    write_subtitles(out, &load_transcript(out)?)?;
+                }
+                return Ok(());
+            }
+            Err(e) => eprintln!("flits: whisper worker unavailable ({e:#}); running whisper directly"),
+        }
+    }
+    let mut cmd = make_cmd()?;
     cmd.arg("-I").arg(&script).arg(&job_file);
     let status = cmd.status().context("starting the transcription helper");
     for p in pcms.iter().chain(std::iter::once(&job_file)) {

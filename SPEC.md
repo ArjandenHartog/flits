@@ -302,6 +302,7 @@ temp folder; without flits the SDK estimates).
     flits reel interview.mp4 --clips "0:40-1:05,3:10-3:32"     # several parts, in this order
     flits reel interview.mp4 --focus 0.3 --format 4:5     # fixed framing, other format
     flits reel interview.mp4 --fit fit                    # whole picture, captions underneath
+    flits reel interview.mp4 --logo logo.png --accent "#f39200" --progress --music bed.mp3   # branded
 
 One command from raw footage to a reel, in one render of just the reel's length: the transcript
 (`<input>.words.json`, made once and reused), the chosen part(s) with silences (and with `--fillers` /
@@ -309,7 +310,13 @@ One command from raw footage to a reel, in one render of just the reel's length:
 (`--preset`, `--highlight`, `--position`) and an optional hook `--title`. `--focus auto` (the default)
 follows the people: shot changes are detected on every frame and faces a few times per second
 (built-in SeetaFace model, no extra install), and every shot gets one steady framing that jumps
-exactly on the cut; shots without a face are framed in the middle. The scene is written next to the
+exactly on the cut; shots without a face are framed in the middle, and footage without any face (a
+podcast cover, slides) is shown whole on a blurred backdrop. Reels play at 30 fps at most (50 -> 25,
+60 -> 30; `--fps` overrides). The hook title is black on a white box, readable on any footage. Jump cuts (removed pauses) alternate between
+the framing and a 10% punch-in so they don't read as hiccups (`--no-punch`). Branding: `--logo` (png/svg,
+top right on a soft shade, sized by height so wordmarks and marks look alike), `--accent` (progress
+bar and active caption word), `--progress` (a bar along the bottom), `--music` (looped under the voice,
+ducked while someone speaks, faded out). The scene is written next to the
 output (`<out>.scene.json`) to tweak and re-render.
 
 ## Cutting: `flits cut`
@@ -372,6 +379,11 @@ audio-only timeline at 30 fps.
     flits transcribe rec.m4a --words-only                      # {"words": [...]} instead of segments
     flits transcribe rec.m4a --segments-only                   # no word timestamps (faster)
     flits transcribe rec.m4a --diarize [--speakers 2]          # speaker labels (optional, see below)
+
+**Warm worker.** The first transcription starts a helper that keeps the model loaded (it stops by
+itself after 10 idle minutes; `FLITS_WHISPER_IDLE` seconds, `FLITS_WHISPER_DAEMON=0` to run whisper
+fresh every time). Starting Python and loading the model is most of the time for short clips: a 35 s
+clip takes ~11 s the first time and under 2 s after that. Diarization always runs on its own.
 
 `--initial-prompt`, `--vocab`, `--diarize` also work on `captions`, `podcast` and `cut` (whenever they transcribe).
 The JSON has `language`, `duration` and `segments` (`start`, `end`, `text`, `words`: `word`, `start`, `end`, `prob`),

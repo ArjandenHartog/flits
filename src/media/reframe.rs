@@ -25,6 +25,8 @@ const CUT_DIFF: f64 = 22.0;
 pub struct Framing {
     pub start: f64,
     pub x: f64,
+    /// a face was found in the shot (else `x` is the middle)
+    pub face: bool,
 }
 
 /// Framings for the source window `[a, b)`: one per shot. `visible` is the fraction of the source
@@ -74,6 +76,7 @@ pub fn analyse(src: &Path, a: f64, b: f64, fps: f64, visible: f64) -> Result<Vec
     let mut framings: Vec<Framing> = vec![];
     for s in shots.windows(2) {
         let mut xs: Vec<f64> = found.iter().filter(|(i, _)| *i >= s[0] && *i < s[1]).filter_map(|(_, x)| *x).collect();
+        let face = !xs.is_empty();
         let x = if xs.is_empty() {
             0.5
         } else {
@@ -89,7 +92,7 @@ pub fn analyse(src: &Path, a: f64, b: f64, fps: f64, visible: f64) -> Result<Vec
             eprintln!("shot {:7.2}s..{:7.2}s  x {x:.2}  faces [{}]", a + s[0] as f64 / fps, a + s[1] as f64 / fps, det.join(" "));
         }
         if framings.last().is_none_or(|f: &Framing| (f.x - x).abs() > 0.02) {
-            framings.push(Framing { start: a + s[0] as f64 / fps, x });
+            framings.push(Framing { start: a + s[0] as f64 / fps, x, face });
         }
     }
     Ok(framings)

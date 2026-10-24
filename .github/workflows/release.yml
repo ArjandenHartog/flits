@@ -104,6 +104,8 @@ jobs:
       id-token: write # npm provenance
     env:
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # setup-node puts a placeholder in NODE_AUTH_TOKEN when it is empty, so test the secret itself
+      HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
     defaults:
       run:
         working-directory: bindings/typescript
@@ -116,10 +118,10 @@ jobs:
       - name: version matches the tag
         run: test "$(node -p 'require("./package.json").version')" = "${GITHUB_REF_NAME#v}"
       - name: npm publish
-        if: env.NODE_AUTH_TOKEN != ''
+        if: env.HAS_NPM_TOKEN == 'true'
         run: npm publish --access public --provenance
       - name: no token
-        if: env.NODE_AUTH_TOKEN == ''
+        if: env.HAS_NPM_TOKEN != 'true'
         run: echo "::notice::NPM_TOKEN is not set; skipping npm"
 
   pypi:

@@ -424,6 +424,24 @@ enum Cmd {
         /// pause left in place of a removed silence (seconds)
         #[arg(long, default_value_t = 0.2)]
         keep: f64,
+        /// frame rate (default: the footage's, halved above 30 fps: 50 -> 25, 60 -> 30)
+        #[arg(long)]
+        fps: Option<f64>,
+        /// don't punch in on jump cuts (by default every other cut-out pause zooms in 10%)
+        #[arg(long)]
+        no_punch: bool,
+        /// music under the voice: ducked while someone speaks, looped, faded out at the end
+        #[arg(long)]
+        music: Option<PathBuf>,
+        /// logo (png/svg) in the top right corner
+        #[arg(long)]
+        logo: Option<PathBuf>,
+        /// a thin progress bar along the bottom
+        #[arg(long)]
+        progress: bool,
+        /// brand colour: progress bar and active caption word
+        #[arg(long)]
+        accent: Option<String>,
         /// existing transcript (.json/.srt/.vtt) instead of transcribing
         #[arg(long)]
         transcript: Option<PathBuf>,
@@ -651,6 +669,12 @@ fn run(cli: Cli) -> Result<()> {
             repeats,
             no_silence,
             keep,
+            fps,
+            no_punch,
+            music,
+            logo,
+            progress,
+            accent,
             transcript,
             w,
             r,
@@ -670,7 +694,26 @@ fn run(cli: Cli) -> Result<()> {
                 "auto" => None,
                 f => Some(f.parse::<f64>().map_err(|_| anyhow!("--focus: auto or a number 0..1"))?),
             };
-            let a = make::ReelArgs { windows, format, fit, focus, title, preset, highlight, position, fillers, repeats, no_silence, keep };
+            let a = make::ReelArgs {
+                windows,
+                format,
+                fit,
+                focus,
+                title,
+                preset,
+                highlight,
+                position,
+                fillers,
+                repeats,
+                no_silence,
+                keep,
+                fps,
+                punch: !no_punch,
+                music,
+                logo,
+                progress,
+                accent,
+            };
             make::reel(&video, out, &a, transcript, &w, &r)
         }
         Cmd::Transcribe { inputs, out, outdir, words_only, segments_only, w } => {
