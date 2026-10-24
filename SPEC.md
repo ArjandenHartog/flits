@@ -6,8 +6,10 @@ A scene is one JSON file. flits renders it to MP4 (H.264/HEVC/AV1 + AAC):
     flits render scene.json --scale 0.5       # fast half-resolution preview
     flits preview scene.json                  # live preview in the browser (scrub, play); reloads on save
     flits sheet scene.json -o sheet.png       # 12 frames in one image: check the whole video at a glance
-    flits still scene.json --at 12.5 -o f.png # single frame(s)
-    flits check scene.json                    # validate (typos are reported) + print the resolved timeline
+                                              # (--at 1 --at 2.5: these times; --from 2 --to 3 --count 8: a range)
+    flits still scene.json --at 12.5 -o f.png # single frame(s); prints the written paths, one per line
+    flits check scene.json                    # validate (typos are reported), lint the layout, print the timeline
+    flits check scene.json --json             # the same as one JSON object (ok, size, warnings, issues, layers)
     flits render video.ts --props '{"t": 1}'  # TypeScript/JavaScript scenes (see below); `flits init` starts a project
     flits new                                 # list example scenes; `flits new intro -o intro.json`
     flits schema                              # JSON Schema of this format (also schema/scene.schema.json)
@@ -32,6 +34,16 @@ allowed by the schema; every other unknown key is a typo (a warning in `flits ch
 error in the schema). The schema is stricter than flits in two places: enum values are
 lowercase only (flits ignores case), and it cannot see files, fonts or media lengths —
 `flits check` remains the final word.
+
+**Layout lint.** `flits check` also samples the timeline (transforms only, no pixels) and warns about text or counters
+that run off the canvas for 0.5 s or more (entrances, exits and text inside a clipping group or wipe are fine), text that
+overlaps other text for 0.3 s or more (not when the upper one sits on its own `background` or on an opaque rect drawn
+between them), and text visible for less than ~0.1 s + 0.2 s per word. Each warning names the layer and the time range:
+`warning: 1.00-3.00s: text "Big headline" runs 140 px past the right edge (move it in, make it smaller or set maxWidth)`.
+With `--json` they are in `issues` (`kind`: `offscreen` | `overlap` | `brief`, `layer`, `other`, `from`, `to`,
+`message`) next to `warnings` (typos), the canvas, `duration`, `frames`, `audio` and the `layers` tree (`type`,
+`label`, `start`, `end`, `width`, `height`, `children`). A scene that fails to load prints `{"ok": false, "error": ...}`
+and exits with an error.
 
 ## Scene
 

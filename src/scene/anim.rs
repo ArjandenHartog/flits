@@ -59,7 +59,7 @@ impl Ease {
                 }
             }
             other => bail!(
-                "unknown ease '{other}' (linear, in, out, in-out, smooth, back-in, back-out, elastic, bounce, spring, hold,                  expo-in, expo-out, expo-in-out, quint-out, quint-in-out, circ-out, cubic-bezier(x1, y1, x2, y2))"
+                "unknown ease '{other}' (linear, in, out, in-out, smooth, back-in, back-out, elastic, bounce, spring, hold, expo-in, expo-out, expo-in-out, quint-out, quint-in-out, circ-out, cubic-bezier(x1, y1, x2, y2))"
             ),
         })
     }

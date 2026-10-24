@@ -15,7 +15,7 @@ use std::time::Instant;
     name = "flits",
     version,
     about = "Blazing-fast GPU video and podcast renderer (JSON scene -> MP4) with built-in transcription",
-    after_help = "Start with `flits new intro -o intro.json && flits render intro.json`, or write videos in TypeScript:\n`flits init my-video && flits preview my-video/src/video.ts`. `flits spec` documents the scene format;\n`flits doctor` checks your system."
+    after_help = "Start with `flits new intro -o intro.json && flits render intro.json`, or write videos in TypeScript:\n`flits init my-video && flits preview my-video/src/video.ts`. `flits spec` documents the scene format;\n`flits doctor` checks your system. With Claude Code: `flits skill install` (in `flits init` projects already)."
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -188,13 +188,24 @@ enum Cmd {
         #[arg(long, default_value_t = 1.0)]
         scale: f64,
     },
-    /// Contact sheet: evenly spaced frames in one PNG (check a whole video at a glance)
+    /// Contact sheet: evenly spaced frames in one PNG, each labelled with its time (check a whole video, or one
+    /// transition with --from/--to, at a glance)
     Sheet {
         scene: PathBuf,
         #[arg(short, long)]
         out: PathBuf,
+        /// number of frames
         #[arg(long, default_value_t = 12)]
         count: usize,
+        /// exact times (seconds or mm:ss) instead of evenly spaced ones; repeat for several
+        #[arg(long = "at", value_parser = parse_time)]
+        at: Vec<f64>,
+        /// first frame of a time range (with --count frames from --from to --to, both included)
+        #[arg(long, value_parser = parse_time, conflicts_with = "at")]
+        from: Option<f64>,
+        /// last frame of a time range (default: the end)
+        #[arg(long, value_parser = parse_time, conflicts_with = "at")]
+        to: Option<f64>,
         #[arg(long, default_value_t = 4)]
         cols: usize,
         /// width of each thumbnail in px
@@ -216,8 +227,13 @@ enum Cmd {
         #[arg(long)]
         no_open: bool,
     },
-    /// Validate a scene and print its timeline
-    Check { scene: PathBuf },
+    /// Validate a scene, check its layout (text off the canvas, overlapping, too brief to read) and print its timeline
+    Check {
+        scene: PathBuf,
+        /// print one JSON object: ok, size, duration, warnings, layout issues, layer tree (for scripts and agents)
+        #[arg(long)]
+        json: bool,
+    },
     /// Write a ready-to-render example scene (intro, quote, stats, lower-third, countdown, ...)
     New {
         /// starter name; omit to list them
@@ -236,6 +252,11 @@ enum Cmd {
         /// only refresh the flits/ SDK of the project in the current folder (or `dir`)
         #[arg(long)]
         update: bool,
+    },
+    /// The flits-video skill for Claude Code: how to make, review and render videos with flits
+    Skill {
+        #[command(subcommand)]
+        action: SkillCmd,
     },
     /// Print the scene format reference
     Spec,
@@ -426,6 +447,21 @@ enum Cmd {
     },
 }
 
+#[derive(Subcommand)]
+enum SkillCmd {
+    /// Write the skill to ./.claude/skills/flits-video (or ~/.claude/skills/flits-video with --global)
+    Install {
+        /// install for all projects (in your home folder)
+        #[arg(long)]
+        global: bool,
+        /// project folder to install into (default: the current folder)
+        #[arg(long, conflicts_with = "global")]
+        dir: Option<PathBuf>,
+    },
+    /// Print the skill (SKILL.md and its reference files) to stdout
+    Print,
+}
+
 pub fn parse_time(s: &str) -> Result<f64, String> {
     let mut t = 0.0;
     for p in s.trim().split(':') {
@@ -475,12 +511,16 @@ fn run(cli: Cli) -> Result<()> {
     match cli.cmd {
         Cmd::Render { scene, out, r, remote } => make::render(&scene, out, &r, remote),
         Cmd::Still { scene, at, out, scale } => make::still(&scene, &at, &out, scale),
-        Cmd::Sheet { scene, out, count, cols, thumb } => make::sheet(&scene, &out, count, cols, thumb),
+        Cmd::Sheet { scene, out, count, at, from, to, cols, thumb } => {
+            make::sheet(&scene, &out, &make::SheetPick { count, at, from, to }, cols, thumb)
+        }
         Cmd::Preview { scene, port, scale, gpu, no_open } => tools::preview(&scene, port, scale, &gpu, !no_open),
-        Cmd::Check { scene } => tools::check(&scene),
+        Cmd::Check { scene, json } => tools::check(&scene, json),
         Cmd::New { starter, out, ts } => make::new(starter, out, ts),
         Cmd::Init { dir, update } => make::init(&dir, update),
         Cmd::Measure => tools::measure(),
+        Cmd::Skill { action: SkillCmd::Install { global, dir } } => make::skill(false, global, dir),
+        Cmd::Skill { action: SkillCmd::Print } => make::skill(true, false, None),
         Cmd::Spec => {
             print!("{}", include_str!("../../SPEC.md"));
             Ok(())
