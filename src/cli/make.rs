@@ -652,7 +652,17 @@ pub fn reel_auto(
     if (a.fillers || a.repeats) && wo.initial_prompt.is_none() {
         wo.initial_prompt = fillers::verbatim_prompt(&wo.language).map(str::to_string);
     }
-    let tr_path = transcribe::ensure(video, transcript.as_deref(), &wo)?;
+    // while whisper listens, find the shots and faces of the whole recording: whichever part gets
+    // picked is then analysed already (and kept for the next reel from this footage)
+    let transcribing = transcript.is_none() && !transcribe::default_json(video).exists();
+    let tr_path = if transcribing && a.focus.is_none() && info.has_video && info.duration <= 20.0 * 60.0 {
+        std::thread::scope(|s| {
+            s.spawn(|| media::reframe::analyse_all(video, info.duration, info.fps));
+            transcribe::ensure(video, transcript.as_deref(), &wo)
+        })?
+    } else {
+        transcribe::ensure(video, transcript.as_deref(), &wo)?
+    };
     let words = load_transcript_full(&tr_path)?.words();
     let n = if auto.pick { 5 } else { auto.candidates };
     let picks = templates::highlights::pick(&words, auto.target, n, info.duration);

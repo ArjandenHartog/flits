@@ -44,7 +44,7 @@ pub struct Framing {
 
 /// A face in one picture, in fractions of the picture: centre `x`, `top` and `bottom` of the
 /// face box (about eyebrows to mouth), width `w`.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Face {
     pub x: f64,
     pub top: f64,
@@ -70,9 +70,25 @@ pub struct Shot {
     fps: f64,
 }
 
-/// The shots of the source window `[a, b)`, with the faces in them.
+/// The shots of the source window `[a, b)`, with the faces in them. Results are kept next to the
+/// video (`<stem>.faces.json`, see [`cache`]): the next reel from the same footage skips this.
 pub fn analyse(src: &Path, a: f64, b: f64, fps: f64) -> Result<Vec<Shot>> {
     let fps = if fps > 0.0 { fps } else { 25.0 };
+    if let Some(shots) = cache::get(src, a, b, fps) {
+        return Ok(shots);
+    }
+    let shots = analyse_uncached(src, a, b, fps)?;
+    cache::put(src, a, b, fps, &shots);
+    Ok(shots)
+}
+
+/// Shots and faces of the whole video, ahead of time (e.g. while whisper transcribes, before
+/// `--auto` knows which part it wants); errors are left for the real analysis to report.
+pub fn analyse_all(src: &Path, duration: f64, fps: f64) {
+    let _ = analyse(src, 0.0, duration, fps);
+}
+
+fn analyse_uncached(src: &Path, a: f64, b: f64, fps: f64) -> Result<Vec<Shot>> {
     let step = ((FACE_EVERY * fps).round() as usize).max(1);
     let min_shot = (fps * 0.4) as usize;
 
@@ -731,5 +747,100 @@ mod tests {
         assert_eq!(at(3.5), None); // a long pause
         assert_eq!(at(4.5), Some("B"));
         assert_eq!(at(6.0), None);
+    }
+}
+
+/// The analysis cache: `<stem>.faces.json` next to the video, valid while the file keeps its size
+/// and modification time. It holds the analysed spans; a window inside one is served from it.
+mod cache {
+    use super::{Face, Shot};
+    use serde::{Deserialize, Serialize};
+    use std::path::{Path, PathBuf};
+    use std::sync::Mutex;
+
+    /// bump when the analysis changes what it finds
+    const VERSION: u32 = 1;
+    static LOCK: Mutex<()> = Mutex::new(());
+
+    #[derive(Serialize, Deserialize, Default)]
+    struct File {
+        version: u32,
+        size: u64,
+        modified: u64,
+        fps: f64,
+        spans: Vec<Span>,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct Span {
+        a: f64,
+        b: f64,
+        shots: Vec<CachedShot>,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct CachedShot {
+        start: f64,
+        end: f64,
+        probes: Vec<(f64, Vec<Face>)>,
+    }
+
+    fn path(src: &Path) -> PathBuf {
+        let stem = src.file_stem().and_then(|s| s.to_str()).unwrap_or("video");
+        src.with_file_name(format!("{stem}.faces.json"))
+    }
+
+    fn stamp(src: &Path) -> Option<(u64, u64)> {
+        let m = std::fs::metadata(src).ok()?;
+        let t = m.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs();
+        Some((m.len(), t))
+    }
+
+    fn load(src: &Path, fps: f64) -> Option<File> {
+        let (size, modified) = stamp(src)?;
+        let f: File = serde_json::from_str(&std::fs::read_to_string(path(src)).ok()?).ok()?;
+        (f.version == VERSION && f.size == size && f.modified == modified && (f.fps - fps).abs() < 1e-6).then_some(f)
+    }
+
+    /// The shots of `[a, b)` from a cached span that covers it (clamped to the window).
+    pub fn get(src: &Path, a: f64, b: f64, fps: f64) -> Option<Vec<Shot>> {
+        let _one = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let f = load(src, fps)?;
+        let half = 0.5 / fps;
+        let span = f.spans.iter().find(|s| s.a <= a + half && s.b >= b - half)?;
+        Some(
+            span.shots
+                .iter()
+                .filter(|s| s.end > a && s.start < b)
+                .map(|s| {
+                    let (start, end) = (s.start.max(a), s.end.min(b));
+                    Shot {
+                        start,
+                        end,
+                        probes: s.probes.iter().filter(|(t, _)| *t >= start && *t < end).cloned().collect(),
+                        src: src.to_path_buf(),
+                        fps,
+                    }
+                })
+                .collect(),
+        )
+    }
+
+    /// Remember the analysis of `[a, b)` (best effort: a read-only folder just means no cache).
+    pub fn put(src: &Path, a: f64, b: f64, fps: f64, shots: &[Shot]) {
+        let _one = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let Some((size, modified)) = stamp(src) else { return };
+        let mut f = load(src, fps).unwrap_or(File { version: VERSION, size, modified, fps, spans: vec![] });
+        // a new span replaces the ones it covers
+        f.spans.retain(|s| !(s.a >= a && s.b <= b));
+        let shots = shots.iter().map(|s| CachedShot { start: s.start, end: s.end, probes: s.probes.clone() }).collect();
+        f.spans.push(Span { a, b, shots });
+        let p = path(src);
+        let tmp = p.with_extension(format!("json.{}.tmp", std::process::id()));
+        if let Ok(json) = serde_json::to_string(&f) {
+            if std::fs::write(&tmp, json).is_ok() && std::fs::rename(&tmp, &p).is_err() {
+                let _ = std::fs::remove_file(&tmp);
+            }
+        }
     }
 }
