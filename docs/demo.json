@@ -1,0 +1,29 @@
+{
+  "$schema": "../schema/scene.schema.json",
+  "comment": "README demo: flits render docs/demo.json -o demo.mp4, then ffmpeg -i demo.mp4 -vf 'fps=15,scale=720:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle' docs/demo.gif",
+  "width": 1280, "height": 720, "fps": 30, "duration": 6.5, "background": "#0f1020",
+  "layers": [
+    { "type": "rect", "gradient": { "type": "radial", "colors": ["#2a1b4a", "#0f1020"] } },
+    { "type": "shape", "shape": "circle", "x": 1080, "y": 120, "width": 420, "height": 420, "color": "#f2632822",
+      "scale": { "from": 0.9, "to": 1.15 } },
+    { "type": "text", "text": "flits ⚡", "x": 640, "y": 200, "size": 150, "font": "Segoe UI Black",
+      "shadow": { "blur": 24, "y": 8, "color": "rgba(0,0,0,0.6)" }, "in": { "type": "zoom-blur", "duration": 0.9 } },
+    { "type": "text", "text": "JSON in, video out — on the GPU 🚀", "x": 640, "y": 320, "size": 46, "color": "#d6d3f0",
+      "start": 0.6, "in": "slide-fade 0.6" },
+    { "type": "group", "x": 300, "y": 520, "width": 220, "height": 220, "start": 1.2, "in": "pop", "children": [
+      { "type": "shape", "shape": "circle", "stroke": { "width": 18, "color": "#ffffff1a" } },
+      { "type": "shape", "shape": "circle", "stroke": { "width": 18, "color": "#4ade80" },
+        "progress": { "from": 0, "to": 0.87, "end": 2.2, "ease": "out" } },
+      { "type": "counter", "value": { "from": 0, "to": 87, "end": 2.2, "ease": "out" }, "suffix": "%", "size": 64 }
+    ]},
+    { "type": "shape", "shape": "arrow", "points": [[0, 110], [150, 20], [300, 70]], "x": 640, "y": 520, "width": 300, "height": 130,
+      "start": 1.8, "stroke": { "width": 10, "color": "#ffd60a" }, "progress": { "from": 0, "to": 1, "end": 1, "ease": "in-out" } },
+    { "type": "group", "x": 1000, "y": 520, "width": 360, "height": 200, "start": 2.4, "sequence": true, "children": [
+      { "type": "text", "text": "captions 💬", "size": 54, "duration": 1.2, "in": "pop", "out": "fade 0.2" },
+      { "type": "text", "text": "emoji 😍🔥", "size": 54, "duration": 1.2, "in": "flip-x", "out": "fade 0.2" },
+      { "type": "text", "text": "transitions ✨", "size": 54, "in": { "type": "iris", "duration": 0.6 } }
+    ]},
+    { "type": "rect", "x": 0, "y": 714, "anchor": [0, 0.5], "width": 1280, "height": 12, "color": "#f26328",
+      "scaleX": { "from": 0, "to": 1 } }
+  ]
+}

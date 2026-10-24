@@ -6,7 +6,12 @@ description = "Blazing-fast GPU video and podcast renderer (JSON scene -> MP4) w
 license = "MIT"
 authors = ["Arjan den Hartog", "flits contributors"]
 repository = "https://github.com/ArjandenHartog/flits"
+homepage = "https://github.com/ArjandenHartog/flits"
+documentation = "https://docs.rs/flits"
 readme = "README.md"
+# the crate: sources, scene format docs, schema and the TypeScript SDK that `flits init` writes
+# (the benchmark, Python bindings and CI files stay on GitHub)
+exclude = ["/bench", "/bindings/python", "/bindings/typescript/test", "/docs", "/.github", "/Dockerfile", "/.dockerignore", "/examples", "/tests"]
 keywords = ["video", "rendering", "gpu", "podcast", "transcription"]
 categories = ["multimedia::video", "multimedia::audio", "command-line-utilities", "rendering"]
 rust-version = "1.88"

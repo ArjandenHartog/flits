@@ -1,0 +1,18 @@
+# GitHub Pages site, assembled by .github/workflows/pages.yml from README.md, SPEC.md, CONTRIBUTING.md
+# and bench/README.md (one source of truth: edit those files, not the generated pages).
+title: flits
+description: Blazing-fast GPU video and podcast renderer (JSON scene -> MP4) with built-in transcription
+remote_theme: just-the-docs/just-the-docs@v0.10.1
+plugins:
+  - jekyll-remote-theme
+  - jekyll-relative-links
+relative_links:
+  enabled: true
+  collections: false
+color_scheme: dark
+search_enabled: true
+heading_anchors: true
+aux_links:
+  GitHub: https://github.com/ArjandenHartog/flits
+  Releases: https://github.com/ArjandenHartog/flits/releases
+footer_content: MIT licensed. Generated from the repository's markdown files.

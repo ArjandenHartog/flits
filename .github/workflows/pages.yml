@@ -1,0 +1,52 @@
+name: docs
+# Publishes https://arjandenhartog.github.io/flits/ from the repository's markdown (see docs/_config.yml).
+on:
+  push:
+    branches: [main]
+    paths: ["README.md", "SPEC.md", "CONTRIBUTING.md", "bench/README.md", "docs/**", "schema/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: assemble the site
+        run: |
+          repo="https://github.com/${GITHUB_REPOSITORY}/blob/main"
+          page() { # page <source> <target> <title> <nav order>
+            { printf -- '---\ntitle: %s\nnav_order: %s\n---\n\n' "$3" "$4"; cat "$1"; } > "docs/$2"
+          }
+          page README.md index.md "Overview" 1
+          page SPEC.md SPEC.md "Scene format" 2
+          page bench/README.md benchmark.md "Benchmark" 3
+          page CONTRIBUTING.md CONTRIBUTING.md "Contributing" 4
+          # links to files that are not part of the site point at GitHub
+          sed -i -E "s#\]\((LICENSE|CODE_OF_CONDUCT.md|Dockerfile|bindings/[^)]*|schema/[^)]*|bench/\)|bench/[^R)][^)]*|examples/[^)]*)\)#](${repo}/\1)#g" docs/*.md
+          sed -i -E "s#\]\(bench/README.md\)#](benchmark.md)#g; s#\]\(README.md\)#](index.md)#g" docs/*.md
+          mkdir -p docs/schema && cp schema/scene.schema.json docs/schema/
+      - uses: actions/configure-pages@v5
+      - uses: actions/jekyll-build-pages@v1
+        with:
+          source: docs
+          destination: _site
+      - uses: actions/upload-pages-artifact@v3
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
