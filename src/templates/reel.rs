@@ -143,6 +143,121 @@ fn clip_pan(framings: &[Framing], a: f64, b: f64, pan_of: impl Fn(f64) -> f64) -
     }
 }
 
+/// Reels: the app UI covers about the top 12% and the bottom 15% of the picture.
+const SAFE_TOP: f64 = 0.12;
+const SAFE_BOTTOM: f64 = 0.85;
+
+/// Where the captions go (centre of the block, fraction of the height) when a face is in
+/// `protect` (top, bottom; fractions): the first of a few fixed slots that keeps clear of it
+/// (the default, as low as the app UI allows, near the top), else the one covering least.
+/// `half` = half the height of a two-line caption block; `top_ok`: the top slot is free (no
+/// hook title there).
+fn caption_slot(default: f64, half: f64, protect: Option<(f64, f64)>, top_ok: bool) -> f64 {
+    let Some((y0, y1)) = protect else { return default };
+    // the face box ends about at the mouth: keep the chin clear too, plus a margin
+    let (y0, y1) = (y0 - 0.02, y1 + (y1 - y0) * 0.3 + 0.02);
+    let low = (SAFE_BOTTOM - half).max(default);
+    let high = SAFE_TOP + half + 0.01;
+    let mut slots = vec![default, low];
+    if top_ok {
+        slots.push(high);
+    }
+    let cover = |c: f64| ((c + half).min(y1) - (c - half).max(y0)).max(0.0);
+    let mut best = default;
+    for s in slots {
+        if cover(s) < 1e-9 {
+            return s;
+        }
+        if cover(s) < cover(best) - 1e-9 {
+            best = s;
+        }
+    }
+    best
+}
+
+/// `y` of the captions layer (px): per shot, a slot that keeps the caption block clear of the
+/// faces in the picture; a jump (hold keyframe) exactly on the cut where the slot changes.
+/// `zooms`: zoom of each clip; `vscale`: shown height of the cover-fitted video / canvas height.
+#[allow(clippy::too_many_arguments)]
+fn caption_y(
+    framings: &[Framing],
+    ranges: &[(f64, f64)],
+    zooms: &[f64],
+    vscale: f64,
+    hf: f64,
+    default: f64,
+    half: f64,
+    title: f64,
+) -> Value {
+    let at = |t: f64| framings.iter().rev().find(|f| f.start <= t + 1e-6).or(framings.first()).and_then(|f| f.band);
+    let mut keys: Vec<(f64, f64)> = vec![];
+    let mut offset = 0.0;
+    for (i, &(a, b)) in ranges.iter().enumerate() {
+        let k = vscale * zooms.get(i).copied().unwrap_or(1.0);
+        let shown = |band: Option<(f64, f64)>| band.map(|(y0, y1)| (0.5 + (y0 - 0.5) * k, 0.5 + (y1 - 0.5) * k));
+        let starts = std::iter::once(a).chain(framings.iter().map(|f| f.start).filter(|s| *s > a + 1e-6 && *s < b));
+        for s in starts {
+            let t = offset + s - a;
+            let slot = caption_slot(default, half, shown(at(s)), t >= title);
+            if keys.last().is_none_or(|l| (l.1 - slot).abs() > 1e-9) {
+                keys.push((t, slot));
+            }
+        }
+        offset += b - a;
+    }
+    match keys.as_slice() {
+        [] | [_] => json!(hf * keys.first().map(|k| k.1).unwrap_or(default)),
+        _ => Value::Array(
+            keys.iter().enumerate().map(|(i, (t, y))| if i == 0 { json!([0.0, hf * y]) } else { json!([t, hf * y, "hold"]) }).collect(),
+        ),
+    }
+}
+
+/// Zoom of clip `i`: jump cuts alternate between the framing and a punch-in.
+fn clip_zoom(o: &ReelOpts, crop: bool, i: usize) -> f64 {
+    let r = o.ranges;
+    // a jump cut: the next piece of the same take, a moment later
+    let jump = i > 0 && (r[i].0 - r[i - 1].1) < 4.0 && r[i].0 >= r[i - 1].1;
+    if o.punch && crop && jump && punched(r, i) {
+        1.1
+    } else {
+        1.0
+    }
+}
+
+/// Move the captions per shot so they don't cover faces (see [`caption_y`]).
+fn place_captions(
+    o: &ReelOpts,
+    caps: &mut Value,
+    framings: &[Framing],
+    canvas: (f64, f64),
+    source: (f64, f64),
+    default: f64,
+) -> Result<()> {
+    let (wf, hf) = canvas;
+    // the look decides how tall a caption block gets: two lines of the (popped) active size
+    let look = match &o.preset {
+        Some(p) => crate::scene::presets::caption_preset(p, canvas, None)?,
+        None => caps.clone(),
+    };
+    let size = look["size"].as_f64().unwrap_or((wf.min(hf) * 0.085).round());
+    let lines = look["maxLines"].as_f64().unwrap_or(2.0).clamp(1.0, 3.0);
+    let line = look["lineHeight"].as_f64().unwrap_or(1.15);
+    let half = (lines * size * line * 1.12 + 2.0 * look["stroke"]["width"].as_f64().unwrap_or(0.0)) / 2.0 / hf;
+    // a cover fit scales the source to fill the canvas; vertically centred
+    let vscale = (source.1 * (wf / source.0.max(1.0)).max(hf / source.1.max(1.0))) / hf;
+    let zooms: Vec<f64> = (0..o.ranges.len()).map(|i| clip_zoom(o, true, i)).collect();
+    let total: f64 = o.ranges.iter().map(|(a, b)| b - a).sum();
+    let title = if o.title.as_deref().is_some_and(|t| !t.trim().is_empty()) { total.min(4.5) } else { 0.0 };
+    let y = caption_y(framings, o.ranges, &zooms, vscale, hf, default, half, title);
+    if y.is_array() {
+        // a jump, not a smear, where the captions move
+        caps["motionBlur"] = json!(false);
+    }
+    caps["y"] = y;
+    Ok(())
+}
+
 pub fn reel(o: &ReelOpts) -> Result<Value> {
     let info = media::probe(o.video)?;
     if !info.has_video {
@@ -174,11 +289,8 @@ pub fn reel(o: &ReelOpts) -> Result<Value> {
                 Some(f) => clip_pan(f, *a, *b, pan_of),
                 None => json!(pan_of(o.focus)),
             };
-            // a jump cut: the next piece of the same take, a moment later
-            let jump = i > 0 && (a - o.ranges[i - 1].1) < 4.0 && *a >= o.ranges[i - 1].1;
-            let zoom = if o.punch && crop && jump && punched(o.ranges, i) { 1.1 } else { 1.0 };
             json!({"type": "video", "src": src, "trim": a, "duration": b - a, "volume": 0,
-                   "fit": "cover", "panX": pan, "zoom": zoom, "width": wf, "height": vh})
+                   "fit": "cover", "panX": pan, "zoom": clip_zoom(o, crop, i), "width": wf, "height": vh})
         })
         .collect();
     let mut layers = vec![];
@@ -211,6 +323,9 @@ pub fn reel(o: &ReelOpts) -> Result<Value> {
     }
     if let Some(c) = o.highlight.as_ref().or(o.accent.as_ref()) {
         caps["highlight"] = json!(c);
+    }
+    if let (true, None, Some(f)) = (crop, o.position, o.framings) {
+        place_captions(o, &mut caps, f, (wf, hf), (info.width as f64, info.height as f64), position)?;
     }
     layers.push(caps);
     if let Some(t) = o.title.as_deref().filter(|t| !t.trim().is_empty()) {
@@ -289,6 +404,54 @@ mod tests {
         assert_eq!(reel_fps(59.94), 29.97);
         assert_eq!(reel_fps(120.0), 60.0);
         assert_eq!(reel_fps(0.0), 30.0);
+    }
+
+    #[test]
+    fn captions_keep_clear_of_faces() {
+        let half = 0.06;
+        // no face, or a face high in the picture (a wide or medium shot): the default
+        assert_eq!(caption_slot(0.72, half, None, true), 0.72);
+        assert_eq!(caption_slot(0.72, half, Some((0.2, 0.45)), true), 0.72);
+        // a close-up whose chin reaches the captions: as low as the app UI allows
+        let low = caption_slot(0.72, half, Some((0.35, 0.6)), true);
+        assert!((low - (SAFE_BOTTOM - half)).abs() < 1e-9);
+        // a face filling the lower half: up to the top slot, unless the hook title is there
+        let high = caption_slot(0.72, half, Some((0.45, 0.75)), true);
+        assert!((high - (SAFE_TOP + half + 0.01)).abs() < 1e-9);
+        assert!(caption_slot(0.72, half, Some((0.45, 0.75)), false) > 0.7);
+        // every slot stays inside the safe area
+        for b in [None, Some((0.35, 0.6)), Some((0.45, 0.75)), Some((0.1, 0.95))] {
+            let s = caption_slot(0.72, half, b, true);
+            assert!(s - half >= SAFE_TOP - 1e-9 && s + half <= SAFE_BOTTOM + 1e-9, "{b:?} -> {s}");
+        }
+    }
+
+    fn framing(start: f64, band: Option<(f64, f64)>) -> Framing {
+        Framing { start, x: 0.5, face: band.is_some(), band }
+    }
+
+    #[test]
+    fn captions_jump_on_the_cut() {
+        // a wide shot, a close-up from 3 s (source), back to a wide shot at 6 s
+        let f = [framing(0.0, Some((0.2, 0.35))), framing(3.0, Some((0.35, 0.6))), framing(6.0, None)];
+        // the reel plays 1..4 and 5..8 of the source
+        let y = caption_y(&f, &[(1.0, 4.0), (5.0, 8.0)], &[1.0, 1.0], 1.0, 1000.0, 0.72, 0.06, 0.0);
+        let keys = y.as_array().unwrap();
+        assert_eq!(keys.len(), 3, "{y}");
+        assert_eq!(keys[0], json!([0.0, 720.0]));
+        // the close-up starts 2 s into the reel; the wide shot at source 6 s is reel 4 s
+        assert_eq!(keys[1][0], json!(2.0));
+        assert!((keys[1][1].as_f64().unwrap() - 790.0).abs() < 1e-6);
+        assert_eq!(keys[1][2], "hold");
+        assert_eq!(keys[2][0], json!(4.0));
+        assert_eq!(keys[2][1], json!(720.0));
+        // nothing to avoid: one fixed position
+        let y = caption_y(&f[..1], &[(1.0, 4.0)], &[1.0], 1.0, 1000.0, 0.72, 0.06, 0.0);
+        assert_eq!(y, json!(720.0));
+        // a punch-in (zoom 1.1) pushes a face just clear of the captions into them
+        let f = [framing(0.0, Some((0.47, 0.6)))];
+        assert_eq!(caption_y(&f, &[(0.0, 2.0)], &[1.0], 1.0, 1000.0, 0.72, 0.06, 0.0), json!(720.0));
+        assert_ne!(caption_y(&f, &[(0.0, 2.0)], &[1.1], 1.0, 1000.0, 0.72, 0.06, 0.0), json!(720.0));
     }
 
     #[test]

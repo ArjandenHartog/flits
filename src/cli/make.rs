@@ -443,23 +443,34 @@ pub struct ReelArgs {
     pub accent: Option<String>,
 }
 
-/// Who is where, shot by shot, over the parts of the footage the reel uses.
-fn auto_framings(video: &Path, info: &media::MediaInfo, format: &str, windows: &[(f64, f64)]) -> Result<Vec<media::reframe::Framing>> {
+/// Who is where, shot by shot, over the parts of the footage the reel uses: (fraction of the
+/// source width the crop shows, shots). Footage that isn't cropped sideways is analysed too: the
+/// captions keep clear of the faces.
+fn auto_shots(video: &Path, info: &media::MediaInfo, format: &str, windows: &[(f64, f64)]) -> Result<(f64, Vec<media::reframe::Shot>)> {
     let t = Instant::now();
     let (cw, ch) = templates::canvas_for(format)?;
     let visible = templates::reel::visible_fraction((cw as f64, ch as f64), (info.width as f64, info.height as f64));
     let mut all = vec![];
-    if visible < 1.0 {
-        for &(wa, wb) in windows {
-            let (wa, wb) = (wa.max(0.0), wb.min(info.duration));
-            if wb > wa {
-                all.extend(media::reframe::analyse(video, wa, wb, info.fps, visible)?);
-            }
+    for &(wa, wb) in windows {
+        let (wa, wb) = (wa.max(0.0), wb.min(info.duration));
+        if wb > wa {
+            all.extend(media::reframe::analyse(video, wa, wb, info.fps)?);
         }
-        all.sort_by(|p, q| p.start.total_cmp(&q.start));
     }
-    eprintln!("flits: reframed {} shot(s) in {:.1}s", all.len(), t.elapsed().as_secs_f64());
-    Ok(all)
+    all.sort_by(|p, q| p.start.total_cmp(&q.start));
+    eprintln!("flits: analysed {} shot(s) in {:.1}s", all.len(), t.elapsed().as_secs_f64());
+    Ok((visible, all))
+}
+
+/// Framings for the analysed shots: two-shots whose people don't fit the crop together follow the
+/// speaker (by the transcript's diarization labels when it has them, else by mouth movement).
+fn auto_framings(shots: &[media::reframe::Shot], visible: f64, words: &[flits::compose::captions::Word]) -> Vec<media::reframe::Framing> {
+    let f = media::reframe::framings(shots, visible, words);
+    let extra = f.len().saturating_sub(shots.len());
+    if extra > 0 && visible < 1.0 {
+        eprintln!("flits: following the speaker in two-shots ({extra} extra cut(s))");
+    }
+    f
 }
 
 /// Raw footage -> reel: one transcript, one cut plan, one render of just the reel's length.
@@ -485,15 +496,17 @@ pub fn reel(video: &Path, out: Option<PathBuf>, a: &ReelArgs, transcript: Option
     let (tr_path, framings) = std::thread::scope(|s| {
         let framing_job = s.spawn(|| match a.focus {
             Some(_) => Ok(None),
-            None => auto_framings(video, &info, &a.format, &windows).map(Some),
+            None => auto_shots(video, &info, &a.format, &windows).map(Some),
         });
         let tr = transcribe::ensure(video, transcript.as_deref(), &wo);
         (tr, framing_job.join().map_err(|_| anyhow!("reframing thread panicked")).and_then(|r| r))
     });
     let tr_path = tr_path?;
-    let framings: Option<Vec<media::reframe::Framing>> = framings?;
+    let shots: Option<(f64, Vec<media::reframe::Shot>)> = framings?;
     let tr = load_transcript_full(&tr_path)?;
     let words = tr.words();
+    let cropped = shots.as_ref().is_some_and(|s| s.0 < 1.0);
+    let framings = shots.map(|(visible, shots)| auto_framings(&shots, visible, &words));
     let lang = if w.lang != "auto" { Some(w.lang.as_str()) } else { tr.language.as_deref() };
     let o = cut::CutOpts {
         threshold_db: -35.0,
@@ -514,7 +527,7 @@ pub fn reel(video: &Path, out: Option<PathBuf>, a: &ReelArgs, transcript: Option
     cut::cut_audio(video, &ranges, &audio)?;
     // no face anywhere (a static cover, slides, a landscape): don't crop it, show it whole
     let mut fit = a.fit.clone();
-    if framings.as_ref().is_some_and(|f| !f.is_empty() && f.iter().all(|f| !f.face)) {
+    if cropped && framings.as_ref().is_some_and(|f| !f.is_empty() && f.iter().all(|f| !f.face)) {
         eprintln!("flits: no faces found: showing the whole picture (--fit fit; --focus 0.5 crops anyway)");
         fit = "fit".into();
     }

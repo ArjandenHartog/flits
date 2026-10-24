@@ -311,7 +311,15 @@ One command from raw footage to a reel, in one render of just the reel's length:
 follows the people: shot changes are detected on every frame and faces a few times per second
 (built-in SeetaFace model, no extra install), and every shot gets one steady framing that jumps
 exactly on the cut; shots without a face are framed in the middle, and footage without any face (a
-podcast cover, slides) is shown whole on a blurred backdrop. Reels play at 30 fps at most (50 -> 25,
+podcast cover, slides) is shown whole on a blurred backdrop. A two-shot whose people don't fit the
+crop together follows the speaker: a hard cut to whoever talks, only on turns of 1.2 s or more (no
+ping-pong on interjections). Who talks comes from the transcript's diarization labels (`--diarize`;
+labels are matched to faces by mouth movement) or, without them, from the mouth movement itself
+(read from a sharper decode of just that shot, with head movement compensated). Captions keep
+clear of faces: per shot they stay at the default height, or move to the lowest position the app UI
+leaves free (bottom ~15%) or near the top (below ~12%; not while the hook title shows) when the
+caption block would cover a face and chin; a jump exactly on the cut. An explicit `--position`
+keeps them fixed. Reels play at 30 fps at most (50 -> 25,
 60 -> 30; `--fps` overrides). The hook title is black on a white box, readable on any footage. Jump cuts (removed pauses) alternate between
 the framing and a 10% punch-in so they don't read as hiccups (`--no-punch`). Branding: `--logo` (png/svg,
 top right on a soft shade, sized by height so wordmarks and marks look alike), `--accent` (progress
