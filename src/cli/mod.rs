@@ -427,6 +427,9 @@ enum Cmd {
         /// frame rate (default: the footage's, halved above 30 fps: 50 -> 25, 60 -> 30)
         #[arg(long)]
         fps: Option<f64>,
+        /// don't punch in on jump cuts (by default every other cut-out pause zooms in 10%)
+        #[arg(long)]
+        no_punch: bool,
         /// existing transcript (.json/.srt/.vtt) instead of transcribing
         #[arg(long)]
         transcript: Option<PathBuf>,
@@ -655,6 +658,7 @@ fn run(cli: Cli) -> Result<()> {
             no_silence,
             keep,
             fps,
+            no_punch,
             transcript,
             w,
             r,
@@ -674,8 +678,22 @@ fn run(cli: Cli) -> Result<()> {
                 "auto" => None,
                 f => Some(f.parse::<f64>().map_err(|_| anyhow!("--focus: auto or a number 0..1"))?),
             };
-            let a =
-                make::ReelArgs { windows, format, fit, focus, title, preset, highlight, position, fillers, repeats, no_silence, keep, fps };
+            let a = make::ReelArgs {
+                windows,
+                format,
+                fit,
+                focus,
+                title,
+                preset,
+                highlight,
+                position,
+                fillers,
+                repeats,
+                no_silence,
+                keep,
+                fps,
+                punch: !no_punch,
+            };
             make::reel(&video, out, &a, transcript, &w, &r)
         }
         Cmd::Transcribe { inputs, out, outdir, words_only, segments_only, w } => {

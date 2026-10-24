@@ -436,6 +436,7 @@ pub struct ReelArgs {
     pub no_silence: bool,
     pub keep: f64,
     pub fps: Option<f64>,
+    pub punch: bool,
 }
 
 /// Who is where, shot by shot, over the parts of the footage the reel uses.
@@ -534,6 +535,7 @@ pub fn reel(video: &Path, out: Option<PathBuf>, a: &ReelArgs, transcript: Option
         fit,
         backdrop: backdrop.as_deref(),
         fps: a.fps,
+        punch: a.punch,
         title: a.title.clone(),
         preset: a.preset.clone(),
         highlight: a.highlight.clone(),

@@ -33,6 +33,8 @@ pub struct ReelOpts<'a> {
     pub backdrop: Option<&'a Path>,
     /// frame rate (default: the footage's, halved above 30: 50 -> 25, 60 -> 30)
     pub fps: Option<f64>,
+    /// punch in on every other jump cut, so cut-out pauses don't read as hiccups
+    pub punch: bool,
     pub title: Option<String>,
     pub preset: Option<String>,
     pub highlight: Option<String>,
@@ -101,6 +103,18 @@ pub fn reel_fps(source: f64) -> f64 {
     }
 }
 
+/// Whether clip `i` is punched in: jump cuts alternate between the wide and the punched framing,
+/// counting from the last clip that isn't a jump cut.
+fn punched(ranges: &[(f64, f64)], i: usize) -> bool {
+    let mut n = 0;
+    let mut k = i;
+    while k > 0 && ranges[k].0 >= ranges[k - 1].1 && ranges[k].0 - ranges[k - 1].1 < 4.0 {
+        n += 1;
+        k -= 1;
+    }
+    n % 2 == 1
+}
+
 /// Fraction of the source width a cover crop to `canvas` shows (1 when nothing is cut sideways).
 pub fn visible_fraction(canvas: (f64, f64), source: (f64, f64)) -> f64 {
     ((canvas.0 / canvas.1) / (source.0 / source.1.max(1.0))).min(1.0)
@@ -146,13 +160,17 @@ pub fn reel(o: &ReelOpts) -> Result<Value> {
     let clips: Vec<Value> = o
         .ranges
         .iter()
-        .map(|(a, b)| {
+        .enumerate()
+        .map(|(i, (a, b))| {
             let pan = match o.framings {
                 Some(f) => clip_pan(f, *a, *b, pan_of),
                 None => json!(pan_of(o.focus)),
             };
+            // a jump cut: the next piece of the same take, a moment later
+            let jump = i > 0 && (a - o.ranges[i - 1].1) < 4.0 && *a >= o.ranges[i - 1].1;
+            let zoom = if o.punch && crop && jump && punched(o.ranges, i) { 1.1 } else { 1.0 };
             json!({"type": "video", "src": src, "trim": a, "duration": b - a, "volume": 0,
-                   "fit": "cover", "panX": pan, "width": wf, "height": vh})
+                   "fit": "cover", "panX": pan, "zoom": zoom, "width": wf, "height": vh})
         })
         .collect();
     let mut layers = vec![];
@@ -222,6 +240,14 @@ mod tests {
         assert!((r[0].start - 0.5).abs() < 1e-9 && (r[0].end - 0.9).abs() < 1e-9);
         // "b" starts 0.1 s into the second range, which starts at 1.5 s in the reel
         assert!((r[1].start - 1.6).abs() < 1e-9 && (r[1].end - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn jump_cuts_alternate_punch_ins() {
+        // three pieces of one take (jump cuts), then a part from much later, then its jump cut
+        let r = [(0.0, 5.0), (5.6, 9.0), (9.5, 12.0), (60.0, 70.0), (70.8, 75.0)];
+        let p: Vec<bool> = (0..r.len()).map(|i| punched(&r, i)).collect();
+        assert_eq!(p, [false, true, false, false, true]);
     }
 
     #[test]
