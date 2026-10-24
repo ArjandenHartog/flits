@@ -54,4 +54,4 @@ __all__ = [
     "to_args",
     "transcribe",
 ]
-__version__ = "0.4.0"
+__version__ = "0.4.1"
