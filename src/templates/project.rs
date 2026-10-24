@@ -1,5 +1,6 @@
 //! `flits init`: a TypeScript video project (package.json, tsconfig, an example video, a component,
-//! a JSX example) with the flits SDK vendored in `flits/` and imported as `#flits`.
+//! a JSX example) with the flits SDK vendored in `flits/` and imported as `#flits`, plus the
+//! `flits-video` skill in `.claude/skills/` and a `CLAUDE.md` for coding agents.
 
 use anyhow::{bail, Context, Result};
 use std::path::{Path, PathBuf};
@@ -13,6 +14,8 @@ pub const SDK: &[(&str, &str)] = &[
     ("compile.d.ts", include_str!("../../bindings/typescript/compile.d.ts")),
     ("components.js", include_str!("../../bindings/typescript/components.js")),
     ("components.d.ts", include_str!("../../bindings/typescript/components.d.ts")),
+    ("motion.js", include_str!("../../bindings/typescript/motion.js")),
+    ("motion.d.ts", include_str!("../../bindings/typescript/motion.d.ts")),
     ("jsx-runtime.js", include_str!("../../bindings/typescript/jsx-runtime.js")),
     ("jsx-runtime.d.ts", include_str!("../../bindings/typescript/jsx-runtime.d.ts")),
     ("jsx-dev-runtime.js", include_str!("../../bindings/typescript/jsx-dev-runtime.js")),
@@ -23,6 +26,7 @@ const FILES: &[(&str, &str)] = &[
     ("package.json", include_str!("project/package.json")),
     ("tsconfig.json", include_str!("project/tsconfig.json")),
     ("README.md", include_str!("project/README.md")),
+    ("CLAUDE.md", include_str!("project/CLAUDE.md")),
     (".gitignore", include_str!("project/gitignore")),
     ("src/video.ts", include_str!("project/video.ts")),
     ("src/components.ts", include_str!("project/components.ts")),
@@ -65,6 +69,7 @@ pub fn init(dir: &Path) -> Result<Vec<PathBuf>> {
         written.push(p);
     }
     written.extend(write_sdk(dir)?);
+    written.extend(super::skill::install(&super::skill::project_dir(dir))?);
     Ok(written)
 }
 
@@ -88,6 +93,10 @@ mod tests {
         let files = init(&dir.join("My Video")).unwrap();
         let root = dir.join("My Video");
         assert!(files.contains(&root.join("src/video.ts")) && root.join("flits/components.js").is_file());
+        assert!(root.join("flits/motion.js").is_file() && root.join("flits/motion.d.ts").is_file());
+        assert!(root.join(".claude/skills/flits-video/SKILL.md").is_file() && root.join(".claude/skills/flits-video/api.md").is_file());
+        let claude = std::fs::read_to_string(root.join("CLAUDE.md")).unwrap();
+        assert!(claude.starts_with("# my-video\n") && claude.contains("flits-video"), "{claude}");
         assert!(std::fs::read_to_string(root.join("package.json")).unwrap().contains("\"name\": \"my-video\""));
         assert_eq!(project_root(&root.join("src")).unwrap(), std::fs::canonicalize(&root).unwrap());
         assert!(init(&root).is_err(), "refuses a non-empty folder");

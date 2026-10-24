@@ -9,7 +9,8 @@
 
 <sub>Rendered by flits from [docs/demo.json](docs/demo.json) in 2.2 s (no GPU).</sub>
 
-Describe a video as JSON (layers, keyframe animation, 22 transitions, word-by-word captions with
+Describe a video as JSON (layers, keyframe animation with expo and cubic-bezier curves, real motion blur, masked text
+reveals, 22 transitions, word-by-word captions with
 ready-made looks, colour emoji in any language, audio waveforms, counters) and flits composites it on the GPU,
 encodes it in parallel with hardware encoders and joins the pieces without re-encoding. On top of that: Whisper
 transcription on the GPU, beat-synced slideshows, silence and filler-word removal, podcast videos and animated captions.
@@ -70,6 +71,71 @@ export default defineVideo(({ title = "Our year" }: { title?: string }) =>
 * **Runtimes**: Bun, Deno or Node 22.6+ (whichever is installed, or `FLITS_JS`); only `.ts`/`.js` scenes need one.
   JSON scenes, the schema and everything else stay as they are — a TypeScript scene compiles to the same JSON.
 
+### Motion design components
+
+For the look of a polished brand film without writing keyframes, the SDK has a library of motion components
+([`motion.js`](bindings/typescript/motion.js), typed and documented in `motion.d.ts`). Each is one call with good
+defaults: `at` is when it comes in, `exit` when it leaves, and colours, fonts and timings come from one theme.
+
+```ts
+import { Composition, Act, Hud, KineticTitle, HighlightRule, LineChart, StatCounter, EndCard, Whip,
+         setTheme, themeScene, timeline } from "#flits";
+
+setTheme({ colors: { accent: "#ff4a2b" } });  // restyles everything; own fonts: fontFiles: { brand: "fonts/X.ttf" }, fonts: { display: "brand" }
+const acts = timeline({ claim: 5, method: 5, end: 4 });                    // { claim: { at, end, duration }, ..., total }
+
+export default Composition({ width: 1920, height: 1080, fps: 30, duration: acts.total, motionBlur: true, ...themeScene(),
+  children: [
+    Hud({ duration: acts.total, title: "Product film", chapters: [[0.5, "01 Claim"], [acts.method.at, "02 Method"]] }),
+    Act({ ...acts.claim, children: KineticTitle({ text: "Motion design,\nwritten as code.", eyebrow: "New", rule: true, at: 0.5 }) }),
+    Act({ ...acts.method, exit: "none", children: Whip({ exit: 4, children: [
+      HighlightRule({ text: "Write it. Render it. Ship it.", x: 160, y: 400, size: 104,
+                      marks: [["Write it.", 0.8], ["Render it.", 1.6], ["Ship it.", 2.4]] }),
+    ] }) }),
+    EndCard({ at: acts.end.at, duration: 4, title: "Make it move.", url: "example.com", fadeOut: true }),
+  ] });
+```
+
+| group | components |
+|---|---|
+| text | `MaskLine` (a line sliding up out of its own mask), `KineticTitle` (multi-line, staggered, eyebrow + accent rule, exit), `Eyebrow`/`Label` (tracked mono capitals), `Typewriter` (with a cursor that follows), `HighlightRule` (an accent rule gliding under words), `Quote` |
+| structure | `Rule` (drawing hairline), `Outline` (stroke-drawn box or corner brackets), `Tag` (outlined chip), `Grid`, `Hud` (rules, tick ruler, playhead, timecode, chapters), `LowerThird`, `EndCard`, `Backdrop` |
+| data | `StatCounter`, `BarChart`, `LineChart` (draws itself, a dot riding the tip), `ProgressRing`, `Checklist`, `ProgressBars` |
+| timing | `Act` (a chapter with an exit), `timeline()`, `Stagger`, `Whip` (whips out sideways; pair with `motionBlur`) |
+| theme | `setTheme`, `createTheme`, `getTheme`, `themeScene` (scene `background` + `fonts`), `measureText` |
+
+Rules under words, cursors and chips are sized from real text metrics: the SDK asks the running flits
+(`flits measure`), so they line up exactly with the rendered glyphs. A complete 33 s film made only of these
+components: [`bindings/typescript/example-motion.ts`](bindings/typescript/example-motion.ts).
+
+## Making videos with Claude Code
+
+flits is built to be driven by coding agents: an agent can't watch a video, but it can render any frame in about a
+second and look at the PNG. The `flits-video` skill teaches Claude Code (and other agents that read `SKILL.md`
+skills) that loop, plus the motion design rules that make a video look produced rather than generated.
+
+```sh
+flits init launch-video          # a project with the skill (.claude/skills/flits-video) and a CLAUDE.md
+cd launch-video && claude        # then ask, e.g.:
+#   "Make a 30 s 1080p launch video for Acme Notes: hook, three features, CTA. 60 fps, dark, one orange accent."
+flits skill install              # add the skill to an existing project (--global: for all your projects)
+flits skill print                # or read it / paste it into another agent
+```
+
+The loop the skill follows: pick the format and fps, storyboard the beats with timings, write `src/video.ts`, then
+
+```sh
+flits check src/video.ts --json                                    # errors, typos and layout lint: text off the
+                                                                   # canvas, text over text, text too brief to read
+flits still src/video.ts --at 0.4 --at 3.2 --at 7.5 -o out/s.png   # mid-motion and at-rest frames (prints the paths)
+flits sheet src/video.ts --from 2.8 --to 3.6 --count 8 -o out/t.png   # one transition, every tile time-labelled
+flits render src/video.ts -o out/video.mp4                         # seconds, not minutes
+```
+
+reading every PNG for clipping, overlap, alignment, contrast and timing, and fixing until a full contact sheet looks
+finished. A 15 s 1080p60 launch video made this way (`flits skill print` includes it as `example.ts`) renders in
+4.1 s on a laptop RTX 3050 Ti.
+
 ## Speed (laptop: i7-11800H + RTX 3050 Ti)
 
 | task | before | flits |
@@ -116,9 +182,12 @@ FLITS_PROFILE=1 flits render bench/media/scene.json --encoder null   # renderer 
 # scenes
 flits render scene.json -o video.mp4          # render (--scale 0.5 = quick preview, --speed fast, --codec hevc)
 flits preview scene.json                      # live preview in the browser, reloads when you save the scene
-flits sheet scene.json -o sheet.png           # contact sheet: check the whole video in one image
+flits sheet scene.json -o sheet.png           # contact sheet: check the whole video in one image (tiles labelled
+                                              # with their time; --at 1 --at 2.5, or --from 2 --to 3 --count 8)
 flits still scene.json --at 12.5 -o frame.png
-flits check scene.json                        # validate (typos are reported) + print the timeline
+flits check scene.json                        # validate (typos are reported), lint the layout, print the timeline
+                                              # (--json: one object with warnings, layout issues and the layer tree)
+flits skill install                           # the flits-video skill for Claude Code (--global for all projects)
 flits init my-video                           # TypeScript project (components, springs, data; see below)
 flits new kinetic-typography                  # starter scenes (-o x.ts for TypeScript): intro, quote, stats, lower-third, countdown, youtube-intro,
                                               # podcast-quote, product-promo, news-headline, end-screen, kinetic-typography
@@ -127,6 +196,9 @@ flits schema                                  # JSON Schema of the scene format 
 
 # ready-made
 flits slideshow photos/ --music song.mp3 --beats --title "Summer 2026" --format 9:16
+flits reel interview.mp4 --from 1:12 --to 2:10 --fillers --title "Hook"   # raw footage -> 9:16 reel in one go:
+                                              # transcribe once, cut silences/uh's, follow the faces shot by shot,
+                                              # captions, hook title, one render (1 min reel from 1080p: ~30 s)
 flits captions clip.mp4 --preset tiktok       # burn in animated word-by-word captions; presets: tiktok, karaoke-box,
                                               # bounce, minimal, neon, highlighter, subtitle, word-pop-big
 flits podcast episode.mp3 --cover cover.jpg --title "Episode 12" --format 9:16 --from 12:30 --to 13:30
@@ -176,7 +248,7 @@ remains the authority: it also catches what a schema can't (missing files, fonts
 plus a small wrapper around the CLI to render, check and transcribe from your own code.
 
 ```ts
-import { check, render, type Scene } from "@flits/scene"; // or a relative import of bindings/typescript/index.js
+import { check, render, type Scene } from "flits-video"; // npm i flits-video, or a relative import of bindings/typescript/index.js
 
 const scene: Scene = {
   width: 1080, height: 1920, duration: 4,
@@ -186,7 +258,7 @@ const { ok, warnings, error } = await check(scene);
 await render(scene, "hello.mp4", { scale: 0.5 });  // also: still, sheet, transcribe, schema
 ```
 
-**Python** ([`bindings/python`](bindings/python), `pip install ./bindings/python`, no dependencies on 3.11+):
+**Python** ([`bindings/python`](bindings/python), `pip install flits-video`, no dependencies on 3.11+):
 `TypedDict`s for the scene format and the same wrapper (`render`, `still`, `sheet`, `check`, `transcribe`, `schema`);
 animatable properties may be Python callables `f(t, ctx)`, sampled per frame like in TypeScript.
 See [`examples/hello.py`](bindings/python/examples/hello.py).

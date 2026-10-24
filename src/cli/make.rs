@@ -47,11 +47,24 @@ pub fn still(scene: &Path, at: &[f64], out: &Path, scale: f64) -> Result<()> {
     Ok(())
 }
 
-pub fn sheet(scene: &Path, out: &Path, count: usize, cols: usize, thumb: u32) -> Result<()> {
+/// Which frames `flits sheet` shows.
+pub struct SheetPick {
+    pub count: usize,
+    pub at: Vec<f64>,
+    pub from: Option<f64>,
+    pub to: Option<f64>,
+}
+
+pub fn sheet(scene: &Path, out: &Path, pick: &SheetPick, cols: usize, thumb: u32) -> Result<()> {
     out_dir(out)?;
-    let (s, _) = Scene::load(scene)?;
-    let p = load(scene, thumb as f64 / s.width as f64)?;
-    render::sheet(&p, flits::pick_gpu("auto")?, count, cols, out)?;
+    // load once (a TypeScript scene runs its script once), then prepare at thumbnail size
+    let (s, warnings) = Scene::load(scene)?;
+    for w in &warnings {
+        eprintln!("warning: {w}");
+    }
+    let p = flits::Prepared::build(&s, thumb as f64 / s.width as f64)?;
+    let frames = render::sheet_frames(&p, pick.count, &pick.at, pick.from, pick.to);
+    render::sheet(&p, flits::pick_gpu("auto")?, &frames, cols, out)?;
     println!("{}", out.display());
     Ok(())
 }
@@ -92,7 +105,9 @@ pub fn init(dir: &Path, update: bool) -> Result<()> {
             anyhow!("no flits project here (a package.json with \"#flits\" in its imports); create one with `flits init <dir>`")
         })?;
         templates::project::write_sdk(&root)?;
-        println!("updated {} to the SDK of flits {}", root.join("flits").display(), env!("CARGO_PKG_VERSION"));
+        let skill = templates::skill::project_dir(&root);
+        templates::skill::install(&skill)?;
+        println!("updated {} and {} to flits {}", root.join("flits").display(), skill.display(), env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
     templates::project::init(dir)?;
@@ -101,7 +116,31 @@ pub fn init(dir: &Path, update: bool) -> Result<()> {
     println!("  flits preview {d}/src/video.ts                    live preview; edit src/video.ts and save");
     println!("  flits render {d}/src/video.ts -o {d}/out/video.mp4");
     println!("  cd {d} && npm install && npm run typecheck   optional: type-check with tsc\n");
+    println!("Coding agents: CLAUDE.md and the flits-video skill (.claude/skills/flits-video) are included;");
+    println!("  ask Claude Code in {d} for a video, e.g. \"make a 20 s launch video for ...\".\n");
     println!("{}", flits::scene::script::describe());
+    Ok(())
+}
+
+/// `flits skill install [--global]` / `flits skill print`.
+pub fn skill(print: bool, global: bool, dir: Option<PathBuf>) -> Result<()> {
+    if print {
+        print!("{}", templates::skill::print());
+        return Ok(());
+    }
+    let target = match (global, dir) {
+        (true, _) => templates::skill::global_dir()?,
+        (false, Some(d)) => templates::skill::project_dir(&d),
+        (false, None) => templates::skill::project_dir(Path::new(".")),
+    };
+    for f in templates::skill::install(&target)? {
+        println!("{}", f.display());
+    }
+    eprintln!(
+        "flits: installed the {} skill for Claude Code{}",
+        templates::skill::NAME,
+        if global { " (all projects)" } else { " (this project; --global for all projects)" }
+    );
     Ok(())
 }
 
@@ -379,5 +418,117 @@ pub fn transcribe(
     for (_, o) in &jobs {
         println!("{}", o.display());
     }
+    Ok(())
+}
+
+pub struct ReelArgs {
+    pub windows: Vec<(f64, f64)>,
+    pub format: String,
+    pub fit: String,
+    /// None: find the people in every shot
+    pub focus: Option<f64>,
+    pub title: Option<String>,
+    pub preset: Option<String>,
+    pub highlight: Option<String>,
+    pub position: Option<f64>,
+    pub fillers: bool,
+    pub repeats: bool,
+    pub no_silence: bool,
+    pub keep: f64,
+}
+
+/// Who is where, shot by shot, over the parts of the footage the reel uses.
+fn auto_framings(
+    video: &Path,
+    info: &media::MediaInfo,
+    format: &str,
+    windows: &[(f64, f64)],
+    ranges: &[(f64, f64)],
+) -> Result<Vec<media::reframe::Framing>> {
+    let t = Instant::now();
+    let (cw, ch) = templates::canvas_for(format)?;
+    let visible = templates::reel::visible_fraction((cw as f64, ch as f64), (info.width as f64, info.height as f64));
+    let mut all = vec![];
+    if visible < 1.0 {
+        for &(wa, wb) in windows {
+            // just the span the kept ranges cover inside this window
+            let inside: Vec<&(f64, f64)> = ranges.iter().filter(|r| r.0 >= wa - 1e-6 && r.1 <= wb + 1e-6).collect();
+            if let (Some(first), Some(last)) = (inside.first(), inside.last()) {
+                all.extend(media::reframe::analyse(video, first.0, last.1, info.fps, visible)?);
+            }
+        }
+        all.sort_by(|p, q| p.start.total_cmp(&q.start));
+    }
+    eprintln!("flits: reframed {} shot(s) in {:.1}s", all.len(), t.elapsed().as_secs_f64());
+    Ok(all)
+}
+
+/// Raw footage -> reel: one transcript, one cut plan, one render of just the reel's length.
+pub fn reel(video: &Path, out: Option<PathBuf>, a: &ReelArgs, transcript: Option<PathBuf>, w: &WhisperArgs, r: &RenderArgs) -> Result<()> {
+    let t0 = Instant::now();
+    let info = media::probe(video)?;
+    if !info.has_video || !info.has_audio {
+        bail!("{} needs both video and sound for a reel", video.display());
+    }
+    if let Some(p) = &a.preset {
+        flits::scene::presets::caption_preset(p, (1080.0, 1920.0), None)?; // fail before transcribing
+    }
+    let out = out.unwrap_or_else(|| with_suffix(video, "-reel.mp4"));
+    if out == video {
+        bail!("output would overwrite the input");
+    }
+    let mut wo = w.opts()?;
+    if (a.fillers || a.repeats) && wo.initial_prompt.is_none() {
+        wo.initial_prompt = fillers::verbatim_prompt(&wo.language).map(str::to_string);
+    }
+    let tr_path = transcribe::ensure(video, transcript.as_deref(), &wo)?;
+    let tr = load_transcript_full(&tr_path)?;
+    let words = tr.words();
+    let lang = if w.lang != "auto" { Some(w.lang.as_str()) } else { tr.language.as_deref() };
+    let o = cut::CutOpts {
+        threshold_db: -35.0,
+        min_silence: 0.6,
+        keep: a.keep,
+        silences: !a.no_silence,
+        fillers: if a.fillers { fillers::for_language(lang) } else { vec![] },
+        repeats: a.repeats,
+    };
+    let windows = if a.windows.is_empty() { vec![(0.0, info.duration)] } else { a.windows.clone() };
+    let ranges = templates::reel::within(&cut::plan(video, info.duration, &o, &words, &[])?, &windows);
+    let kept: f64 = ranges.iter().map(|(s, e)| e - s).sum();
+    let chosen: f64 = windows.iter().map(|(s, e)| e.min(info.duration) - s).sum();
+    eprintln!("flits: reel of {} from {} of footage ({} cuts)", fmt_ts(kept), fmt_ts(chosen), ranges.len().saturating_sub(1));
+
+    // next to the output: the written scene refers to them
+    let audio = with_suffix(&out, ".audio.m4a");
+    let words_path = with_suffix(&out, ".words.json");
+    // the soundtrack and the reframing analysis run side by side
+    let (cut_audio, framings) = std::thread::scope(|s| {
+        let audio_job = s.spawn(|| cut::cut_audio(video, &ranges, &audio));
+        let framings = match a.focus {
+            Some(_) => Ok(None),
+            None => auto_framings(video, &info, &a.format, &windows, &ranges).map(Some),
+        };
+        (audio_job.join().map_err(|_| anyhow!("audio thread panicked")).and_then(|r| r), framings)
+    });
+    cut_audio?;
+    let framings: Option<Vec<media::reframe::Framing>> = framings?;
+    templates::reel::write_words(&templates::reel::remap_words(&words, &ranges), tr.language.as_deref(), &words_path)?;
+    let scene = templates::reel::reel(&templates::reel::ReelOpts {
+        video,
+        ranges: &ranges,
+        audio: &audio,
+        words: &words_path,
+        format: a.format.clone(),
+        focus: a.focus.unwrap_or(0.5),
+        framings: framings.as_deref(),
+        fit: a.fit.clone(),
+        title: a.title.clone(),
+        preset: a.preset.clone(),
+        highlight: a.highlight.clone(),
+        position: a.position,
+    })?;
+    write_scene_and_render(scene, &out, r)?;
+    eprintln!("flits: footage to reel in {:.1}s", t0.elapsed().as_secs_f64());
     Ok(())
 }

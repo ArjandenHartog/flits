@@ -7,6 +7,7 @@ pub mod encode;
 pub mod image;
 pub mod probe;
 pub mod process;
+pub mod reframe;
 pub mod video;
 
 pub use encode::Encoder;

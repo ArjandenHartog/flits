@@ -21,6 +21,9 @@ import type { Children } from "./compile.js";
 export { compile, flatten } from "./compile.js";
 export type { Children } from "./compile.js";
 
+// motion design components (KineticTitle, MaskLine, Rule, LineChart, Whip, ...) and the theme
+export * from "./motion.js";
+
 /** Props of a component for layer type L: everything but `type`, plus `children` where it makes sense. */
 export type LayerOptions<L extends Layer> = Omit<L, "type" | "children">;
 
@@ -98,9 +101,13 @@ export function seconds(frames: number, fps?: number): number;
 
 // ------------------------------------------------------------------ motion maths
 
-export type EaseName = "linear" | "in" | "out" | "in-out" | "smooth" | "back-in" | "back-out" | "elastic" | "bounce" | "spring" | "hold";
+export type EaseName =
+  | "linear" | "in" | "out" | "in-out" | "smooth" | "back-in" | "back-out" | "elastic" | "bounce" | "spring" | "hold"
+  | "expo-in" | "expo-out" | "expo-in-out" | "quint-out" | "quint-in-out" | "circ-out";
 /** The scene format's easing curves as functions of 0..1. */
 export const easing: Readonly<Record<EaseName, (x: number) => number>>;
+/** A CSS-style cubic-bezier curve as a function of 0..1; in scene props use the string `"cubic-bezier(x1, y1, x2, y2)"`. */
+export function cubicBezier(x1: number, y1: number, x2: number, y2: number): (x: number) => number;
 
 export interface InterpolateOptions {
   /** per-segment easing (default linear) */

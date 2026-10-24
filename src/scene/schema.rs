@@ -17,7 +17,25 @@ use std::borrow::Cow;
 pub const SCHEMA_URL: &str = "https://raw.githubusercontent.com/ArjandenHartog/flits/main/schema/scene.schema.json";
 
 /// Canonical ease names (`Ease::parse` also accepts the aliases in [`EASE_ALIASES`]).
-pub const EASES: &[&str] = &["linear", "in", "out", "in-out", "smooth", "back-in", "back-out", "elastic", "bounce", "spring", "hold"];
+pub const EASES: &[&str] = &[
+    "linear",
+    "in",
+    "out",
+    "in-out",
+    "smooth",
+    "back-in",
+    "back-out",
+    "elastic",
+    "bounce",
+    "spring",
+    "hold",
+    "expo-in",
+    "expo-out",
+    "expo-in-out",
+    "quint-out",
+    "quint-in-out",
+    "circ-out",
+];
 pub const EASE_ALIASES: &[&str] = &[
     "ease-in",
     "easein",
@@ -33,6 +51,9 @@ pub const EASE_ALIASES: &[&str] = &[
     "back",
     "overshoot",
     "step",
+    "expo",
+    "quint",
+    "circ",
 ];
 
 /// Every accepted transition name: the canonical ones, then the short aliases.
@@ -43,6 +64,7 @@ pub fn transition_names() -> Vec<&'static str> {
 pub const FITS: &[&str] = &["cover", "contain", "fill", "stretch"];
 pub const ALIGNS: &[&str] = &["left", "center", "right", "start", "middle", "end"];
 pub const REVEALS: &[&str] = &["words", "lines", "chars", "typewriter", "none"];
+pub const REVEAL_STYLES: &[&str] = &["rise", "mask", "fade", "blur"];
 pub const WRAPS: &[&str] = &["balance", "greedy"];
 pub const CAPTION_STYLES: &[&str] =
     &["karaoke", "pop", "bounce", "word", "line", "highlight", "tiktok", "jump", "single", "plain", "subtitle"];
@@ -172,6 +194,13 @@ pub(crate) fn reveal(_: &mut SchemaGenerator) -> Schema {
     string_enum("Reveal the text piece by piece over `revealDuration` seconds: words, lines, chars or typewriter.", REVEALS)
 }
 
+pub(crate) fn reveal_style(_: &mut SchemaGenerator) -> Schema {
+    string_enum(
+        "How each `reveal` piece comes in: rise (default), mask (slides up out of its own line, clipped), fade, or blur.",
+        REVEAL_STYLES,
+    )
+}
+
 pub(crate) fn wrap(_: &mut SchemaGenerator) -> Schema {
     string_enum("Line wrapping with `maxWidth`: balance (even line lengths) or greedy (default).", WRAPS)
 }
@@ -268,10 +297,13 @@ impl JsonSchema for Ease {
     fn json_schema(_: &mut SchemaGenerator) -> Schema {
         let all: Vec<&str> = EASES.iter().chain(EASE_ALIASES).copied().collect();
         json_schema!({
-            "type": "string",
-            "enum": all,
             "description": "Easing curve: linear, in, out, in-out (default for keyframes), smooth (sine in-out), back-in, \
-                            back-out (overshoot), elastic, bounce, spring, hold (jump at the end of the segment)."
+                            back-out (overshoot), elastic, bounce, spring, hold (jump at the end of the segment), expo-in, \
+                            expo-out, expo-in-out, quint-out, quint-in-out, circ-out, or a CSS cubic-bezier(x1, y1, x2, y2).",
+            "anyOf": [
+                {"type": "string", "enum": all},
+                {"type": "string", "pattern": format!(r"^cubic-bezier\(\s*{NUM}\s*,\s*{NUM}\s*,\s*{NUM}\s*,\s*{NUM}\s*\)$")}
+            ]
         })
     }
 }

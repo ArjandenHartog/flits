@@ -6,8 +6,10 @@ A scene is one JSON file. flits renders it to MP4 (H.264/HEVC/AV1 + AAC):
     flits render scene.json --scale 0.5       # fast half-resolution preview
     flits preview scene.json                  # live preview in the browser (scrub, play); reloads on save
     flits sheet scene.json -o sheet.png       # 12 frames in one image: check the whole video at a glance
-    flits still scene.json --at 12.5 -o f.png # single frame(s)
-    flits check scene.json                    # validate (typos are reported) + print the resolved timeline
+                                              # (--at 1 --at 2.5: these times; --from 2 --to 3 --count 8: a range)
+    flits still scene.json --at 12.5 -o f.png # single frame(s); prints the written paths, one per line
+    flits check scene.json                    # validate (typos are reported), lint the layout, print the timeline
+    flits check scene.json --json             # the same as one JSON object (ok, size, warnings, issues, layers)
     flits render video.ts --props '{"t": 1}'  # TypeScript/JavaScript scenes (see below); `flits init` starts a project
     flits new                                 # list example scenes; `flits new intro -o intro.json`
     flits schema                              # JSON Schema of this format (also schema/scene.schema.json)
@@ -33,6 +35,16 @@ error in the schema). The schema is stricter than flits in two places: enum valu
 lowercase only (flits ignores case), and it cannot see files, fonts or media lengths —
 `flits check` remains the final word.
 
+**Layout lint.** `flits check` also samples the timeline (transforms only, no pixels) and warns about text or counters
+that run off the canvas for 0.5 s or more (entrances, exits and text inside a clipping group or wipe are fine), text that
+overlaps other text for 0.3 s or more (not when the upper one sits on its own `background` or on an opaque rect drawn
+between them), and text visible for less than ~0.1 s + 0.2 s per word. Each warning names the layer and the time range:
+`warning: 1.00-3.00s: text "Big headline" runs 140 px past the right edge (move it in, make it smaller or set maxWidth)`.
+With `--json` they are in `issues` (`kind`: `offscreen` | `overlap` | `brief`, `layer`, `other`, `from`, `to`,
+`message`) next to `warnings` (typos), the canvas, `duration`, `frames`, `audio` and the `layers` tree (`type`,
+`label`, `start`, `end`, `width`, `height`, `children`). A scene that fails to load prints `{"ok": false, "error": ...}`
+and exits with an error.
+
 ## Scene
 
 ```jsonc
@@ -43,6 +55,7 @@ lowercase only (flits ignores case), and it cannot see files, fonts or media len
   "fonts": { "brand": "fonts/Rubik-Black.ttf" },   // aliases usable in "font"
   "fontFallback": ["Noto Color Emoji"],  // optional: fonts for characters a layer's font lacks
   "loudness": -14,                     // optional: normalize the final mix (LUFS; -14 social, -16 podcast)
+  "motionBlur": true,                  // optional: motion blur for moving layers (or { "samples": 12, "shutter": 0.5 })
   "audio": [ { "src": "music.mp3", "volume": 0.6, "fadeIn": 1, "fadeOut": 3, "duck": true } ],
   "layers": [ ... ]                    // drawn in order: first = bottom
 }
@@ -88,7 +101,19 @@ Any animatable number can be:
 * keyframes `[time, value, ease]`: `"y": [[0, 1200], [0.6, 540, "back-out"], ["end-0.5", 540], ["end", -200, "in"]]`
   (time in seconds from layer start, or `"end"`/`"end-0.5"`; the ease applies to the segment ending at that key)
 
-Eases: `linear`, `in`, `out`, `in-out` (default), `smooth`, `back-in`, `back-out`, `elastic`, `bounce`, `spring`, `hold`.
+Eases: `linear`, `in`, `out`, `in-out` (default), `smooth`, `back-in`, `back-out`, `elastic`, `bounce`, `spring`, `hold`,
+`expo-in`, `expo-out`, `expo-in-out`, `quint-out`, `quint-in-out`, `circ-out`, or a CSS curve `"cubic-bezier(0.16, 1, 0.3, 1)"`.
+`expo-out` is the snappy "lands and settles" curve of most motion design.
+
+### Motion blur
+
+`"motionBlur": true` on the scene blurs whatever moves, like a camera shutter: every layer that travels more than a
+pixel during the open shutter is drawn at several moments around the frame time and averaged. The number of samples
+follows the distance moved (one per 2 px, up to `samples`, default 8), so still layers cost nothing and fast ones get
+smooth trails. `{ "samples": 12, "shutter": 0.5 }`: `shutter` is the fraction of the frame interval the shutter is
+open (0.5 = a 180° film shutter; 1 = the whole frame). Movement counts from position, scale, rotation, transitions
+and text reveals; a moving group is sampled as a whole. `"motionBlur": false` on a layer exempts it and its children
+(e.g. a timecode that must stay crisp).
 
 ### Transitions (`in` / `out`)
 
@@ -132,7 +157,10 @@ Default duration = the (re-timed) clip length. iPhone HDR (HLG/PQ, 10-bit) is to
 `fonts` alias; default Segoe UI Bold), `weight` (for variable fonts), `size` (64), `color`, `align`
 (`left`/`center`/`right`), `maxWidth` (wraps), `lineHeight` (1.15), `letterSpacing`, `uppercase`,
 `stroke` `{width,color}`, `background` `{ "color": "#000a", "padding": [24,12], "radius": 16, "mode": "box"|"lines" }`,
-`reveal`: `"words"` | `"lines"` | `"chars"` | `"typewriter"` with `revealDuration` (seconds over which the pieces appear).
+`reveal`: `"words"` | `"lines"` | `"chars"` | `"typewriter"` with `revealDuration` (seconds over which the pieces appear)
+and `revealStyle`: `"rise"` (default: up a third of its height while fading in), `"mask"` (each piece slides up out of
+its own line box, clipped, on an expo-out curve: the classic kinetic-type reveal), `"fade"`, or `"blur"` (rises while
+a vertical smear sharpens).
 
 **counter** — an animated number: `value` (animatable, e.g. `{"from": 0, "to": 12840, "ease": "out", "end": 2.5}`),
 `decimals`, `prefix`, `suffix`, `separator` (thousands, default `","` → `1,234.5`; `"."` gives `1.234,5`; `"none"` gives `1234,5`),
@@ -241,6 +269,21 @@ it): components (`Composition`, `Text`, `Image`, `Video`, `Rect`, `Shape`, `Coun
 `easing`, `random`, `fromTo`, `keyframes`, `defineVideo`, the scene types, and a JSX runtime. `flits new <starter> -o
 x.ts` writes a starter as a TypeScript module.
 
+**Motion components** (`motion.js`, also exported from `#flits`) build whole motion-design elements from these layers.
+Timing props are shared: `at` (seconds, relative to the parent, when it starts coming in) and `exit` (when it starts
+leaving; omitted = stays until the parent ends); `x`/`y` are the top-left (or top-centre/right with `align`).
+Text: `MaskLine`, `KineticTitle`, `Eyebrow`/`Label`, `Typewriter`, `HighlightRule`, `Quote`. Structure: `Rule`,
+`Outline`, `Tag`, `Grid`, `Hud`, `LowerThird`, `EndCard`, `Backdrop`. Data: `StatCounter`, `BarChart`, `LineChart`,
+`ProgressRing`, `Checklist`, `ProgressBars`. Timing: `Act` (a full-frame chapter from `at` for `duration` with an
+`exit` of `rise`/`sink`/`fade`/`whip`/`none`), `timeline({ name: seconds, ... })` (acts end to end: `{ name: { at, end,
+duration }, total }`), `Stagger` (shifts children's `start` by `each`), `Whip`. Colours (`background`, `surface`,
+`text`, `muted`, `subtle`, `line`, `accent`, `positive`, `negative`), fonts (`display`, `body`, `mono`), weights,
+`fontFiles`, motion defaults (`in` 0.9 s `expo-out`, `out` 0.55 s `expo-in`, `stagger` 0.12) and canvas size come from
+the theme: `setTheme({...})` once, or a `theme` prop per component; `themeScene()` gives the scene's `background` and
+`fonts`. Components that align to text (`HighlightRule`, `Typewriter`, `Tag`, `Eyebrow` markers, `KineticTitle` with
+`maxWidth`) measure it with `flits measure` (flits sets `FLITS_BIN` for the scripts it runs; results are cached in the
+temp folder; without flits the SDK estimates).
+
 ## Ready-made commands
 
     flits slideshow fotos/ --music liedje.mp3 --beats --title "Zomer 2026" --format 9:16
@@ -251,6 +294,23 @@ x.ts` writes a starter as a TypeScript module.
 
 `slideshow`, `captions`, `podcast` and `cut` (video) also write `<out>.scene.json`; edit it and run
 `flits render` to tweak.
+
+## Reels: `flits reel`
+
+    flits reel interview.mp4                              # whole recording -> 9:16 reel
+    flits reel interview.mp4 --from 1:12 --to 2:10 --fillers --title "Waarom dit ertoe doet"
+    flits reel interview.mp4 --clips "0:40-1:05,3:10-3:32"     # several parts, in this order
+    flits reel interview.mp4 --focus 0.3 --format 4:5     # fixed framing, other format
+    flits reel interview.mp4 --fit fit                    # whole picture, captions underneath
+
+One command from raw footage to a reel, in one render of just the reel's length: the transcript
+(`<input>.words.json`, made once and reused), the chosen part(s) with silences (and with `--fillers` /
+`--repeats` filler words and stutters) cut out, reframed to the format, captions timed to the cut
+(`--preset`, `--highlight`, `--position`) and an optional hook `--title`. `--focus auto` (the default)
+follows the people: shot changes are detected on every frame and faces a few times per second
+(built-in SeetaFace model, no extra install), and every shot gets one steady framing that jumps
+exactly on the cut; shots without a face are framed in the middle. The scene is written next to the
+output (`<out>.scene.json`) to tweak and re-render.
 
 ## Cutting: `flits cut`
 

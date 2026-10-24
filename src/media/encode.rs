@@ -2,8 +2,9 @@
 
 use super::ffmpeg;
 use anyhow::{bail, Context, Result};
+use std::io::Write;
 use std::path::Path;
-use std::process::{Child, Stdio};
+use std::process::{Child, Command, Stdio};
 
 /// Where the encoding happens.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -166,18 +167,65 @@ pub fn pick(choice: &str, codec: Codec, speed: Speed, quality: u32) -> Result<Se
     Ok(mk(Encoder::Cpu))
 }
 
+/// Colour tags of the frames flits produces.
+const BT709: [&str; 8] = ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-color_range", "tv"];
+
+/// A running encoder: write raw frames into `input`, drop it, then wait for `child`.
+pub struct EncoderProc {
+    pub child: Child,
+    pub input: Box<dyn Write + Send>,
+}
+
+/// Bytes the frame pipe buffers. Windows pipes default to a few KB, so every 3 MB frame took
+/// hundreds of round trips through the kernel and both processes kept waking each other up.
+#[cfg(windows)]
+const PIPE_BYTES: u32 = 16 << 20;
+
+/// Start `cmd` with a pipe on stdin (a large one on Windows).
+fn spawn_piped(mut cmd: Command) -> std::io::Result<EncoderProc> {
+    cmd.stdout(Stdio::null()).stderr(Stdio::piped());
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::{FromRawHandle, OwnedHandle};
+        use windows_sys::Win32::Security::SECURITY_ATTRIBUTES;
+        use windows_sys::Win32::System::Pipes::CreatePipe;
+        let (mut r, mut w) = (std::ptr::null_mut(), std::ptr::null_mut());
+        // not inheritable: Command duplicates the read end into the child as an inheritable handle
+        let sa = SECURITY_ATTRIBUTES {
+            nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+            lpSecurityDescriptor: std::ptr::null_mut(),
+            bInheritHandle: 0,
+        };
+        if unsafe { CreatePipe(&mut r, &mut w, &sa, PIPE_BYTES) } != 0 {
+            let (r, w) = unsafe { (OwnedHandle::from_raw_handle(r), OwnedHandle::from_raw_handle(w)) };
+            cmd.stdin(Stdio::from(r));
+            let child = cmd.spawn()?;
+            // the child has its own copy now; ours must close or ffmpeg never sees the end of input
+            drop(cmd);
+            return Ok(EncoderProc { child, input: Box::new(std::fs::File::from(w)) });
+        }
+    }
+    cmd.stdin(Stdio::piped());
+    let mut child = cmd.spawn()?;
+    let input = Box::new(child.stdin.take().expect("piped stdin"));
+    Ok(EncoderProc { child, input })
+}
+
 /// ffmpeg process that reads raw yuv420p frames on stdin and writes a video file.
 /// `in_w` may be wider than `w` (padded GPU frames); the extra columns are cropped.
-pub fn spawn_encoder(s: &Settings, in_w: u32, w: u32, h: u32, fps: f64, out: &Path) -> Result<Child> {
+pub fn spawn_encoder(s: &Settings, in_w: u32, w: u32, h: u32, fps: f64, out: &Path) -> Result<EncoderProc> {
     let mut cmd = ffmpeg();
     if s.encoder == Encoder::Vaapi {
         cmd.args(["-vaapi_device", &vaapi_device()]);
     }
-    cmd.args(["-y", "-f", "rawvideo", "-pix_fmt", "yuv420p", "-s", &format!("{in_w}x{h}"), "-r", &format!("{fps}"), "-i", "-"]);
+    // the frames are BT.709 limited range: say so on the input too, or ffmpeg >= 7.1 takes the
+    // untagged input for BT.601 and converts it to the BT.709 tagged on the output (shifting colours)
+    cmd.args(["-y", "-f", "rawvideo", "-pix_fmt", "yuv420p", "-s", &format!("{in_w}x{h}"), "-r", &format!("{fps}")]);
+    cmd.args(BT709);
+    cmd.args(["-i", "-"]);
     if s.encoder == Encoder::Null {
         cmd.args(["-f", "null", "-"]);
-        cmd.stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::piped());
-        return cmd.spawn().context("starting ffmpeg");
+        return spawn_piped(cmd).context("starting ffmpeg");
     }
     let mut vf = Vec::new();
     if in_w != w {
@@ -248,8 +296,7 @@ pub fn spawn_encoder(s: &Settings, in_w: u32, w: u32, h: u32, fps: f64, out: &Pa
     if s.encoder != Encoder::Vaapi {
         cmd.args(["-pix_fmt", "yuv420p"]);
     }
-    cmd.args(["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-color_range", "tv"]);
+    cmd.args(BT709);
     cmd.arg(out);
-    cmd.stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::piped());
-    cmd.spawn().context("starting ffmpeg encoder")
+    spawn_piped(cmd).context("starting ffmpeg encoder")
 }

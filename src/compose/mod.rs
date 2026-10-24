@@ -3,6 +3,7 @@
 
 pub mod captions;
 pub mod draw;
+pub mod lint;
 pub mod shape;
 pub mod waveform;
 
@@ -11,7 +12,7 @@ pub use draw::{advance, draw_frame, render_frame, VideoState};
 use crate::gfx::{box_shadow, Sprite};
 use crate::media::colorspace::{Adjust, NO_ADJUST};
 use crate::media::{self, image as assets, MediaInfo};
-use crate::scene::anim::{Prop, TKind, Transition};
+use crate::scene::anim::{Ease, Prop, TKind, Transition};
 use crate::scene::color::Rgba;
 use crate::scene::{Layer, Scene};
 use crate::text::{self, Align, FontDb, TextStyle};
@@ -20,7 +21,7 @@ use captions::{CapKind, CapOptions, Captions, HiBox};
 use draw::gradient_pixmap;
 use rayon::prelude::*;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tiny_skia::Pixmap;
 use waveform::Spectrum;
@@ -63,6 +64,62 @@ pub struct Reveal {
     pub duration: f64,
     /// typewriter: pieces pop in without a fade/slide
     pub instant: bool,
+    pub style: RevealStyle,
+}
+
+/// How one reveal piece comes in.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum RevealStyle {
+    /// rises a third of its height while fading in
+    Rise,
+    /// slides up out of its own line box, clipped to it
+    Mask,
+    /// fades in where it is
+    Fade,
+    /// rises while a vertical smear sharpens
+    Blur,
+}
+
+impl RevealStyle {
+    pub fn parse(s: Option<&str>) -> Result<RevealStyle> {
+        Ok(match s.map(|s| s.trim().to_ascii_lowercase()).as_deref() {
+            None | Some("rise") => RevealStyle::Rise,
+            Some("mask") => RevealStyle::Mask,
+            Some("fade") => RevealStyle::Fade,
+            Some("blur") => RevealStyle::Blur,
+            Some(o) => bail!("unknown revealStyle '{o}' (rise, mask, fade, blur)"),
+        })
+    }
+
+    /// seconds one piece takes to come in
+    pub fn piece_time(self) -> f64 {
+        match self {
+            RevealStyle::Rise => 0.35,
+            RevealStyle::Mask => 0.7,
+            RevealStyle::Fade => 0.4,
+            RevealStyle::Blur => 0.5,
+        }
+    }
+
+    /// Eased progress of a piece that started `since` seconds ago.
+    pub fn progress(self, since: f64) -> f64 {
+        let x = (since / self.piece_time()).clamp(0.0, 1.0);
+        match self {
+            RevealStyle::Mask => Ease::ExpoOut.apply(x),
+            _ => Ease::Out.apply(x),
+        }
+    }
+
+    /// Vertical offset of a piece of height `h` at progress `e`, in its own units.
+    pub fn offset(self, e: f64, h: f32) -> f32 {
+        let k = (1.0 - e) as f32;
+        match self {
+            RevealStyle::Rise => k * h * 0.35,
+            RevealStyle::Mask => k * h * 1.1,
+            RevealStyle::Fade => 0.0,
+            RevealStyle::Blur => k * h * 0.25,
+        }
+    }
 }
 
 /// An animated number ("1.234 bezoekers"), drawn from per-character sprites.
@@ -142,6 +199,8 @@ impl Counter {
 pub struct Node {
     pub id: usize,
     pub kind: Kind,
+    /// what `flits check` calls this layer: its text, `id`, or media file name
+    pub label: String,
     pub start: f64,
     pub end: f64,
     pub w: f32,
@@ -166,6 +225,10 @@ pub struct Node {
     shadow: Option<Arc<Sprite>>,
     /// clip children to the box (groups)
     clip: bool,
+    /// may be motion blurred (the scene's `motionBlur`, unless the layer opts out)
+    motion_blur: bool,
+    /// text on its own `background` box: covers what is under it on purpose (layout lint)
+    backdrop: bool,
     pub children: Vec<Node>,
 }
 
@@ -199,6 +262,8 @@ pub struct Prepared {
     pub audio: Vec<AudioInput>,
     /// master loudness target (LUFS)
     pub loudness: Option<f64>,
+    /// motion blur: (most samples per layer, shutter as a fraction of the frame interval)
+    pub motion_blur: Option<(usize, f64)>,
 }
 
 struct Ctx<'a> {
@@ -341,6 +406,7 @@ impl Prepared {
             nodes,
             audio: ctx.audio,
             loudness: scene.loudness,
+            motion_blur: scene.motion_blur.and_then(|m| m.settings()),
         })
     }
 }
@@ -451,6 +517,22 @@ fn rescale(mut s: Sprite, q: f32) -> Sprite {
     s
 }
 
+/// Largest side of a rasterized image, in px (8192 is the texture limit every GPU backend offers).
+const MAX_RASTER: f64 = 8192.0;
+/// A short name for a layer in messages: its text, its `id`, or its media file name.
+fn layer_label(l: &Layer) -> String {
+    if let Some(t) = &l.text {
+        return t.clone();
+    }
+    if let Some(id) = &l.id {
+        return id.clone();
+    }
+    match &l.src {
+        Some(src) => Path::new(src).file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_else(|| src.clone()),
+        None => String::new(),
+    }
+}
+
 fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale: f64, ctx: &mut Ctx) -> Result<Node> {
     let id = ctx.next_id;
     ctx.next_id += 1;
@@ -503,7 +585,8 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
             };
             let s = s0 * zoom.max_abs().max(1.0) * max_scale * rs;
             // bitmaps are never upscaled; vectors are rasterized at their on-screen size
-            let cap = if assets::is_vector(&src) { f64::INFINITY } else { 1.0 };
+            // and no texture is larger than GPUs accept (a layer that zooms 30x would ask for 70,000 px)
+            let cap = if assets::is_vector(&src) { f64::INFINITY } else { 1.0 }.min(MAX_RASTER / iw.max(ih) as f64);
             let tw = (iw as f64 * s.min(cap)).ceil() as u32;
             let th = (ih as f64 * s.min(cap)).ceil() as u32;
             // blur is specified in screen px; convert to the loaded image's px
@@ -622,6 +705,7 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
                         duration: l.reveal_duration.unwrap_or(if per > 0.0 { v.len() as f64 * per } else { 0.8 }),
                         pieces: v,
                         instant: mode == "typewriter",
+                        style: RevealStyle::parse(l.reveal_style.as_deref())?,
                     })
                 }
                 Some(o) => bail!("unknown reveal '{o}' (words, lines, chars, typewriter)"),
@@ -798,6 +882,7 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
     Ok(Node {
         id,
         kind,
+        label: layer_label(l),
         start,
         end,
         w,
@@ -820,6 +905,8 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
         border,
         shadow,
         clip: l.clip,
+        motion_blur: l.motion_blur.unwrap_or(true),
+        backdrop: l.background.is_some(),
         children,
     })
 }

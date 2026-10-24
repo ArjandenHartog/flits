@@ -55,6 +55,9 @@ pub struct Scene {
     /// normalize the final mix to this loudness (LUFS, e.g. -14 for social, -16 for podcasts)
     #[serde(default)]
     pub loudness: Option<f64>,
+    /// motion blur for moving layers: `true` (up to 8 samples, 180° shutter) or `{ "samples": 12, "shutter": 0.5 }`
+    #[serde(default)]
+    pub motion_blur: Option<MotionBlur>,
     /// layers, drawn in order: the first is at the bottom
     #[serde(default)]
     pub layers: Vec<Layer>,
@@ -109,6 +112,37 @@ impl Duck {
             Duck::On(true) => Some(0.25),
             Duck::On(false) => None,
             Duck::Level(l) => Some(*l),
+        }
+    }
+}
+
+/// Motion blur: `true`/`false`, or the number of samples and the shutter.
+#[derive(Deserialize, JsonSchema, Clone, Copy, Debug)]
+#[serde(untagged)]
+pub enum MotionBlur {
+    On(bool),
+    Custom {
+        /// most sub-frame samples per moving layer (default 8; layers that move little get fewer)
+        #[serde(default)]
+        #[schemars(range(min = 2, max = 64))]
+        samples: Option<u32>,
+        /// fraction of the frame interval the shutter is open (default 0.5 = 180°; 1 = smear over the whole frame)
+        #[serde(default)]
+        #[schemars(range(min = 0.0, max = 2.0))]
+        shutter: Option<f64>,
+    },
+}
+
+impl MotionBlur {
+    /// (max samples, shutter) when enabled
+    pub fn settings(&self) -> Option<(usize, f64)> {
+        match *self {
+            MotionBlur::On(false) => None,
+            MotionBlur::On(true) => Some((8, 0.5)),
+            MotionBlur::Custom { samples, shutter } => {
+                let shutter = shutter.unwrap_or(0.5).clamp(0.0, 2.0);
+                (shutter > 0.0).then(|| (samples.unwrap_or(8).clamp(2, 64) as usize, shutter))
+            }
         }
     }
 }
@@ -294,6 +328,8 @@ pub struct Layer {
     pub filter: Option<Filter>,
     /// clip children to the group's box (groups)
     pub clip: bool,
+    /// `false`: no motion blur for this layer and its children (when the scene has `motionBlur`)
+    pub motion_blur: Option<bool>,
 
     // image / video / audio-carrying layers
     /// image/video: media file (jpg/png/webp/gif/bmp/svg, HEIC/AVIF via ffmpeg, any video ffmpeg reads);
@@ -350,6 +386,10 @@ pub struct Layer {
     pub wrap: Option<String>,
     /// seconds over which the `reveal` pieces appear
     pub reveal_duration: Option<f64>,
+    /// how each `reveal` piece comes in: rise (default), mask (slides up out of its own line, clipped),
+    /// fade, or blur (sharpens while it rises)
+    #[schemars(schema_with = "schema::reveal_style")]
+    pub reveal_style: Option<String>,
 
     // captions
     /// captions: named look (see `presets`); merged into the layer before parsing

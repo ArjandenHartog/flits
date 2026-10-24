@@ -56,7 +56,7 @@ Color = str
 """'#rgb', '#rgba', '#rrggbb', '#rrggbbaa', 'rgb(r,g,b)', 'rgba(r,g,b,a)' or a name:
 "white", "black", "transparent", "red", "green", "blue", "yellow", "orange", "purple", "pink", "gray", "grey"."""
 
-Ease = Literal[
+EaseName = Literal[
     "linear",
     "in",
     "out",
@@ -68,6 +68,12 @@ Ease = Literal[
     "bounce",
     "spring",
     "hold",
+    "expo-in",
+    "expo-out",
+    "expo-in-out",
+    "quint-out",
+    "quint-in-out",
+    "circ-out",
     # aliases
     "ease-in",
     "easein",
@@ -83,7 +89,12 @@ Ease = Literal[
     "back",
     "overshoot",
     "step",
+    "expo",
+    "quint",
+    "circ",
 ]
+Ease = Union[EaseName, str]
+"""An easing name, or a CSS curve as the string "cubic-bezier(x1, y1, x2, y2)"."""
 
 KeyTime = Union[float, str]
 """Seconds from the layer start, or "end" / "end-0.5" (relative to the layer end)."""
@@ -178,6 +189,10 @@ LineCap = Literal["round", "butt", "square"]
 Fit = Literal["cover", "contain", "fill", "stretch"]
 Align = Literal["left", "center", "right", "start", "middle", "end"]
 Reveal = Literal["words", "lines", "chars", "typewriter", "none"]
+RevealStyle = Literal["rise", "mask", "fade", "blur"]
+MotionBlurSpec = TypedDict("MotionBlurSpec", {"samples": int, "shutter": float}, total=False)
+MotionBlur = Union[bool, MotionBlurSpec]
+"""True (up to 8 samples, 180 degree shutter) or the most samples per moving layer and the shutter (0.5 = 180 degrees)."""
 Wrap = Literal["balance", "greedy"]
 CaptionStyle = Literal[
     "karaoke", "pop", "bounce", "word", "line", "highlight", "tiktok", "jump", "single", "plain", "subtitle",
@@ -295,6 +310,7 @@ Layer = TypedDict(
         "shadow": Shadow,
         "filter": Filter,
         "clip": bool,  # group: hide everything outside the box
+        "motionBlur": bool,  # False: no motion blur for this layer and its children
         "comment": str,
         # image / video / captions / waveform
         "src": str,
@@ -324,6 +340,7 @@ Layer = TypedDict(
         "reveal": Reveal,
         "wrap": Wrap,
         "revealDuration": float,
+        "revealStyle": RevealStyle,  # rise (default), mask, fade, blur
         # captions
         "preset": CaptionPreset,  # named look; layer properties override it
         "style": CaptionStyle,
@@ -378,6 +395,7 @@ Scene = TypedDict(
         "fontFallback": List[str],  # fonts for characters a layer's font lacks (emoji, other scripts)
         "audio": List[AudioTrack],
         "loudness": float,  # LUFS, e.g. -14
+        "motionBlur": MotionBlur,
         "layers": List[Layer],
         "comment": str,
     },

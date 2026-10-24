@@ -1,6 +1,6 @@
 //! Per-frame traversal: evaluates animations and emits paint ops.
 
-use super::{Fill, Fit, Kind, Node, Prepared};
+use super::{Fill, Fit, Kind, Node, Prepared, RevealStyle};
 use crate::media::video::VideoReader;
 use crate::paint::{cpu::CpuPainter, sprite_op, Clip, Op, Painter, Src};
 use crate::scene::anim::Fx;
@@ -27,9 +27,12 @@ const PREFETCH: f64 = 1.0;
 /// A spare decoder is reused when the new cut starts at most this far ahead in the source.
 const REUSE_GAP: f64 = 4.0;
 
+#[derive(Clone, Copy)]
 pub struct FrameCtx<'a> {
     pub fps: f64,
     pub videos: &'a VideoState,
+    /// motion blur (most samples, shutter); `None` inside a subtree that is already being sampled
+    pub motion_blur: Option<(usize, f64)>,
 }
 
 /// Software render of one frame into `canvas`.
@@ -62,7 +65,7 @@ pub fn advance(p: &Prepared, frame: i64, vs: &mut VideoState) -> Result<()> {
 pub fn draw_frame<'a>(p: &'a Prepared, frame: i64, painter: &mut dyn Painter<'a>, vs: &'a VideoState) {
     let t = frame as f64 / p.fps;
     let root = Transform::from_scale(p.root_scale, p.root_scale);
-    let ctx = FrameCtx { fps: p.fps, videos: vs };
+    let ctx = FrameCtx { fps: p.fps, videos: vs, motion_blur: p.motion_blur };
     for n in &p.nodes {
         draw_node(painter, n, t, root, 1.0, None, &ctx);
     }
@@ -177,6 +180,72 @@ fn media_op<'a>(
     Some(Op { src, ts, shape, radius, uv: Transform::from_row(sx, 0.0, 0.0, sy, ox, oy), opacity, clip })
 }
 
+/// Canvas pixels a layer moves at most between two moments: the largest distance any corner of
+/// its box travels, plus the travel of text pieces that are still revealing.
+fn motion_px(n: &Node, t0: f64, t1: f64, parent: Transform) -> f32 {
+    let at = |t: f64| -> Option<Transform> {
+        if t < n.start || t >= n.end {
+            return None;
+        }
+        let (lt, dur) = (t - n.start, n.end - n.start);
+        node_ts(n, lt, dur, parent, &node_fx(n, lt, dur))
+    };
+    let (Some(a), Some(b)) = (at(t0), at(t1)) else { return 0.0 };
+    let mut px: f32 = 0.0;
+    for (cx, cy) in [(0.0, 0.0), (n.w, 0.0), (0.0, n.h), (n.w, n.h)] {
+        let (mut p0, mut p1) = ([Point::from_xy(cx, cy)], [Point::from_xy(cx, cy)]);
+        a.map_points(&mut p0);
+        b.map_points(&mut p1);
+        px = px.max(p0[0].distance(p1[0]));
+    }
+    if let Kind::Text { reveal: Some(r), .. } = &n.kind {
+        if !r.instant {
+            let step = r.duration / r.pieces.len().max(1) as f64;
+            let scale = (b.sx * b.sy - b.kx * b.ky).abs().sqrt();
+            for (i, (s, _, _)) in r.pieces.iter().enumerate() {
+                let since = |t: f64| t - n.start - i as f64 * step;
+                let (s0, s1) = (since(t0), since(t1));
+                if s1 < 0.0 || s0 > r.style.piece_time() {
+                    continue;
+                }
+                let off = |since: f64| r.style.offset(r.style.progress(since.max(0.0)), s.h);
+                px = px.max((off(s0) - off(s1)).abs() * scale);
+            }
+        }
+    }
+    px
+}
+
+/// The enter/exit transition effect of a node at local time `lt`.
+pub(crate) fn node_fx(n: &Node, lt: f64, dur: f64) -> Fx {
+    let mut fx = Fx::default();
+    let area = (n.area.0 as f64, n.area.1 as f64);
+    if let Some(tr) = &n.enter {
+        tr.apply_in(lt, area, &mut fx);
+    }
+    if let Some(tr) = &n.exit {
+        tr.apply_out(dur - lt, area, &mut fx);
+    }
+    fx
+}
+
+/// Box-local -> canvas transform of a node (`None` when it is scaled to nothing).
+pub(crate) fn node_ts(n: &Node, lt: f64, dur: f64, parent: Transform, fx: &Fx) -> Option<Transform> {
+    let x = n.x.eval(lt, dur) + fx.dx;
+    let y = n.y.eval(lt, dur) + fx.dy;
+    let s = n.scale.eval(lt, dur) * fx.scale;
+    let (sx, sy) = ((s * fx.sx * n.scale_x.eval(lt, dur)) as f32, (s * fx.sy * n.scale_y.eval(lt, dur)) as f32);
+    if sx.abs() < 1e-4 || sy.abs() < 1e-4 {
+        return None;
+    }
+    let rot = (n.rotation.eval(lt, dur) + fx.rot) as f32;
+    let mut ts = parent.pre_translate(x as f32, y as f32);
+    if rot != 0.0 {
+        ts = ts.pre_concat(Transform::from_rotate(rot));
+    }
+    Some(ts.pre_scale(sx, sy).pre_translate(-n.anchor.0 * n.w, -n.anchor.1 * n.h))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn draw_node<'a>(
     painter: &mut dyn Painter<'a>,
@@ -187,19 +256,32 @@ fn draw_node<'a>(
     pclip: Option<Clip>,
     ctx: &FrameCtx<'a>,
 ) {
+    if let Some((max, shutter)) = ctx.motion_blur {
+        let sub = FrameCtx { motion_blur: None, ..*ctx };
+        if !n.motion_blur {
+            return draw_node(painter, n, t, parent, parent_op, pclip, &sub);
+        }
+        // sample the open shutter around t, once per 2 px the layer travels (closer copies don't
+        // show as separate edges); copy k drawn at 1/(k+1) opacity over the ones before makes the
+        // result their average. The subtree is drawn whole at each sample time.
+        let open = shutter / ctx.fps;
+        let (t0, t1) = (t - open / 2.0, t + open / 2.0);
+        let px = motion_px(n, t0, t1, parent);
+        if px > 1.0 {
+            let k = ((px / 2.0).ceil() as usize).clamp(2, max);
+            for i in 0..k {
+                let ti = t0 + (t1 - t0) * i as f64 / (k - 1) as f64;
+                draw_node(painter, n, ti, parent, parent_op / (i + 1) as f32, pclip, &sub);
+            }
+            return;
+        }
+    }
     if t < n.start || t >= n.end {
         return;
     }
     let lt = t - n.start;
     let dur = n.end - n.start;
-    let mut fx = Fx::default();
-    let area = (n.area.0 as f64, n.area.1 as f64);
-    if let Some(tr) = &n.enter {
-        tr.apply_in(lt, area, &mut fx);
-    }
-    if let Some(tr) = &n.exit {
-        tr.apply_out(dur - lt, area, &mut fx);
-    }
+    let fx = node_fx(n, lt, dur);
     if fx.blur > 1e-3 {
         // zoom blur: the layer drawn GHOSTS times at growing scales; copy k at 1/(k+1) opacity
         // makes the result their average (exact for opaque layers)
@@ -234,20 +316,8 @@ fn draw_fx<'a>(
     if op <= 0.002 {
         return;
     }
-    let x = n.x.eval(lt, dur) + fx.dx;
-    let y = n.y.eval(lt, dur) + fx.dy;
-    let s = n.scale.eval(lt, dur) * fx.scale;
-    let (sx, sy) = ((s * fx.sx * n.scale_x.eval(lt, dur)) as f32, (s * fx.sy * n.scale_y.eval(lt, dur)) as f32);
-    if sx.abs() < 1e-4 || sy.abs() < 1e-4 {
-        return;
-    }
-    let rot = (n.rotation.eval(lt, dur) + fx.rot) as f32;
+    let Some(ts) = node_ts(n, lt, dur, parent, &fx) else { return };
     let (w, h) = (n.w, n.h);
-    let mut ts = parent.pre_translate(x as f32, y as f32);
-    if rot != 0.0 {
-        ts = ts.pre_concat(Transform::from_rotate(rot));
-    }
-    let ts = ts.pre_scale(sx, sy).pre_translate(-n.anchor.0 * w, -n.anchor.1 * h);
     let clip = match fx.clip {
         Some(c) => {
             let (cx, cy, cw, ch) = c.rect(w as f64, h as f64);
@@ -337,9 +407,28 @@ fn draw_fx<'a>(
                     }
                     if r.instant {
                         painter.draw(sprite_op(s, ts.pre_translate(*px, *py), op, clip));
-                    } else {
-                        let e = crate::scene::anim::Ease::Out.apply((since / 0.35).clamp(0.0, 1.0)) as f32;
-                        painter.draw(sprite_op(s, ts.pre_translate(*px, *py + (1.0 - e) * s.h * 0.35), op * e, clip));
+                        continue;
+                    }
+                    let e = r.style.progress(since);
+                    let dy = r.style.offset(e, s.h);
+                    match r.style {
+                        RevealStyle::Mask => {
+                            // the piece's own line box (wide sideways so overhanging glyphs keep their edges)
+                            let pad = s.h;
+                            let mask = Clip { ts, rect: [*px - pad, *py - s.h * 0.2, *px + s.w + pad, *py + s.h], radius: 0.0 };
+                            painter.draw(sprite_op(s, ts.pre_translate(*px, *py + dy), op, Some(mask)));
+                        }
+                        RevealStyle::Blur if e < 1.0 => {
+                            // a vertical smear: copies spread over the remaining travel, averaged
+                            const COPIES: usize = 6;
+                            let spread = (1.0 - e) as f32 * s.h * 0.5;
+                            let a = op * (e as f32).sqrt();
+                            for k in 0..COPIES {
+                                let off = spread * (k as f32 / (COPIES - 1) as f32 - 0.5);
+                                painter.draw(sprite_op(s, ts.pre_translate(*px, *py + dy + off), a / (k + 1) as f32, clip));
+                            }
+                        }
+                        _ => painter.draw(sprite_op(s, ts.pre_translate(*px, *py + dy), op * e as f32, clip)),
                     }
                 }
             }

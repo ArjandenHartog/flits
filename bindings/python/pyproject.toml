@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flits-video"
-version = "0.1.0"
+version = "0.2.0"
 description = "Python wrapper for the flits video renderer: build scenes as dicts, render them with the flits CLI"
 readme = { text = "Render flits scenes (JSON video descriptions) from Python. Needs the `flits` CLI on PATH or $FLITS_BIN. See https://github.com/ArjandenHartog/flits", content-type = "text/markdown" }
 license = { text = "MIT" }
