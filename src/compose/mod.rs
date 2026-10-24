@@ -2,6 +2,7 @@
 //! on-screen size, blurred backdrops, text, shadows, gradients) is rendered once here.
 
 pub mod captions;
+pub mod crop;
 pub mod draw;
 pub mod lint;
 pub mod shape;
@@ -47,12 +48,38 @@ type ImgKey = (PathBuf, u32, u32, u32, [i32; 4]);
 pub enum Kind {
     Group,
     Rect(Fill),
-    Image { key: ImgKey, pm: Option<Arc<Pixmap>>, fit: Fit },
-    Video { src: PathBuf, info: MediaInfo, dw: u32, dh: u32, trim: f64, looped: bool, fit: Fit, speed: f64, adjust: Adjust },
-    Text { sprite: Arc<Sprite>, reveal: Option<Reveal> },
+    Image {
+        key: ImgKey,
+        pm: Option<Arc<Pixmap>>,
+        fit: Fit,
+    },
+    Video {
+        src: PathBuf,
+        info: MediaInfo,
+        dw: u32,
+        dh: u32,
+        trim: f64,
+        looped: bool,
+        fit: Fit,
+        speed: f64,
+        adjust: Adjust,
+        /// the part of the picture that shows, when the framing doesn't move
+        need: Option<crop::Need>,
+        /// set from `need` once all layers are known: what the decoder delivers
+        crop: Option<crop::Crop>,
+    },
+    Text {
+        sprite: Arc<Sprite>,
+        reveal: Option<Reveal>,
+    },
     Counter(Arc<Counter>),
     Captions(Arc<Captions>),
-    Waveform { spec: Arc<Spectrum>, color: Rgba, mirror: bool, gap: f32 },
+    Waveform {
+        spec: Arc<Spectrum>,
+        color: Rgba,
+        mirror: bool,
+        gap: f32,
+    },
     Shape(Arc<shape::Shape>),
 }
 
@@ -310,6 +337,11 @@ fn transition_scale(t: &Option<Transition>) -> f64 {
 }
 
 impl Prepared {
+    /// Decode whole video frames, not just the part that shows (for comparisons).
+    pub fn decode_whole_frames(&mut self) {
+        crop::clear(&mut self.nodes);
+    }
+
     pub fn build(scene: &Scene, render_scale: f64) -> Result<Prepared> {
         let mut media = Vec::new();
         collect_media(&scene.layers, scene, &mut media);
@@ -353,6 +385,11 @@ impl Prepared {
         };
         for n in nodes.iter_mut() {
             clamp_end(n, duration);
+        }
+        // the part of each video that shows, once every layer's timing is known
+        // (`FLITS_NO_CROP`: decode whole frames, to compare)
+        if std::env::var_os("FLITS_NO_CROP").is_none() {
+            crop::plan(&mut nodes, scene.fps);
         }
         for a in &scene.audio {
             let path = scene.resolve(&a.src);
@@ -637,10 +674,16 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
                     duck: None,
                 });
             }
+            // a framing that doesn't move: decode only the part that shows
+            let konst = |p: &Option<Prop>, d: f64| p.as_ref().map_or(Some(d), Prop::const_value);
+            let need =
+                crop::need(fit, (bw, bh), (info.width, info.height), zoom.const_value(), (konst(&l.pan_x, 0.0), konst(&l.pan_y, 0.0)), s);
             Kind::Video {
                 src,
                 dw: even(iw * s),
                 dh: even(ih * s),
+                need,
+                crop: None,
                 info,
                 trim: l.trim,
                 looped: l.looped,

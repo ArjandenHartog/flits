@@ -152,6 +152,9 @@ EXIF rotation is applied automatically; images are downscaled once to the size t
 **video** — like image plus `trim` (start offset in the source), `speed` (0.5 = slow motion, 2 = fast),
 `volume` (default 1, 0 = mute, or keyframes), `fadeIn`/`fadeOut` (audio), `loop`, `filter`.
 Default duration = the (re-timed) clip length. iPhone HDR (HLG/PQ, 10-bit) is tone-mapped on the GPU.
+When `zoom`/`panX`/`panY` don't change over the layer, only the part of the picture that shows is decoded
+(16:9 footage in a 9:16 frame: a third of it). To jump between framings, use one layer per framing
+(contiguous `trim`s in a `sequence` group) rather than `hold` keyframes: they share one decoder.
 
 **text** — `text` (`\n` for line breaks), `font` (installed font name like `"Segoe UI Black"`, a .ttf/.otf path or a
 `fonts` alias; default Segoe UI Bold), `weight` (for variable fonts), `size` (64), `color`, `align`
@@ -313,7 +316,7 @@ One command from raw footage to a reel, in one render of just the reel's length:
 (`--preset`, `--highlight`, `--position`) and an optional hook `--title`. `--focus auto` (the default)
 follows the people: shot changes are detected on every frame and faces a few times per second
 (built-in SeetaFace model, no extra install), and every shot gets one steady framing that jumps
-exactly on the cut; shots without a face are framed in the middle, and footage without any face (a
+exactly on the cut (one video layer per framing); shots without a face are framed in the middle, and footage without any face (a
 podcast cover, slides) is shown whole on a blurred backdrop. A two-shot whose people don't fit the
 crop together follows the speaker: a hard cut to whoever talks, only on turns of 1.2 s or more (no
 ping-pong on interjections). Who talks comes from the transcript's diarization labels (`--diarize`;
