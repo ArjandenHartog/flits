@@ -38,6 +38,7 @@ serde_ignored = "0.1.14"
 resvg = "0.45"
 schemars = "1"
 rustybuzz = "0.20"
+rustface = "0.1.7"
 
 [profile.release]
 opt-level = 3

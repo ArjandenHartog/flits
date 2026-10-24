@@ -268,6 +268,23 @@ x.ts` writes a starter as a TypeScript module.
 `slideshow`, `captions`, `podcast` and `cut` (video) also write `<out>.scene.json`; edit it and run
 `flits render` to tweak.
 
+## Reels: `flits reel`
+
+    flits reel interview.mp4                              # whole recording -> 9:16 reel
+    flits reel interview.mp4 --from 1:12 --to 2:10 --fillers --title "Waarom dit ertoe doet"
+    flits reel interview.mp4 --clips "0:40-1:05,3:10-3:32"     # several parts, in this order
+    flits reel interview.mp4 --focus 0.3 --format 4:5     # fixed framing, other format
+    flits reel interview.mp4 --fit fit                    # whole picture, captions underneath
+
+One command from raw footage to a reel, in one render of just the reel's length: the transcript
+(`<input>.words.json`, made once and reused), the chosen part(s) with silences (and with `--fillers` /
+`--repeats` filler words and stutters) cut out, reframed to the format, captions timed to the cut
+(`--preset`, `--highlight`, `--position`) and an optional hook `--title`. `--focus auto` (the default)
+follows the people: shot changes are detected on every frame and faces a few times per second
+(built-in SeetaFace model, no extra install), and every shot gets one steady framing that jumps
+exactly on the cut; shots without a face are framed in the middle. The scene is written next to the
+output (`<out>.scene.json`) to tweak and re-render.
+
 ## Cutting: `flits cut`
 
     flits cut rec.mp4                                # shorten silences (--threshold -35 dB, --min 0.6 s, --keep 0.25 s)

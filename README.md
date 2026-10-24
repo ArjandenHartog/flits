@@ -128,6 +128,9 @@ flits schema                                  # JSON Schema of the scene format 
 
 # ready-made
 flits slideshow photos/ --music song.mp3 --beats --title "Summer 2026" --format 9:16
+flits reel interview.mp4 --from 1:12 --to 2:10 --fillers --title "Hook"   # raw footage -> 9:16 reel in one go:
+                                              # transcribe once, cut silences/uh's, follow the faces shot by shot,
+                                              # captions, hook title, one render (1 min reel from 1080p: ~30 s)
 flits captions clip.mp4 --preset tiktok       # burn in animated word-by-word captions; presets: tiktok, karaoke-box,
                                               # bounce, minimal, neon, highlighter, subtitle, word-pop-big
 flits podcast episode.mp3 --cover cover.jpg --title "Episode 12" --format 9:16 --from 12:30 --to 13:30

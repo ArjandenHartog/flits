@@ -4,7 +4,7 @@
 mod make;
 mod tools;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::{Args, Parser, Subcommand};
 use flits::{transcribe, Prepared, Scene};
 use std::path::{Path, PathBuf};
@@ -354,6 +354,63 @@ enum Cmd {
         #[command(flatten)]
         r: RenderArgs,
     },
+    /// Raw footage to a vertical reel in one go: transcribe (once), keep the part(s) you pick, cut
+    /// silences and filler words, reframe to 9:16, animated captions, optional hook title
+    Reel {
+        video: PathBuf,
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+        /// start of the part to use (seconds or mm:ss)
+        #[arg(long, value_parser = parse_time)]
+        from: Option<f64>,
+        /// end of the part to use (seconds or mm:ss)
+        #[arg(long, value_parser = parse_time)]
+        to: Option<f64>,
+        /// several parts, played in this order: "1:12-1:40,2:05-2:31"
+        #[arg(long, conflicts_with_all = ["from", "to"])]
+        clips: Option<String>,
+        /// 9:16 | 1:1 | 4:5 | 16:9
+        #[arg(long, default_value = "9:16")]
+        format: String,
+        /// crop (fill the frame) | fit (whole picture, captions underneath)
+        #[arg(long, default_value = "crop")]
+        fit: String,
+        /// what to keep in frame when cropping: auto (follow the people, shot by shot) or a fixed
+        /// point, 0 = left edge .. 0.5 = centre .. 1 = right edge
+        #[arg(long, default_value = "auto")]
+        focus: String,
+        /// hook text at the top for the first seconds
+        #[arg(long)]
+        title: Option<String>,
+        /// caption look: tiktok | karaoke-box | bounce | minimal | neon | highlighter | subtitle | word-pop-big
+        #[arg(long)]
+        preset: Option<String>,
+        /// active word colour
+        #[arg(long)]
+        highlight: Option<String>,
+        /// captions position as a fraction of the height
+        #[arg(long)]
+        position: Option<f64>,
+        /// also remove filler words (uh, ehm, ...)
+        #[arg(long)]
+        fillers: bool,
+        /// also remove repeated words and stutters
+        #[arg(long)]
+        repeats: bool,
+        /// keep silences as they are
+        #[arg(long)]
+        no_silence: bool,
+        /// pause left in place of a removed silence (seconds)
+        #[arg(long, default_value_t = 0.2)]
+        keep: f64,
+        /// existing transcript (.json/.srt/.vtt) instead of transcribing
+        #[arg(long)]
+        transcript: Option<PathBuf>,
+        #[command(flatten)]
+        w: WhisperArgs,
+        #[command(flatten)]
+        r: RenderArgs,
+    },
     /// Remove silences, filler words and repeats from audio or video, edit it as text (--edit/--apply),
     /// or export the cut as a Final Cut Pro / Premiere / Resolve timeline (--export)
     Cut {
@@ -537,6 +594,45 @@ fn run(cli: Cli) -> Result<()> {
             make::podcast(&audio, out, cover, title, subtitle, format, from, to, accent, style, transcript, &w, &r)
         }
         Cmd::Cut { input, out, c, transcript, w, r } => make::cut(&input, out, &c, transcript, &w, &r),
+        Cmd::Reel {
+            video,
+            out,
+            from,
+            to,
+            clips,
+            format,
+            fit,
+            focus,
+            title,
+            preset,
+            highlight,
+            position,
+            fillers,
+            repeats,
+            no_silence,
+            keep,
+            transcript,
+            w,
+            r,
+        } => {
+            let windows = match clips {
+                Some(c) => c
+                    .split(',')
+                    .map(|part| {
+                        let (a, b) = part.split_once('-').ok_or_else(|| anyhow!("bad clip '{part}': use start-end, e.g. 1:12-1:40"))?;
+                        Ok((parse_time(a).map_err(|e| anyhow!(e))?, parse_time(b).map_err(|e| anyhow!(e))?))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+                None if from.is_some() || to.is_some() => vec![(from.unwrap_or(0.0), to.unwrap_or(f64::INFINITY))],
+                None => vec![],
+            };
+            let focus = match focus.as_str() {
+                "auto" => None,
+                f => Some(f.parse::<f64>().map_err(|_| anyhow!("--focus: auto or a number 0..1"))?),
+            };
+            let a = make::ReelArgs { windows, format, fit, focus, title, preset, highlight, position, fillers, repeats, no_silence, keep };
+            make::reel(&video, out, &a, transcript, &w, &r)
+        }
         Cmd::Transcribe { inputs, out, outdir, words_only, segments_only, w } => {
             make::transcribe(&inputs, out, outdir, words_only, segments_only, &w)
         }

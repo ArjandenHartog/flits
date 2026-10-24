@@ -381,3 +381,115 @@ pub fn transcribe(
     }
     Ok(())
 }
+
+pub struct ReelArgs {
+    pub windows: Vec<(f64, f64)>,
+    pub format: String,
+    pub fit: String,
+    /// None: find the people in every shot
+    pub focus: Option<f64>,
+    pub title: Option<String>,
+    pub preset: Option<String>,
+    pub highlight: Option<String>,
+    pub position: Option<f64>,
+    pub fillers: bool,
+    pub repeats: bool,
+    pub no_silence: bool,
+    pub keep: f64,
+}
+
+/// Who is where, shot by shot, over the parts of the footage the reel uses.
+fn auto_framings(
+    video: &Path,
+    info: &media::MediaInfo,
+    format: &str,
+    windows: &[(f64, f64)],
+    ranges: &[(f64, f64)],
+) -> Result<Vec<media::reframe::Framing>> {
+    let t = Instant::now();
+    let (cw, ch) = templates::canvas_for(format)?;
+    let visible = templates::reel::visible_fraction((cw as f64, ch as f64), (info.width as f64, info.height as f64));
+    let mut all = vec![];
+    if visible < 1.0 {
+        for &(wa, wb) in windows {
+            // just the span the kept ranges cover inside this window
+            let inside: Vec<&(f64, f64)> = ranges.iter().filter(|r| r.0 >= wa - 1e-6 && r.1 <= wb + 1e-6).collect();
+            if let (Some(first), Some(last)) = (inside.first(), inside.last()) {
+                all.extend(media::reframe::analyse(video, first.0, last.1, info.fps, visible)?);
+            }
+        }
+        all.sort_by(|p, q| p.start.total_cmp(&q.start));
+    }
+    eprintln!("flits: reframed {} shot(s) in {:.1}s", all.len(), t.elapsed().as_secs_f64());
+    Ok(all)
+}
+
+/// Raw footage -> reel: one transcript, one cut plan, one render of just the reel's length.
+pub fn reel(video: &Path, out: Option<PathBuf>, a: &ReelArgs, transcript: Option<PathBuf>, w: &WhisperArgs, r: &RenderArgs) -> Result<()> {
+    let t0 = Instant::now();
+    let info = media::probe(video)?;
+    if !info.has_video || !info.has_audio {
+        bail!("{} needs both video and sound for a reel", video.display());
+    }
+    if let Some(p) = &a.preset {
+        flits::scene::presets::caption_preset(p, (1080.0, 1920.0), None)?; // fail before transcribing
+    }
+    let out = out.unwrap_or_else(|| with_suffix(video, "-reel.mp4"));
+    if out == video {
+        bail!("output would overwrite the input");
+    }
+    let mut wo = w.opts()?;
+    if (a.fillers || a.repeats) && wo.initial_prompt.is_none() {
+        wo.initial_prompt = fillers::verbatim_prompt(&wo.language).map(str::to_string);
+    }
+    let tr_path = transcribe::ensure(video, transcript.as_deref(), &wo)?;
+    let tr = load_transcript_full(&tr_path)?;
+    let words = tr.words();
+    let lang = if w.lang != "auto" { Some(w.lang.as_str()) } else { tr.language.as_deref() };
+    let o = cut::CutOpts {
+        threshold_db: -35.0,
+        min_silence: 0.6,
+        keep: a.keep,
+        silences: !a.no_silence,
+        fillers: if a.fillers { fillers::for_language(lang) } else { vec![] },
+        repeats: a.repeats,
+    };
+    let windows = if a.windows.is_empty() { vec![(0.0, info.duration)] } else { a.windows.clone() };
+    let ranges = templates::reel::within(&cut::plan(video, info.duration, &o, &words, &[])?, &windows);
+    let kept: f64 = ranges.iter().map(|(s, e)| e - s).sum();
+    let chosen: f64 = windows.iter().map(|(s, e)| e.min(info.duration) - s).sum();
+    eprintln!("flits: reel of {} from {} of footage ({} cuts)", fmt_ts(kept), fmt_ts(chosen), ranges.len().saturating_sub(1));
+
+    // next to the output: the written scene refers to them
+    let audio = with_suffix(&out, ".audio.m4a");
+    let words_path = with_suffix(&out, ".words.json");
+    // the soundtrack and the reframing analysis run side by side
+    let (cut_audio, framings) = std::thread::scope(|s| {
+        let audio_job = s.spawn(|| cut::cut_audio(video, &ranges, &audio));
+        let framings = match a.focus {
+            Some(_) => Ok(None),
+            None => auto_framings(video, &info, &a.format, &windows, &ranges).map(Some),
+        };
+        (audio_job.join().map_err(|_| anyhow!("audio thread panicked")).and_then(|r| r), framings)
+    });
+    cut_audio?;
+    let framings: Option<Vec<media::reframe::Framing>> = framings?;
+    templates::reel::write_words(&templates::reel::remap_words(&words, &ranges), tr.language.as_deref(), &words_path)?;
+    let scene = templates::reel::reel(&templates::reel::ReelOpts {
+        video,
+        ranges: &ranges,
+        audio: &audio,
+        words: &words_path,
+        format: a.format.clone(),
+        focus: a.focus.unwrap_or(0.5),
+        framings: framings.as_deref(),
+        fit: a.fit.clone(),
+        title: a.title.clone(),
+        preset: a.preset.clone(),
+        highlight: a.highlight.clone(),
+        position: a.position,
+    })?;
+    write_scene_and_render(scene, &out, r)?;
+    eprintln!("flits: footage to reel in {:.1}s", t0.elapsed().as_secs_f64());
+    Ok(())
+}
