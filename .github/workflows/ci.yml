@@ -4,6 +4,16 @@ on:
     branches: [main]
   pull_request:
 
+# a new push to the same branch/PR cancels the run that is still going
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # the `fast` profile: opt-level 3 like release, but no fat LTO / single codegen unit, which made
+  # every test binary link for minutes (Windows: 10 min for `cargo test --release`)
+  CARGO_PROFILE_FAST_INCREMENTAL: "false"
+
 jobs:
   test:
     strategy:
@@ -29,5 +39,5 @@ jobs:
         run: choco install ffmpeg -y --no-progress
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test --release
+      - run: cargo test --profile fast
       - run: node --test "bindings/typescript/test/*.test.js"
