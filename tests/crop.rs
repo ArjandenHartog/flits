@@ -38,6 +38,11 @@ fn video_crops(nodes: &[Node], out: &mut Vec<Option<(u32, u32, u32, u32)>>, plan
 /// Render `frames` (in order, as a render does) with and without cropping; the largest per-channel
 /// difference and the mean difference over all of them.
 fn compare(dir: &Path, scene: serde_json::Value, frames: impl Iterator<Item = i64> + Clone) -> (u8, f64) {
+    // with NVDEC: crop on the GPU from the first decoder on (this also checks this ffmpeg crops CUDA
+    // frames right: a picture squeezed by a crop the scaler ignores would differ everywhere)
+    if let Some(ok) = flits::media::video::gpu_crop_works() {
+        eprintln!("cropping CUDA frames works: {ok}");
+    }
     let (s, _) = Scene::from_value(scene, dir.to_path_buf()).unwrap();
     let cropped = Prepared::build(&s, 1.0).unwrap();
     let mut whole = Prepared::build(&s, 1.0).unwrap();
@@ -132,5 +137,45 @@ fn rotated_footage_is_cropped_in_place() {
         // (offsets in both directions: rounding of the texture offset can show as 1 level)
         let (max, mean) = compare(&dir, scene, 0..25);
         assert!(max <= 1 && mean < 0.01, "rotation {rot}: max {max} mean {mean}");
+    }
+}
+
+/// Frames of a clip decoded from `trim`, each by a decoder started at that frame (as at every chunk
+/// start) or by one decoder running through them all.
+fn frames(dir: &Path, clip: &Path, trim: f64, fresh: bool) -> Vec<Vec<u8>> {
+    let scene = json!({"width": 1280, "height": 720, "fps": 25, "duration": 1,
+        "layers": [{"type": "video", "src": clip, "trim": trim, "fit": "fill"}]});
+    let (s, _) = Scene::from_value(scene, dir.to_path_buf()).unwrap();
+    let p = Prepared::build(&s, 1.0).unwrap();
+    let mut r = FrameRenderer::new(&p, None).unwrap();
+    (0..8)
+        .map(|f| {
+            if fresh {
+                r = FrameRenderer::new(&p, None).unwrap();
+            }
+            r.rgba(&p, f).unwrap().data().to_vec()
+        })
+        .collect()
+}
+
+#[test]
+fn a_decoder_started_between_two_frames_starts_on_the_right_one() {
+    if !common::has_ffmpeg() {
+        return;
+    }
+    let dir = common::tmp("decode-start");
+    let clip = wide_clip(&dir);
+    // 25 fps footage: from 0.48 every output frame lands on a source frame
+    let want = frames(&dir, &clip, 0.48, false);
+    for (trim, fresh) in [(0.48, true), (0.49, true), (0.49, false), (0.5, true), (0.5, false)] {
+        // from 0.49 the nearest source frames are the same ones; from 0.5 each output frame lies
+        // exactly between two, and a decoder started there must pick as one running through it
+        // does, without repeating its first frame
+        let got = frames(&dir, &clip, trim, fresh);
+        // the closest reference frame (hardware and software decoders may both have been used)
+        let dist = |a: &[u8], b: &[u8]| a.iter().zip(b).map(|(x, y)| x.abs_diff(*y) as u64).sum::<u64>();
+        let which: Vec<usize> = got.iter().map(|g| (0..want.len()).min_by_key(|&i| dist(g, &want[i])).unwrap()).collect();
+        let expect: Vec<usize> = (0..want.len()).collect();
+        assert_eq!(which, expect, "trim {trim}, fresh decoders {fresh}: source frames shown (by index from 0.48)");
     }
 }

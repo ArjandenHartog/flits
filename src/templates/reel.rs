@@ -141,25 +141,40 @@ pub fn visible_fraction(canvas: (f64, f64), source: (f64, f64)) -> f64 {
     ((canvas.0 / canvas.1) / (source.0 / source.1.max(1.0))).min(1.0)
 }
 
-/// The framings of a clip playing source `[a, b)`: `(offset into the clip, panX)` per part, the
-/// framing of the shot it starts in, then one part per later cut inside the clip. Parts start on
-/// whole frames from the clip start, so playing them one after the other is seamless; each is its
-/// own layer with a constant framing, which lets the decoder cut out just the part that shows.
-fn clip_parts(framings: &[Framing], a: f64, b: f64, fps: f64, pan_of: impl Fn(f64) -> f64) -> Vec<(f64, f64)> {
+/// One layer of a clip: from `at` seconds into the clip (in the reel), source from `a + trim`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Part {
+    at: f64,
+    trim: f64,
+    pan: f64,
+}
+
+/// The framings of a clip playing source `[a, b)` from `start` in the reel: the framing of the
+/// shot it starts in, then one part per later cut inside the clip; each part is its own layer with
+/// a constant framing, which lets the decoder cut out just the part that shows.
+///
+/// The reel's frames are what matters: the clip starts wherever the clips before it end (rarely on
+/// a frame), and its frame `n` shows source `a + n / fps` from the frame nearest its start. A part
+/// starts just before the reel frame that first shows the new shot, with its source on that
+/// frame's, so the parts play as the one clip would, each frame with its own shot's framing.
+fn clip_parts(framings: &[Framing], (a, b): (f64, f64), start: f64, fps: f64, pan_of: impl Fn(f64) -> f64) -> Vec<Part> {
     let at = |t: f64| framings.iter().rev().find(|f| f.start <= t + 1e-6).or(framings.first()).map(|f| f.x).unwrap_or(0.5);
-    let mut parts = vec![(0.0, pan_of(at(a)))];
+    let first = (start * fps).round();
+    let mut parts = vec![Part { at: 0.0, trim: 0.0, pan: pan_of(at(a)) }];
     for f in framings.iter().filter(|f| f.start > a + 1e-6 && f.start < b) {
-        // the first frame at or after the cut
-        let off = ((f.start - a) * fps - 1e-6).ceil() / fps;
-        let pan = pan_of(f.x);
+        // the clip's first frame showing source at or after the cut, and that frame in the reel
+        let n = ((f.start - a) * fps - 1e-6).ceil();
+        let reel_frame = first + n;
+        // a hair before that frame: the layer starts on it, whatever the rounding of the sums
+        let part = Part { at: (reel_frame - 1e-3) / fps - start, trim: n / fps, pan: pan_of(f.x) };
         let last = parts.last_mut().unwrap();
-        if (last.1 - pan).abs() < 1e-9 || off >= b - a {
+        if (last.pan - part.pan).abs() < 1e-9 || part.at >= b - a {
             continue;
         }
-        if off <= last.0 {
-            last.1 = pan; // two cuts within one frame: the later framing wins
+        if part.at <= last.at {
+            last.pan = part.pan; // two cuts within one frame: the later framing wins
         } else {
-            parts.push((off, pan));
+            parts.push(part);
         }
     }
     parts
@@ -303,33 +318,31 @@ pub fn reel(o: &ReelOpts) -> Result<Value> {
     let pan_of = |x: f64| if crop { pan_for(x, visible) } else { 0.0 };
     // `fit`: the whole picture across the width, in the upper part; captions underneath
     let (vy, vh) = if crop { (hf / 2.0, hf) } else { (hf * 0.42, wf * info.height as f64 / info.width.max(1) as f64) };
+    // where each clip starts in the reel: they play one after the other
+    let starts: Vec<f64> = o.ranges.iter().scan(0.0, |t, (a, b)| Some(std::mem::replace(t, *t + (b - a)))).collect();
     let clips: Vec<Value> = o
         .ranges
         .iter()
         .enumerate()
         .flat_map(|(i, &(a, b))| {
             let parts = match o.framings {
-                Some(f) => clip_parts(f, a, b, fps, pan_of),
-                None => vec![(0.0, pan_of(o.focus))],
+                Some(f) => clip_parts(f, (a, b), starts[i], fps, pan_of),
+                None => vec![Part { at: 0.0, trim: 0.0, pan: pan_of(o.focus) }],
             };
             let zoom = clip_zoom(o, crop, i);
-            let ends: Vec<f64> = parts.iter().skip(1).map(|p| p.0).chain([b - a]).collect();
+            let ends: Vec<f64> = parts.iter().skip(1).map(|p| p.at).chain([b - a]).collect();
             parts
                 .iter()
                 .zip(ends)
-                .map(|(&(off, pan), end)| {
-                    json!({"type": "video", "src": src, "trim": a + off, "duration": end - off, "volume": 0,
-                           "fit": "cover", "panX": pan, "zoom": zoom, "width": wf, "height": vh})
+                .map(|(p, end)| {
+                    json!({"type": "video", "src": src, "trim": a + p.trim, "duration": end - p.at, "volume": 0,
+                           "fit": "cover", "panX": p.pan, "zoom": zoom, "width": wf, "height": vh})
                 })
                 .collect::<Vec<_>>()
         })
         .collect();
     // the end card's still is framed like the last clip, so the cut to the card reads as a focus pull
-    let end_pan = match clips.last().map(|c| &c["panX"]) {
-        Some(Value::Array(keys)) => keys.last().and_then(|k| k[1].as_f64()).unwrap_or(0.0),
-        Some(v) => v.as_f64().unwrap_or(0.0),
-        None => 0.0,
-    };
+    let end_pan = clips.last().and_then(|c| c["panX"].as_f64()).unwrap_or(0.0);
     let mut layers = vec![];
     if let (false, Some(b)) = (crop, o.backdrop) {
         // the same picture, blurred and dimmed, fills the frame behind the fitted video
@@ -568,24 +581,58 @@ mod tests {
         assert_ne!(caption_y(&f, &[(0.0, 2.0)], &[1.1], 1.0, 1000.0, 0.72, 0.06, 0.0), json!(720.0));
     }
 
+    /// Play a clip's parts as a render does (a part draws frame `f` from its start on; it shows
+    /// source `a + trim + (f - round(part start * fps)) / fps`): (source, panX) per frame.
+    fn play(parts: &[Part], (a, b): (f64, f64), start: f64, fps: f64) -> Vec<(f64, f64)> {
+        let ends: Vec<f64> = parts.iter().skip(1).map(|p| p.at).chain([b - a]).collect();
+        // part starts summed the way a sequence group does
+        let mut t = start;
+        let starts: Vec<f64> = parts
+            .iter()
+            .zip(&ends)
+            .map(|(p, e)| {
+                let s = t;
+                t += e - p.at;
+                s
+            })
+            .collect();
+        let mut out = vec![];
+        let mut f = (start * fps).floor() as i64;
+        while (f as f64 / fps) < start + (b - a) - 1e-9 {
+            let ft = f as f64 / fps;
+            if let Some(k) = (0..parts.len()).rev().find(|&k| ft >= starts[k]) {
+                let lf = f - (starts[k] * fps).round() as i64;
+                out.push((a + parts[k].trim + lf as f64 / fps, parts[k].pan));
+            }
+            f += 1;
+        }
+        out
+    }
+
     #[test]
-    fn clips_split_on_whole_frames_at_framing_changes() {
+    fn clips_split_where_the_shots_change_on_the_reel_frames() {
         let f = |start: f64, x: f64| Framing { start, x, face: true, band: None };
-        let shots = [f(0.0, 0.3), f(12.33, 0.7), f(15.0, 0.7), f(18.0, 0.5), f(30.0, 0.2)];
+        let shots = [f(0.0, 0.3), f(10.05, 0.9), f(12.33, 0.7), f(15.0, 0.7), f(18.0, 0.5), f(30.0, 0.2)];
         let pan = |x: f64| x * 2.0 - 1.0;
-        // clip 10..20 at 25 fps: cuts at 12.33 (on the next whole frame, 2.36 s in) and 18; the
-        // shot at 15 keeps the framing, the one at 30 lies past the clip
-        let p = clip_parts(&shots, 10.0, 20.0, 25.0, pan);
-        assert_eq!(p.len(), 3);
-        assert!((p[0].0 - 0.0).abs() < 1e-9 && (p[0].1 - -0.4).abs() < 1e-9);
-        assert!((p[1].0 - 2.36).abs() < 1e-9 && (p[1].1 - 0.4).abs() < 1e-9);
-        assert!((p[2].0 - 8.0).abs() < 1e-9 && p[2].1.abs() < 1e-9);
-        // every part starts on a whole frame from the clip start
-        for (off, _) in &p {
-            assert!(((off * 25.0) - (off * 25.0).round()).abs() < 1e-6);
+        let shot_pan = |t: f64| pan(shots.iter().rev().find(|s| s.start <= t + 1e-6).unwrap().x);
+        let fps = 25.0;
+        // clips starting on a frame and between frames (the clips before end anywhere)
+        for start in [0.0, 0.01, 0.013, 0.02, 0.025, 0.031, 3.217, 41.99] {
+            let parts = clip_parts(&shots, (10.0, 20.0), start, fps, pan);
+            // the shot at 15 keeps the framing, the one at 30 lies past the clip
+            assert_eq!(parts.len(), 4, "{start}: {parts:?}");
+            let frames = play(&parts, (10.0, 20.0), start, fps);
+            for w in frames.windows(2) {
+                // seamless: every frame the next source frame
+                assert!((w[1].0 - w[0].0 - 1.0 / fps).abs() < 1e-6, "{start}: {w:?}");
+            }
+            for &(src, p) in &frames {
+                // and every frame framed for the shot it shows
+                assert!((p - shot_pan(src)).abs() < 1e-9, "clip at {start}: source {src:.3} framed {p}, its shot {}", shot_pan(src));
+            }
         }
         // a clip inside one shot is one part
-        assert_eq!(clip_parts(&shots, 19.0, 25.0, 25.0, pan).len(), 1);
+        assert_eq!(clip_parts(&shots, (19.0, 25.0), 1.0, fps, pan).len(), 1);
     }
 
     #[test]
