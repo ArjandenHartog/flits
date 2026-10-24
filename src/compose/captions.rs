@@ -326,6 +326,11 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
         .map(|(t, k, c)| Ok(((t.clone(), *k), Arc::new(logical(render_word(&style, t, *c, None)?, o.q)))))
         .collect::<Result<_>>()?;
     let sprite = |t: &str, c: Rgba| sprites.get(&(t.to_string(), color_key(c))).cloned();
+    let default_scale = match o.kind {
+        CapKind::Pop => 1.12,
+        _ => 1.0,
+    };
+    let active_scale = o.active_scale.unwrap_or(default_scale);
     // 3. layout each chunk centred in the layer box
     let mut groups = Vec::with_capacity(chunks.len());
     for (ci, (c, cols)) in chunks.iter().zip(&colored).enumerate() {
@@ -334,6 +339,7 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
         let gx = (o.box_w - lay.width) / 2.0;
         let gy = (o.box_h - lay.height) / 2.0;
         let lh = style.line_px();
+        let centres = spread_for_scale(&lay, active_scale);
         let next_start = chunks.get(ci + 1).map(|n| n[0].start).unwrap_or(f64::INFINITY);
         let start = c[0].start;
         // keep the chunk up until the next one starts if the gap is short
@@ -353,7 +359,7 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
                 CapWord {
                     start: w.start,
                     end: wend.max(w.end.min(end)),
-                    cx: (gx + pw.x + pw.w / 2.0) / o.q,
+                    cx: (gx + centres[i]) / o.q,
                     cy: (gy + pw.y + lh / 2.0) / o.q,
                     normal: sprite(&w.text, *nc).unwrap_or_else(|| hi.clone()),
                     hi,
@@ -377,16 +383,12 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
         };
         groups.push(CapGroup { start, end, cx: o.box_w / 2.0 / o.q, cy: o.box_h / 2.0 / o.q, words, boxes });
     }
-    let default_scale = match o.kind {
-        CapKind::Pop => 1.12,
-        _ => 1.0,
-    };
     Ok(Captions {
         groups,
         kind: o.kind,
         hi_bg: o.highlight_bg.map(|c| (c, o.highlight_box)),
         bg: chunk_bg.map(|(c, _, _, r, _)| (c, r / o.q)),
-        active_scale: o.active_scale.unwrap_or(default_scale),
+        active_scale,
         size: style.size / o.q,
         line: style.line_px() / o.q,
         box_w: o.box_w / o.q,
@@ -421,6 +423,43 @@ fn solid<'a>(color: Rgba, ts: Transform, shape: [f32; 4], radius: f32, opacity: 
 
 fn lerp(a: f32, b: f32, k: f32) -> f32 {
     a + (b - a) * k
+}
+
+/// Word centres (x in the chunk's layout) with room for the active word to grow: an active word is
+/// scaled about its centre, so neighbours get `(scale - 1) / 2` of the wider word's width extra
+/// space; each line is centred again. Without growth, the layout's own positions.
+fn spread_for_scale(lay: &crate::text::TextLayout, scale: f32) -> Vec<f32> {
+    let grow = (scale - 1.0).max(0.0);
+    let mut out: Vec<f32> = lay.words.iter().map(|w| w.x + w.w / 2.0).collect();
+    if grow == 0.0 {
+        return out;
+    }
+    let mut i = 0;
+    while i < lay.words.len() {
+        let line = lay.words[i].line;
+        let mut j = i;
+        while j < lay.words.len() && lay.words[j].line == line {
+            j += 1;
+        }
+        let ws = &lay.words[i..j];
+        // place the line's words left to right with the extra room, then centre it where it was
+        let mut x = ws[0].x;
+        let mut xs = vec![];
+        for (k, w) in ws.iter().enumerate() {
+            if k > 0 {
+                let gap = w.x - (ws[k - 1].x + ws[k - 1].w);
+                x += gap + grow * ws[k - 1].w.max(w.w) / 2.0;
+            }
+            xs.push(x + w.w / 2.0);
+            x += w.w;
+        }
+        let (old_mid, new_mid) = ((ws[0].x + ws[ws.len() - 1].x + ws[ws.len() - 1].w) / 2.0, (ws[0].x + x) / 2.0);
+        for (k, c) in xs.into_iter().enumerate() {
+            out[i + k] = c - (new_mid - old_mid);
+        }
+        i = j;
+    }
+    out
 }
 
 impl Captions {
@@ -619,6 +658,29 @@ mod tests {
                 speaker: Some(if i >= speaker_from { "B" } else { "A" }.into()),
             })
             .collect()
+    }
+
+    #[test]
+    fn growing_words_keep_their_space() {
+        use crate::text::{PlacedWord, TextLayout};
+        let w = |text: &str, line: usize, x: f32, w: f32| PlacedWord { text: text.into(), line, x, y: 0.0, w };
+        // "het vertrouwen" on one line, a third word on the next; 20 px spaces
+        let lay = TextLayout {
+            words: vec![w("het", 0, 0.0, 60.0), w("vertrouwen", 0, 80.0, 200.0), w("x", 1, 100.0, 40.0)],
+            lines: vec![],
+            width: 280.0,
+            height: 0.0,
+        };
+        // no growth: the layout's own centres
+        assert_eq!(spread_for_scale(&lay, 1.0), vec![30.0, 180.0, 120.0]);
+        let c = spread_for_scale(&lay, 1.12);
+        // the gap grows by 12% of half the wider word (12 px), and the line stays centred
+        let (left, right) = (c[0] + 30.0, c[1] - 100.0);
+        assert!((right - left - 32.0).abs() < 1e-4, "gap {}", right - left);
+        assert!(((c[0] - 30.0 + c[1] + 100.0) / 2.0 - 140.0).abs() < 1e-4);
+        // a scaled "vertrouwen" (1.12 x 200 about its centre) stays clear of "het"
+        assert!(c[1] - 112.0 > c[0] + 30.0);
+        assert_eq!(c[2], 120.0);
     }
 
     #[test]

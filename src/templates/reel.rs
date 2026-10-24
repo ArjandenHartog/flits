@@ -141,19 +141,28 @@ pub fn visible_fraction(canvas: (f64, f64), source: (f64, f64)) -> f64 {
     ((canvas.0 / canvas.1) / (source.0 / source.1.max(1.0))).min(1.0)
 }
 
-/// `panX` for a clip playing source `[a, b)`: the framing of the shot it starts in, then a jump
-/// (hold keyframe) on every later cut inside the clip.
-fn clip_pan(framings: &[Framing], a: f64, b: f64, pan_of: impl Fn(f64) -> f64) -> Value {
+/// The framings of a clip playing source `[a, b)`: `(offset into the clip, panX)` per part, the
+/// framing of the shot it starts in, then one part per later cut inside the clip. Parts start on
+/// whole frames from the clip start, so playing them one after the other is seamless; each is its
+/// own layer with a constant framing, which lets the decoder cut out just the part that shows.
+fn clip_parts(framings: &[Framing], a: f64, b: f64, fps: f64, pan_of: impl Fn(f64) -> f64) -> Vec<(f64, f64)> {
     let at = |t: f64| framings.iter().rev().find(|f| f.start <= t + 1e-6).or(framings.first()).map(|f| f.x).unwrap_or(0.5);
-    let mut keys = vec![json!([0.0, pan_of(at(a))])];
+    let mut parts = vec![(0.0, pan_of(at(a)))];
     for f in framings.iter().filter(|f| f.start > a + 1e-6 && f.start < b) {
-        keys.push(json!([f.start - a, pan_of(f.x), "hold"]));
+        // the first frame at or after the cut
+        let off = ((f.start - a) * fps - 1e-6).ceil() / fps;
+        let pan = pan_of(f.x);
+        let last = parts.last_mut().unwrap();
+        if (last.1 - pan).abs() < 1e-9 || off >= b - a {
+            continue;
+        }
+        if off <= last.0 {
+            last.1 = pan; // two cuts within one frame: the later framing wins
+        } else {
+            parts.push((off, pan));
+        }
     }
-    if keys.len() == 1 {
-        keys[0][1].clone()
-    } else {
-        Value::Array(keys)
-    }
+    parts
 }
 
 /// Reels: the app UI covers about the top 12% and the bottom 15% of the picture.
@@ -298,13 +307,21 @@ pub fn reel(o: &ReelOpts) -> Result<Value> {
         .ranges
         .iter()
         .enumerate()
-        .map(|(i, (a, b))| {
-            let pan = match o.framings {
-                Some(f) => clip_pan(f, *a, *b, pan_of),
-                None => json!(pan_of(o.focus)),
+        .flat_map(|(i, &(a, b))| {
+            let parts = match o.framings {
+                Some(f) => clip_parts(f, a, b, fps, pan_of),
+                None => vec![(0.0, pan_of(o.focus))],
             };
-            json!({"type": "video", "src": src, "trim": a, "duration": b - a, "volume": 0,
-                   "fit": "cover", "panX": pan, "zoom": clip_zoom(o, crop, i), "width": wf, "height": vh})
+            let zoom = clip_zoom(o, crop, i);
+            let ends: Vec<f64> = parts.iter().skip(1).map(|p| p.0).chain([b - a]).collect();
+            parts
+                .iter()
+                .zip(ends)
+                .map(|(&(off, pan), end)| {
+                    json!({"type": "video", "src": src, "trim": a + off, "duration": end - off, "volume": 0,
+                           "fit": "cover", "panX": pan, "zoom": zoom, "width": wf, "height": vh})
+                })
+                .collect::<Vec<_>>()
         })
         .collect();
     // the end card's still is framed like the last clip, so the cut to the card reads as a focus pull
@@ -549,6 +566,26 @@ mod tests {
         let f = [framing(0.0, Some((0.47, 0.6)))];
         assert_eq!(caption_y(&f, &[(0.0, 2.0)], &[1.0], 1.0, 1000.0, 0.72, 0.06, 0.0), json!(720.0));
         assert_ne!(caption_y(&f, &[(0.0, 2.0)], &[1.1], 1.0, 1000.0, 0.72, 0.06, 0.0), json!(720.0));
+    }
+
+    #[test]
+    fn clips_split_on_whole_frames_at_framing_changes() {
+        let f = |start: f64, x: f64| Framing { start, x, face: true, band: None };
+        let shots = [f(0.0, 0.3), f(12.33, 0.7), f(15.0, 0.7), f(18.0, 0.5), f(30.0, 0.2)];
+        let pan = |x: f64| x * 2.0 - 1.0;
+        // clip 10..20 at 25 fps: cuts at 12.33 (on the next whole frame, 2.36 s in) and 18; the
+        // shot at 15 keeps the framing, the one at 30 lies past the clip
+        let p = clip_parts(&shots, 10.0, 20.0, 25.0, pan);
+        assert_eq!(p.len(), 3);
+        assert!((p[0].0 - 0.0).abs() < 1e-9 && (p[0].1 - -0.4).abs() < 1e-9);
+        assert!((p[1].0 - 2.36).abs() < 1e-9 && (p[1].1 - 0.4).abs() < 1e-9);
+        assert!((p[2].0 - 8.0).abs() < 1e-9 && p[2].1.abs() < 1e-9);
+        // every part starts on a whole frame from the clip start
+        for (off, _) in &p {
+            assert!(((off * 25.0) - (off * 25.0).round()).abs() < 1e-6);
+        }
+        // a clip inside one shot is one part
+        assert_eq!(clip_parts(&shots, 19.0, 25.0, 25.0, pan).len(), 1);
     }
 
     #[test]
