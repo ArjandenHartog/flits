@@ -199,6 +199,8 @@ flits slideshow photos/ --music song.mp3 --beats --title "Summer 2026" --format 
 flits reel interview.mp4 --from 1:12 --to 2:10 --fillers --title "Hook"   # raw footage -> 9:16 reel in one go:
                                               # transcribe once, cut silences/uh's, follow the faces shot by shot,
                                               # captions, hook title, one render (1 min reel from 1080p: ~30 s)
+flits reel interview.mp4 --pick               # rank the parts that work as a reel (whole sentences, a hook, a clean end)
+flits reel interview.mp4 --auto 45 --candidates 3 --logo logo.png --end "Follow for more"   # render the 3 best, end card
 flits captions clip.mp4 --preset tiktok       # burn in animated word-by-word captions; presets: tiktok, karaoke-box,
                                               # bounce, minimal, neon, highlighter, subtitle, word-pop-big
 flits podcast episode.mp3 --cover cover.jpg --title "Episode 12" --format 9:16 --from 12:30 --to 13:30
@@ -248,18 +250,20 @@ remains the authority: it also catches what a schema can't (missing files, fonts
 plus a small wrapper around the CLI to render, check and transcribe from your own code.
 
 ```ts
-import { check, render, type Scene } from "flits-video"; // npm i flits-video, or a relative import of bindings/typescript/index.js
+import { check, reel, render, type Scene } from "flits-video"; // npm i flits-video, or a relative import of bindings/typescript/index.js
 
 const scene: Scene = {
   width: 1080, height: 1920, duration: 4,
   layers: [{ type: "text", text: "Hello", size: 120, in: "pop", out: "fade 0.4" }],
 };
 const { ok, warnings, error } = await check(scene);
-await render(scene, "hello.mp4", { scale: 0.5 });  // also: still, sheet, transcribe, schema
+await render(scene, "hello.mp4", { scale: 0.5 });  // also: still, sheet, transcribe, reel, schema
+const [best] = await reel("talk.mp4", null, { pick: true });             // ranked parts: from, to, score, first, reasons
+await reel("talk.mp4", "reel.mp4", { from: best.from, to: best.to, end: "Follow for more" });
 ```
 
 **Python** ([`bindings/python`](bindings/python), `pip install flits-video`, no dependencies on 3.11+):
-`TypedDict`s for the scene format and the same wrapper (`render`, `still`, `sheet`, `check`, `transcribe`, `schema`);
+`TypedDict`s for the scene format and the same wrapper (`render`, `still`, `sheet`, `check`, `transcribe`, `reel`, `schema`);
 animatable properties may be Python callables `f(t, ctx)`, sampled per frame like in TypeScript.
 See [`examples/hello.py`](bindings/python/examples/hello.py).
 
@@ -271,6 +275,8 @@ scene = {"width": 1080, "height": 1920, "duration": 4,
 print(flits.check(scene))                     # CheckResult(ok=True, warnings=[], ...)
 flits.render(scene, "hello.mp4", scale=0.5, echo=True)
 words_json = flits.transcribe("talk.m4a", lang="en")[0]
+best = flits.reel("talk.mp4", pick=True)[0]   # ranked parts (flits.types.ReelCandidate)
+flits.reel("talk.mp4", "reel.mp4", from_=best["from"], to=best["to"], fillers=True, end="Follow for more")
 ```
 
 Both wrappers find the CLI via `$FLITS_BIN` or `PATH`. A scene object is written to a temporary file in `baseDir` /

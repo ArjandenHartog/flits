@@ -224,6 +224,60 @@ def transcribe(
     return [Path(p) for p in _lines(stdout)]
 
 
+_REEL_PATHS = ("music", "logo", "transcript", "vocab", "python")
+
+
+def reel_args(video: PathLike, out: Optional[PathLike] = None, **options: Any) -> List[str]:
+    """The `flits reel` command line `reel()` runs (without the executable); see `reel` for the options."""
+    # from_ -> --from ("from" is a Python keyword), in the order given
+    opts = {("from" if k == "from_" else k): v for k, v in options.items()}
+    args = ["reel", str(Path(video).resolve())]
+    if out is not None:
+        args += ["-o", str(Path(out).resolve())]
+    clips = opts.pop("clips", None)
+    if clips is not None:
+        if not isinstance(clips, str):
+            clips = ",".join(c if isinstance(c, str) else f"{c[0]}-{c[1]}" for c in clips)
+        args += ["--clips", clips]
+    end_logo = opts.pop("end_logo", None)
+    if end_logo is True:
+        args.append("--end-logo")
+    elif end_logo:
+        args += ["--end-logo", str(Path(end_logo).resolve())]
+    for k in _REEL_PATHS:
+        if isinstance(opts.get(k), (str, os.PathLike)):
+            opts[k] = str(Path(opts[k]).resolve())
+    args += to_args(opts)
+    if opts.get("pick") and not opts.get("json"):
+        args.append("--json")
+    return args
+
+
+def reel(
+    video: PathLike,
+    out: Optional[PathLike] = None,
+    *,
+    bin: Optional[PathLike] = None,
+    echo: bool = False,
+    **options: Any,
+) -> Any:
+    """Raw footage to a vertical reel (`flits reel`); returns the written video paths (one per candidate).
+
+    options (see flits.types.ReelOptions) are the `flits reel` flags: from_ / to ("from" is a keyword) or
+    clips ("0:40-1:05,3:10-3:32" or [(40, 65), ...]); auto (True or a target length in seconds) with
+    candidates (1..3); format, fit, focus, title, preset, highlight, position; fillers, repeats, no_silence, keep;
+    fps, no_punch; music, logo, progress, accent; the end card: end (call to action), end_logo (True = logo, or a
+    path), end_duration; transcript; whisper options (model, lang, ...) and render options (scale, quality, ...).
+
+    With pick=True nothing is rendered: returns the ranked candidates (a list of flits.types.ReelCandidate).
+    """
+    stdout = run(reel_args(video, out, **options), bin=bin, echo=echo)
+    if options.get("pick"):
+        result: Any = json.loads(stdout)
+        return result
+    return [Path(p) for p in _lines(stdout) if Path(p).suffix.lower() in (".mp4", ".mov", ".webm", ".mkv")]
+
+
 def schema(*, bin: Optional[PathLike] = None) -> Dict[str, Any]:
     """The JSON Schema of the scene format, from the installed flits."""
     result: Dict[str, Any] = json.loads(run(["schema"], bin=bin))

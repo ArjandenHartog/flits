@@ -177,8 +177,10 @@ transcript is reused), cuts silences (`--fillers`: also uh/ehm), follows the fac
 (`--focus auto`, the default), adds captions and a hook title, and renders only the reel's length:
 
 ```sh
-flits transcribe talk.mp4 --lang nl                 # first: read talk.words.txt (or .srt for times) to pick the best part
+flits reel talk.mp4 --pick                          # ranked parts: times, score, first sentence and why (transcribes once)
 flits reel talk.mp4 --from 1:12 --to 2:10 --fillers --title "Hook in a few words" --preset tiktok
+flits reel talk.mp4 --auto 45 --candidates 3        # or let it render the 3 best parts (talk-reel-1.mp4, ...)
+flits reel talk.mp4 --from 1:12 --to 2:10 --logo logo.png --end "Volg ons"   # end card: logo + call to action
 flits reel talk.mp4 --clips "0:40-1:05,3:10-3:32"   # several parts, in this order
 flits reel talk.mp4 --logo logo.png --accent "#f39200" --progress --music bed.mp3   # branded (ask for their logo/colour)
 flits still talk-reel.scene.json --at 2 --at 20 -o out/r.png   # check the framing and captions
@@ -186,7 +188,10 @@ flits still talk-reel.scene.json --at 2 --at 20 -o out/r.png   # check the frami
 
 Footage without faces (a static podcast cover, slides) is shown whole on a blurred backdrop
 automatically; `--fit fit` forces that, `--focus 0.5` forces a crop. 50/60 fps footage becomes a
-25/30 fps reel (`--fps` to override). Pick parts that stand alone: a clear first sentence (the hook), one idea, a natural end; 30-60 s. Then
+25/30 fps reel (`--fps` to override). Pick parts that stand alone: a clear first sentence (the hook), one idea, a natural end; 30-60 s.
+`--pick` ranks whole-sentence parts by exactly that (and says why); read its top few (and the transcript around
+them) and pass the best as `--from/--to`, moving a boundary by a sentence if your judgement differs. `--end` adds a
+2 s end card (blurred last frame, logo, call to action) over which the `--music` fades. Then
 review stills at a few moments (faces in frame, captions not covering faces). `talk-reel.scene.json` is a
 normal scene: tweak it (positions, preset, title) and `flits render` it again.
 

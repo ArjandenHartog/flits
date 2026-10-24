@@ -48,6 +48,10 @@ __all__ = [
     "AudioTrack",
     "Layer",
     "Scene",
+    "ReelTime",
+    "ReelOptions",
+    "ReelReason",
+    "ReelCandidate",
 ]
 
 # ------------------------------------------------------------------ values
@@ -402,3 +406,79 @@ Scene = TypedDict(
     total=False,
 )
 """A flits scene: one video described as layers on a canvas."""
+
+# ------------------------------------------------------------------ flits reel
+
+ReelTime = Union[float, str]
+"""Seconds or "mm:ss" / "h:mm:ss"."""
+
+
+class ReelOptions(TypedDict, total=False):
+    """Keyword options of `flits.reel()`: every `flits reel` flag, snake_case."""
+
+    from_: ReelTime  # start of the part to use ("from" is a Python keyword)
+    to: ReelTime  # end of the part to use
+    clips: Union[str, List[Union[str, Tuple[ReelTime, ReelTime]]]]  # "0:40-1:05,3:10-3:32" or [(40, 65), ...]
+    auto: Union[bool, float]  # pick the best part from the transcript: True (about 45 s) or a target length (15..90)
+    candidates: int  # with auto: render the N best parts that don't overlap (<out>-1.mp4, ...; 1..3)
+    pick: bool  # only rank the candidates (implies auto); reel() then returns List[ReelCandidate]
+    format: str  # "9:16" (default) | "1:1" | "4:5" | "16:9"
+    fit: Literal["crop", "fit"]
+    focus: Union[Literal["auto"], float]  # follow the people (default) or a fixed point 0 (left) .. 1 (right)
+    title: str  # hook text at the top for the first seconds
+    preset: CaptionPreset
+    highlight: Color  # active word colour
+    position: float  # captions position as a fraction of the height
+    fillers: bool  # also remove filler words
+    repeats: bool  # also remove repeated words and stutters
+    no_silence: bool  # keep silences as they are
+    keep: float  # pause left in place of a removed silence (default 0.2)
+    fps: float
+    no_punch: bool  # don't punch in on jump cuts
+    music: str  # ducked under the voice, looped; carries on and fades out over the end card
+    logo: str  # png/svg, top right (and on the end card)
+    progress: bool  # a thin progress bar along the bottom
+    accent: Color  # progress bar, active caption word, end card rule
+    end: str  # end card with this call to action, on a blurred still of the last frame
+    end_logo: Union[bool, str]  # end card with a logo: True = the logo, or a path
+    end_duration: float  # end card length in seconds (default 2)
+    transcript: str  # existing transcript instead of transcribing
+    model: str
+    lang: str
+    device: Literal["auto", "cuda", "cpu"]
+    python: str
+    remote: str  # GPU server URL for transcription, or "off"
+    initial_prompt: str
+    vocab: str
+    diarize: bool
+    speakers: int
+    workers: int
+    encoder: Literal["auto", "nvenc", "qsv", "vaapi", "cpu", "null"]
+    codec: Literal["h264", "hevc", "av1"]
+    speed: Literal["fast", "balanced", "quality"]
+    quality: int
+    scale: float
+    gpu: Literal["auto", "gpu", "cpu"]
+    keep_temp: bool
+    quiet: bool
+
+
+class ReelReason(TypedDict):
+    points: float
+    why: str
+
+
+ReelCandidate = TypedDict(
+    "ReelCandidate",
+    {
+        "rank": int,
+        "from": float,  # source seconds: pass them back as from_/to
+        "to": float,
+        "length": float,  # estimated reel length (long pauses cut)
+        "score": float,
+        "first": str,  # the opening sentence
+        "last": str,  # the last sentence
+        "reasons": List[ReelReason],  # largest effect first
+    },
+)
+"""A part `flits.reel(..., pick=True)` proposes, best first."""

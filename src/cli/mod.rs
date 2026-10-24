@@ -103,6 +103,34 @@ pub struct WhisperArgs {
     pub speakers: Option<u32>,
 }
 
+/// `flits reel`: picking the part automatically and the end card.
+#[derive(Args, Clone)]
+pub struct ReelExtra {
+    /// pick the best part from the transcript: whole sentences, about SECONDS long (default 45;
+    /// 15..90), favouring a strong first sentence and a conclusive end
+    #[arg(long, value_name = "SECONDS", num_args = 0..=1, default_missing_value = "45", conflicts_with_all = ["from", "to", "clips"])]
+    pub auto: Option<f64>,
+    /// with --auto: render the N best parts that don't overlap (<out>-1.mp4, ...; at most 3)
+    #[arg(long, default_value_t = 1)]
+    pub candidates: usize,
+    /// only print the ranked candidates (times, score, first sentence and why) to choose from;
+    /// implies --auto
+    #[arg(long, visible_alias = "dry-run", conflicts_with_all = ["from", "to", "clips"])]
+    pub pick: bool,
+    /// with --pick: print the candidates as JSON
+    #[arg(long, requires = "pick")]
+    pub json: bool,
+    /// end card after the last clip with this call to action ("Volg ons"), on a blurred still
+    #[arg(long, value_name = "TEXT")]
+    pub end: Option<String>,
+    /// end card with a logo (default: the --logo); combines with --end
+    #[arg(long, value_name = "PATH", num_args = 0..=1, default_missing_value = "")]
+    pub end_logo: Option<PathBuf>,
+    /// end card length in seconds
+    #[arg(long, default_value_t = 2.0)]
+    pub end_duration: f64,
+}
+
 impl WhisperArgs {
     pub fn opts(&self) -> Result<transcribe::TranscribeOpts> {
         Ok(transcribe::TranscribeOpts {
@@ -390,6 +418,8 @@ enum Cmd {
         /// several parts, played in this order: "1:12-1:40,2:05-2:31"
         #[arg(long, conflicts_with_all = ["from", "to"])]
         clips: Option<String>,
+        #[command(flatten)]
+        extra: Box<ReelExtra>,
         /// 9:16 | 1:1 | 4:5 | 16:9
         #[arg(long, default_value = "9:16")]
         format: String,
@@ -658,6 +688,7 @@ fn run(cli: Cli) -> Result<()> {
             from,
             to,
             clips,
+            extra,
             format,
             fit,
             focus,
@@ -694,6 +725,7 @@ fn run(cli: Cli) -> Result<()> {
                 "auto" => None,
                 f => Some(f.parse::<f64>().map_err(|_| anyhow!("--focus: auto or a number 0..1"))?),
             };
+            let ReelExtra { auto, candidates, pick, json, end, end_logo, end_duration } = *extra;
             let a = make::ReelArgs {
                 windows,
                 format,
@@ -713,8 +745,16 @@ fn run(cli: Cli) -> Result<()> {
                 logo,
                 progress,
                 accent,
+                end_text: end,
+                end_logo,
+                end_duration,
             };
-            make::reel(&video, out, &a, transcript, &w, &r)
+            if auto.is_some() || pick {
+                let auto = make::AutoArgs { target: auto.unwrap_or(45.0), candidates, pick, json };
+                make::reel_auto(&video, out, &a, &auto, transcript, &w, &r)
+            } else {
+                make::reel(&video, out, &a, transcript, &w, &r)
+            }
         }
         Cmd::Transcribe { inputs, out, outdir, words_only, segments_only, w } => {
             make::transcribe(&inputs, out, outdir, words_only, segments_only, &w)
