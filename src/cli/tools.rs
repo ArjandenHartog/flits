@@ -110,6 +110,9 @@ pub fn doctor() -> Result<()> {
         Ok(_) => println!("{}fonts     default font found", tick(true)),
         Err(e) => println!("{}fonts     {e}", tick(false)),
     }
+    // TypeScript / JavaScript scenes
+    let js = flits::scene::script::describe();
+    println!("{}scripts   {js}", tick(!js.starts_with("no ")));
     // transcription
     let uv = works("uv", &["--version"]);
     let nvidia = works("nvidia-smi", &["-L"]);

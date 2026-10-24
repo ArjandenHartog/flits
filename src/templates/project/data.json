@@ -1,0 +1,5 @@
+[
+  { "label": "frames per second on a laptop iGPU", "value": 86, "ring": 0.86 },
+  { "label": "pixel agreement between GPU and CPU", "value": 99.9, "decimals": 1, "suffix": "%", "ring": 0.999 },
+  { "label": "runtime dependencies besides ffmpeg", "value": 0, "ring": 0 }
+]

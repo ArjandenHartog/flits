@@ -63,8 +63,28 @@ export interface FromTo {
   comment?: string;
 }
 
-/** An animatable number: a constant, keyframes `[[time, value, ease?], ...]` or `{ from, to, ease, start, end }`. */
-export type Animated = number | Keyframe[] | FromTo;
+/** What a function-valued animatable property receives besides `t` (seconds since the layer started). */
+export interface AnimContext {
+  /** frame number since the layer started */
+  frame: number;
+  fps: number;
+  /** how long the layer lasts (seconds) */
+  duration: number;
+  /** t / duration, 0..1 */
+  progress: number;
+}
+
+/**
+ * A function of time (TypeScript/JavaScript scenes only): sampled once per frame into linear keyframes when the
+ * scene is compiled, so any maths animates exactly as computed. Needs a known layer (or group/scene) duration.
+ */
+export type AnimFn = (t: number, ctx: AnimContext) => number;
+
+/**
+ * An animatable number: a constant, keyframes `[[time, value, ease?], ...]`, `{ from, to, ease, start, end }`,
+ * or (in TypeScript/JavaScript scenes) a function `(t, ctx) => number`.
+ */
+export type Animated = number | Keyframe[] | FromTo | AnimFn;
 
 export type TransitionType =
   | "fade"

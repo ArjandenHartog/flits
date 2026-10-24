@@ -14,13 +14,32 @@ pub fn render(scene: &Path, out: Option<PathBuf>, r: &RenderArgs, remote: bool) 
         let rm = flits::remote::configured()
             .ok_or_else(|| anyhow!("no GPU server configured: run `flits remote http://host:7777 --token ...`"))?;
         rm.health().map_err(|e| anyhow!("GPU server {} not reachable: {e}", rm.url))?;
+        if flits::scene::script::is_script(scene) {
+            // the server gets plain JSON: run the script here (media paths stay relative to its folder)
+            let value = flits::scene::script::load(scene)?;
+            Scene::from_value(value.clone(), scene.parent().map(Path::to_path_buf).unwrap_or_default())?;
+            let json = scene.with_file_name(format!(".flits-{}.scene.json", std::process::id()));
+            std::fs::write(&json, serde_json::to_string(&value)?)?;
+            let res = rm.render(&json, &out, &format!("scale={}&quality={}", r.scale, r.quality));
+            let _ = std::fs::remove_file(&json);
+            return res;
+        }
         return rm.render(scene, &out, &format!("scale={}&quality={}", r.scale, r.quality));
     }
     let p = load(scene, r.scale)?;
     flits::render_prepared(&p, &out, &r.options()).map(|_| ())
 }
 
+/// Create the folder an output file goes into.
+fn out_dir(out: &Path) -> Result<()> {
+    match out.parent().filter(|p| !p.as_os_str().is_empty()) {
+        Some(d) => std::fs::create_dir_all(d).with_context(|| format!("creating {}", d.display())),
+        None => Ok(()),
+    }
+}
+
 pub fn still(scene: &Path, at: &[f64], out: &Path, scale: f64) -> Result<()> {
+    out_dir(out)?;
     let p = load(scene, scale)?;
     for f in render::stills(&p, flits::pick_gpu("auto")?, at, out)? {
         println!("{}", f.display());
@@ -29,6 +48,7 @@ pub fn still(scene: &Path, at: &[f64], out: &Path, scale: f64) -> Result<()> {
 }
 
 pub fn sheet(scene: &Path, out: &Path, count: usize, cols: usize, thumb: u32) -> Result<()> {
+    out_dir(out)?;
     let (s, _) = Scene::load(scene)?;
     let p = load(scene, thumb as f64 / s.width as f64)?;
     render::sheet(&p, flits::pick_gpu("auto")?, count, cols, out)?;
@@ -36,9 +56,9 @@ pub fn sheet(scene: &Path, out: &Path, count: usize, cols: usize, thumb: u32) ->
     Ok(())
 }
 
-pub fn new(starter: Option<String>, out: Option<PathBuf>) -> Result<()> {
+pub fn new(starter: Option<String>, out: Option<PathBuf>, ts: bool) -> Result<()> {
     let Some(name) = starter else {
-        println!("starters (flits new <name> -o scene.json):");
+        println!("starters (flits new <name> -o scene.json, or -o scene.ts for TypeScript):");
         let width = starters::STARTERS.iter().map(|(n, _)| n.len()).max().unwrap_or(0);
         for (n, d) in starters::STARTERS {
             println!("  {n:<width$}  {d}");
@@ -46,12 +66,42 @@ pub fn new(starter: Option<String>, out: Option<PathBuf>) -> Result<()> {
         return Ok(());
     };
     let scene = starters::starter(&name)?;
-    let out = out.unwrap_or_else(|| PathBuf::from(format!("{name}.json")));
+    let ts = ts || out.as_ref().is_some_and(|o| flits::scene::script::is_script(o));
+    let out = out.unwrap_or_else(|| PathBuf::from(format!("{name}.{}", if ts { "ts" } else { "json" })));
     if out.exists() {
         bail!("{} already exists", out.display());
     }
-    std::fs::write(&out, serde_json::to_string_pretty(&scene)?)?;
+    let json = serde_json::to_string_pretty(&scene)?;
+    let text = if !ts {
+        json
+    } else if templates::project::project_root(out.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."))).is_some() {
+        // inside a `flits init` project: typed through the SDK
+        format!("// flits starter '{name}'. Preview: flits preview {0}\nimport {{ defineScene }} from \"#flits\";\n\nexport default defineScene({json});\n", out.display())
+    } else {
+        format!("// flits starter '{name}'. Preview: flits preview {0} (`flits init` sets up typed TypeScript projects)\nexport default {json};\n", out.display())
+    };
+    std::fs::write(&out, text)?;
     println!("{}  (render with: flits render {})", out.display(), out.display());
+    Ok(())
+}
+
+pub fn init(dir: &Path, update: bool) -> Result<()> {
+    if update {
+        let start = if dir == Path::new("my-video") && !dir.exists() { Path::new(".") } else { dir };
+        let root = templates::project::project_root(start).ok_or_else(|| {
+            anyhow!("no flits project here (a package.json with \"#flits\" in its imports); create one with `flits init <dir>`")
+        })?;
+        templates::project::write_sdk(&root)?;
+        println!("updated {} to the SDK of flits {}", root.join("flits").display(), env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+    templates::project::init(dir)?;
+    let d = dir.display();
+    println!("created a flits TypeScript project in {d}\n");
+    println!("  flits preview {d}/src/video.ts                    live preview; edit src/video.ts and save");
+    println!("  flits render {d}/src/video.ts -o {d}/out/video.mp4");
+    println!("  cd {d} && npm install && npm run typecheck   optional: type-check with tsc\n");
+    println!("{}", flits::scene::script::describe());
     Ok(())
 }
 

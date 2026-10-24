@@ -15,11 +15,14 @@ use std::time::Instant;
     name = "flits",
     version,
     about = "Blazing-fast GPU video and podcast renderer (JSON scene -> MP4) with built-in transcription",
-    after_help = "Start with `flits new intro -o intro.json && flits render intro.json`, or `flits spec` for the scene format.\nCheck your system with `flits doctor`."
+    after_help = "Start with `flits new intro -o intro.json && flits render intro.json`, or write videos in TypeScript:\n`flits init my-video && flits preview my-video/src/video.ts`. `flits spec` documents the scene format;\n`flits doctor` checks your system."
 )]
 pub struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
+    /// props for a TypeScript/JavaScript scene that exports a function: inline JSON or a .json file
+    #[arg(long, global = true)]
+    props: Option<String>,
 }
 
 #[derive(Args, Clone)]
@@ -163,7 +166,7 @@ pub struct CutArgs {
 #[derive(Subcommand)]
 enum Cmd {
     // ------------------------------------------------ scenes
-    /// Render a scene JSON to a video
+    /// Render a scene (.json, or a .ts/.js module exporting one) to a video
     Render {
         scene: PathBuf,
         #[arg(short, long)]
@@ -215,12 +218,24 @@ enum Cmd {
     },
     /// Validate a scene and print its timeline
     Check { scene: PathBuf },
-    /// Write a ready-to-render example scene (intro, quote, stats, lower-third, countdown)
+    /// Write a ready-to-render example scene (intro, quote, stats, lower-third, countdown, ...)
     New {
         /// starter name; omit to list them
         starter: Option<String>,
         #[arg(short, long)]
         out: Option<PathBuf>,
+        /// write it as a TypeScript module (default when -o ends in .ts)
+        #[arg(long)]
+        ts: bool,
+    },
+    /// Start a video project in TypeScript: components, springs, data, live preview (like Remotion)
+    Init {
+        /// folder to create
+        #[arg(default_value = "my-video")]
+        dir: PathBuf,
+        /// only refresh the flits/ SDK of the project in the current folder (or `dir`)
+        #[arg(long)]
+        update: bool,
     },
     /// Print the scene format reference
     Spec,
@@ -454,13 +469,17 @@ pub fn main() {
 }
 
 fn run(cli: Cli) -> Result<()> {
+    if let Some(p) = &cli.props {
+        flits::scene::script::set_props(flits::scene::script::parse_props(p)?);
+    }
     match cli.cmd {
         Cmd::Render { scene, out, r, remote } => make::render(&scene, out, &r, remote),
         Cmd::Still { scene, at, out, scale } => make::still(&scene, &at, &out, scale),
         Cmd::Sheet { scene, out, count, cols, thumb } => make::sheet(&scene, &out, count, cols, thumb),
         Cmd::Preview { scene, port, scale, gpu, no_open } => tools::preview(&scene, port, scale, &gpu, !no_open),
         Cmd::Check { scene } => tools::check(&scene),
-        Cmd::New { starter, out } => make::new(starter, out),
+        Cmd::New { starter, out, ts } => make::new(starter, out, ts),
+        Cmd::Init { dir, update } => make::init(&dir, update),
         Cmd::Measure => tools::measure(),
         Cmd::Spec => {
             print!("{}", include_str!("../../SPEC.md"));

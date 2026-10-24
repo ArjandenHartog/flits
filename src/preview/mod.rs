@@ -174,7 +174,12 @@ fn stamp(files: &[PathBuf]) -> Stamp {
 /// Load and prepare the scene again; returns the files to watch.
 fn reload(st: &State) -> Vec<PathBuf> {
     let t = Instant::now();
-    let mut files = vec![st.scene.clone()];
+    let mut files = if crate::scene::script::is_script(&st.scene) {
+        // a script scene: its own folder's sources (imports, data files) too
+        crate::scene::script::sources(&st.scene)
+    } else {
+        vec![st.scene.clone()]
+    };
     let mut warnings = Vec::new();
     let res = Scene::load(&st.scene).and_then(|(s, w)| {
         warnings = w;

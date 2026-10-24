@@ -1,8 +1,9 @@
 import type { Scene } from "./scene.js";
 
 export * from "./scene.js";
+export * from "./components.js";
 
-/** A scene object, or the path of a scene .json file. */
+/** A scene object (functions allowed, see compile()), or the path of a scene file (.json, .ts, .js). */
 export type SceneInput = Scene | string;
 
 /** How the CLI is run (not passed to flits as flags). */

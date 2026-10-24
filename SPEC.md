@@ -8,6 +8,7 @@ A scene is one JSON file. flits renders it to MP4 (H.264/HEVC/AV1 + AAC):
     flits sheet scene.json -o sheet.png       # 12 frames in one image: check the whole video at a glance
     flits still scene.json --at 12.5 -o f.png # single frame(s)
     flits check scene.json                    # validate (typos are reported) + print the resolved timeline
+    flits render video.ts --props '{"t": 1}'  # TypeScript/JavaScript scenes (see below); `flits init` starts a project
     flits new                                 # list example scenes; `flits new intro -o intro.json`
     flits schema                              # JSON Schema of this format (also schema/scene.schema.json)
                                               # (intro, quote, stats, lower-third, countdown, youtube-intro, podcast-quote,
@@ -216,6 +217,29 @@ transitions apply to all children. `"clip": true` hides everything outside the g
   ]
 }
 ```
+
+## TypeScript and JavaScript scenes
+
+`flits render`, `preview`, `still`, `sheet` and `check` also take a `.ts`, `.mts`, `.tsx`, `.js`, `.mjs` or `.jsx` file.
+flits runs it with Bun, Deno or Node 22.6+ (whichever is installed; `FLITS_JS` picks one; JSX needs Bun or Deno) from
+the nearest folder with a package.json or tsconfig.json, and renders the scene its default export describes:
+
+* a scene object (exactly this format), or
+* a function `(props) => scene` (may be async), called with `--props` (inline JSON or a .json file; default `{}`).
+
+On the way, animatable properties (`x`, `y`, `scale`, `scaleX`, `scaleY`, `rotation`, `opacity`, `zoom`, `panX`,
+`panY`, `value`, `progress`, `volume`) may be functions `(t, { frame, fps, duration, progress }) => number`, with `t`
+in seconds since the layer started; they are sampled once per frame into linear keyframes, so the layer (or its group,
+or the scene) needs a known duration. `layers`/`children` may be nested arrays with `null`/`false` entries (dropped),
+and `Audio` elements among them move to `audio`. Relative media paths resolve against the scene file's folder; the
+script's `console.log` output goes to stderr. `flits preview` reloads when any source or .json file in the scene's
+folder changes.
+
+`flits init <dir>` creates a project with the SDK in `flits/` (imported as `#flits`; `flits init --update` refreshes
+it): components (`Composition`, `Text`, `Image`, `Video`, `Rect`, `Shape`, `Counter`, `Captions`, `Waveform`, `Group`,
+`Sequence`, `Series`, `At`, `Audio`, `Fragment`), `formats` (youtube, reel, square, ...), `interpolate`, `spring`,
+`easing`, `random`, `fromTo`, `keyframes`, `defineVideo`, the scene types, and a JSX runtime. `flits new <starter> -o
+x.ts` writes a starter as a TypeScript module.
 
 ## Ready-made commands
 

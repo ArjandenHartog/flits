@@ -1,0 +1,20 @@
+{
+  "name": "{{name}}",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#flits": "./flits/index.js",
+    "#flits/*": "./flits/*.js"
+  },
+  "scripts": {
+    "preview": "flits preview src/video.ts",
+    "render": "flits render src/video.ts -o out/video.mp4",
+    "sheet": "flits sheet src/video.ts -o out/sheet.png",
+    "check": "flits check src/video.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}

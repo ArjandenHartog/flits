@@ -5,6 +5,7 @@
 #   docker build -t flits .
 #   docker run --rm -v "$PWD:/work" flits render scene.json -o out.mp4
 #   docker run --rm -v "$PWD:/work" flits check scene.json
+#   docker run --rm -v "$PWD:/work" flits render src/video.ts -o out/video.mp4   # TypeScript scenes (bun inside)
 #
 # Without a GPU everything runs on the CPU (tiny-skia compositor, x264 encoder): same pixels, just slower.
 # With an NVIDIA GPU (needs the NVIDIA Container Toolkit on the host) flits uses Vulkan + NVENC:
@@ -53,6 +54,8 @@ RUN apt-get update \
 
 # uv: runs faster-whisper for transcription (Python and packages are fetched into /cache on first use)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# bun: runs TypeScript/JavaScript scenes (`flits render video.ts`, `flits init` projects)
+COPY --from=oven/bun:1-slim /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=build /out/flits /usr/local/bin/flits
 
 ENV XDG_CACHE_HOME=/cache \

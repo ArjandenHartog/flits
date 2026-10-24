@@ -17,12 +17,17 @@ jobs:
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
+      # TypeScript scenes (tests/script.rs) and the SDK's own tests
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - name: ffmpeg + fonts (linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core fonts-noto-color-emoji
       - name: ffmpeg (windows)
         if: runner.os == 'Windows'
         run: choco install ffmpeg -y --no-progress
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test --release
+      - run: node --test "bindings/typescript/test/*.test.js"

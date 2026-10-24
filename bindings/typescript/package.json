@@ -1,7 +1,7 @@
 {
   "name": "@flits/scene",
   "version": "0.1.0",
-  "description": "Types for the flits scene format and a tiny wrapper that renders scenes with the flits CLI",
+  "description": "Write flits videos in TypeScript: components, motion helpers and types for the scene format, plus a wrapper around the flits CLI",
   "license": "MIT",
   "private": false,
   "type": "module",
@@ -14,9 +14,24 @@
     },
     "./scene": {
       "types": "./scene.d.ts"
+    },
+    "./components": {
+      "types": "./components.d.ts",
+      "default": "./components.js"
+    },
+    "./jsx-runtime": {
+      "types": "./jsx-runtime.d.ts",
+      "default": "./jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "types": "./jsx-dev-runtime.d.ts",
+      "default": "./jsx-dev-runtime.js"
     }
   },
-  "files": ["index.js", "index.d.ts", "scene.d.ts"],
+  "files": ["index.js", "index.d.ts", "scene.d.ts", "compile.js", "compile.d.ts", "components.js", "components.d.ts", "jsx-runtime.js", "jsx-runtime.d.ts", "jsx-dev-runtime.js", "jsx-dev-runtime.d.ts"],
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
   "engines": {
     "node": ">=18"
   },

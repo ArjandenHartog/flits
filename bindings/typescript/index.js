@@ -1,7 +1,11 @@
-// Thin wrapper around the flits CLI: build a scene as a plain object, render it.
-// Dependency-free (Node >= 18). Types: index.d.ts and scene.d.ts.
+// The flits SDK: components and motion helpers for writing videos in TypeScript (components.js), and a
+// thin wrapper around the flits CLI to render, check and transcribe from code.
+// Dependency-free (Node >= 18, Bun, Deno). Types: index.d.ts, components.d.ts and scene.d.ts.
+
+export * from "./components.js";
 
 import { spawn } from "node:child_process";
+import { compile } from "./compile.js";
 import { randomBytes } from "node:crypto";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -67,7 +71,7 @@ export function run(args, options = {}) {
 async function withSceneFile(scene, baseDir, fn) {
   if (typeof scene === "string") return fn(scene);
   const path = join(resolve(baseDir ?? "."), `.flits-${process.pid}-${randomBytes(4).toString("hex")}.scene.json`);
-  await writeFile(path, JSON.stringify(scene, null, 2));
+  await writeFile(path, JSON.stringify(compile(scene), null, 2));
   try {
     return await fn(path);
   } finally {

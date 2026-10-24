@@ -6,6 +6,7 @@ pub mod anim;
 pub mod color;
 pub mod presets;
 pub mod schema;
+pub mod script;
 
 use anim::{Prop, Transition};
 use anyhow::{Context, Result};
@@ -443,9 +444,14 @@ fn check_types(v: &Value, path: &str, warnings: &mut Vec<String>) {
 }
 
 impl Scene {
+    /// Load a scene file: JSON, or a TypeScript/JavaScript module exporting a scene (see `script`).
     pub fn load(path: &Path) -> Result<(Scene, Vec<String>)> {
-        let txt = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-        let value: Value = serde_json::from_str(&txt).with_context(|| format!("parsing {}", path.display()))?;
+        let value: Value = if script::is_script(path) {
+            script::load(path)?
+        } else {
+            let txt = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+            serde_json::from_str(&txt).with_context(|| format!("parsing {}", path.display()))?
+        };
         let base = path.parent().map(Path::to_path_buf).unwrap_or_default();
         Scene::from_value(value, base)
     }
