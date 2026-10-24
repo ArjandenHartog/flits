@@ -146,8 +146,7 @@ setTheme({ colors: { accent: "#ff4a2b" } });               // once, at the top: 
 const acts = timeline({ hook: 4, proof: 6, end: 4 });      // { hook: { at, end, duration }, ..., total }
 export default Composition({ width: 1920, height: 1080, fps: 60, duration: acts.total, motionBlur: true, ...themeScene(),
   children: [
-    Act({ ...acts.hook, exit: "rise", children: KineticTitle({ text: "One idea,
-per beat.", eyebrow: "Launch", rule: true, at: 0.4 }) }),
+    Act({ ...acts.hook, exit: "rise", children: KineticTitle({ text: "One idea,\nper beat.", eyebrow: "Launch", rule: true, at: 0.4 }) }),
     Act({ ...acts.proof, children: [StatCounter({ value: 12840, label: "renders a day", at: 0.5 })] }),
     EndCard({ at: acts.end.at, duration: 4, title: "Make it move.", url: "example.com", fadeOut: true }),
   ] });
