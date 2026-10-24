@@ -75,19 +75,22 @@ fn advance_videos(n: &Node, t: f64, frame: i64, fps: f64, vs: &mut VideoState) -
     if t + PREFETCH < n.start || t >= n.end {
         return Ok(());
     }
-    if let Kind::Video { src, info, dw, dh, trim, looped, speed, .. } = &n.kind {
+    if let Kind::Video { src, info, dw, dh, trim, looped, speed, crop, .. } = &n.kind {
+        let plan = crop.as_ref().map(|c| &c.plan);
         let start_frame = (n.start * fps).round() as i64;
         let lf = frame - start_frame;
-        let target = lf.max(0);
+        // a layer that starts between two frames shows from its frame 1 (frame 0 is still the previous layer's)
+        let target = lf.max(super::crop::first_frame(n.start, fps) - start_frame);
         let usable = |r: &VideoReader| target >= r.cur && target <= r.cur + (fps * 2.0) as i64 && target >= r.first();
         let want = trim + target as f64 * speed / fps;
         let reachable = |r: &VideoReader| {
-            r.compatible(src, *dw, *dh, *speed, *looped)
+            r.compatible(src, *dw, *dh, *speed, *looped, plan)
                 && want >= r.next_source_time() - 0.5 / fps
                 && want - r.next_source_time() < REUSE_GAP
         };
-        // not started yet and a running decoder of this clip will hand over: don't prefetch
-        let handover = lf < 0 && vs.readers.iter().any(|(id, (_, r))| *id != n.id && reachable(r));
+        // not showing yet and a running decoder of this clip will hand over: don't prefetch (a layer
+        // that starts between two frames shows from its frame 1: its frame 0 is still the previous one's)
+        let handover = t < n.start && vs.readers.iter().any(|(id, (_, r))| *id != n.id && reachable(r));
         if !handover && !vs.readers.get(&n.id).is_some_and(|(_, r)| usable(r)) {
             // continue a decoder of the same clip that is just behind this cut, if any
             let reuse = vs.spare.iter().position(|(_, r)| reachable(r));
@@ -97,7 +100,7 @@ fn advance_videos(n: &Node, t: f64, frame: i64, fps: f64, vs: &mut VideoState) -
                     r.rebase(*trim);
                     r
                 }
-                None => VideoReader::spawn(src, info, *trim, target, fps, *dw, *dh, *looped, *speed, vs.high_bit)?,
+                None => VideoReader::spawn(src, info, *trim, target, fps, *dw, *dh, *looped, *speed, vs.high_bit, plan.cloned())?,
             };
             vs.readers.insert(n.id, (n.end, r));
         }
@@ -142,12 +145,14 @@ pub fn gradient_pixmap(fill: &Fill, w: f32, h: f32, q: f32) -> Option<Pixmap> {
     Some(pm)
 }
 
-/// Op for an image/video drawn into a w*h box with fit/zoom/pan.
+/// Op for an image/video drawn into a w*h box with fit/zoom/pan. `part`: the texture holds only
+/// the rect `(x, y)` + its size of the `iw`x`ih` picture (in texture pixels), as cropped decoders deliver.
 #[allow(clippy::too_many_arguments)]
 fn media_op<'a>(
     src: Src<'a>,
     iw: f32,
     ih: f32,
+    part: (f32, f32),
     fit: Fit,
     w: f32,
     h: f32,
@@ -158,26 +163,14 @@ fn media_op<'a>(
     opacity: f32,
     clip: Option<Clip>,
 ) -> Option<Op<'a>> {
-    let (sx, sy) = match fit {
-        Fit::Cover => {
-            let s = (w / iw).max(h / ih);
-            (s, s)
-        }
-        Fit::Contain => {
-            let s = (w / iw).min(h / ih);
-            (s, s)
-        }
-        Fit::Fill => (w / iw, h / ih),
-    };
-    let (sx, sy) = (sx * zoom, sy * zoom);
+    let ((sx, sy), (ox, oy)) = super::crop::place(fit, (w, h), (iw, ih), zoom, pan);
     let (dw, dh) = (iw * sx, ih * sy);
-    let ox = (w - dw) / 2.0 * (1.0 + pan.0);
-    let oy = (h - dh) / 2.0 * (1.0 + pan.1);
     let shape = [ox.max(0.0), oy.max(0.0), (ox + dw).min(w), (oy + dh).min(h)];
     if shape[2] <= shape[0] || shape[3] <= shape[1] {
         return None;
     }
-    Some(Op { src, ts, shape, radius, uv: Transform::from_row(sx, 0.0, 0.0, sy, ox, oy), opacity, clip })
+    let uv = Transform::from_row(sx, 0.0, 0.0, sy, ox + part.0 * sx, oy + part.1 * sy);
+    Some(Op { src, ts, shape, radius, uv, opacity, clip })
 }
 
 /// Canvas pixels a layer moves at most between two moments: the largest distance any corner of
@@ -379,19 +372,40 @@ fn draw_fx<'a>(
             if let Some(pm) = pm {
                 let zoom = n.zoom.eval(lt, dur) as f32;
                 let pan = (n.pan_x.eval(lt, dur) as f32, n.pan_y.eval(lt, dur) as f32);
-                if let Some(o) =
-                    media_op(Src::Image(pm), pm.width() as f32, pm.height() as f32, *fit, w, h, zoom, pan, n.radius, ts, op, clip)
-                {
+                if let Some(o) = media_op(
+                    Src::Image(pm),
+                    pm.width() as f32,
+                    pm.height() as f32,
+                    (0.0, 0.0),
+                    *fit,
+                    w,
+                    h,
+                    zoom,
+                    pan,
+                    n.radius,
+                    ts,
+                    op,
+                    clip,
+                ) {
                     painter.draw(o);
                 }
             }
         }
-        Kind::Video { fit, adjust, .. } => {
+        Kind::Video { fit, adjust, info, crop, .. } => {
             if let Some((_, r)) = ctx.videos.readers.get(&n.id) {
                 let zoom = n.zoom.eval(lt, dur) as f32;
                 let pan = (n.pan_x.eval(lt, dur) as f32, n.pan_y.eval(lt, dur) as f32);
                 let src = Src::Frame { key: n.id, ver: r.cur, data: &r.frame, w: r.w, h: r.h, fmt: r.fmt, adjust: *adjust };
-                if let Some(o) = media_op(src, r.w as f32, r.h as f32, *fit, w, h, zoom, pan, n.radius, ts, op, clip) {
+                // a cropped frame is the layer's rect of the picture: place the whole picture, at
+                // the frame's scale, and shift the texture to where the rect sits in it
+                let (iw, ih, part) = match crop.as_ref().filter(|_| r.cropped) {
+                    Some(c) => {
+                        let (kx, ky) = (r.w as f32 / c.w as f32, r.h as f32 / c.h as f32);
+                        (info.width as f32 * kx, info.height as f32 * ky, (c.x as f32 * kx, c.y as f32 * ky))
+                    }
+                    None => (r.w as f32, r.h as f32, (0.0, 0.0)),
+                };
+                if let Some(o) = media_op(src, iw, ih, part, *fit, w, h, zoom, pan, n.radius, ts, op, clip) {
                     painter.draw(o);
                 }
             }

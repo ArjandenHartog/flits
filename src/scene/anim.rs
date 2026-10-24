@@ -273,6 +273,14 @@ impl Prop {
         matches!(self, Prop::Const(_))
     }
 
+    /// The value when it never changes (a constant, or keyframes that all hold the same value).
+    pub fn const_value(&self) -> Option<f64> {
+        match self {
+            Prop::Const(v) => Some(*v),
+            Prop::Keys(k) => k.iter().all(|x| x.1 == k[0].1).then_some(k[0].1),
+        }
+    }
+
     pub fn from_json(v: &Value) -> Result<Prop> {
         match v {
             Value::Number(n) => Ok(Prop::Const(n.as_f64().unwrap_or(0.0))),
