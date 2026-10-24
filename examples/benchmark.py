@@ -1,18 +1,40 @@
 """Reproducible benchmark: generates synthetic photos, clips and music with ffmpeg and
-writes a ~10,000-frame 1080p montage scene (cards with shadows, Ken Burns, clips,
-captions text, crossfades, music) to bench/scene.json.
+writes a 1080p montage scene (cards with shadows, Ken Burns, clips, captions text,
+crossfades, music) to bench/media/scene.json.
 
-    python examples/benchmark.py [outdir] [--frames 10000]
-    flits render bench/scene.json -o bench/out.mp4
-    FLITS_PROFILE=1 flits render bench/scene.json --encoder null   # renderer only
+    python examples/benchmark.py [outdir] [--frames N]
+    flits render bench/media/scene.json -o bench/out/flits.mp4
+    FLITS_PROFILE=1 flits render bench/media/scene.json --encoder null   # renderer only
+
+--frames defaults to 1800 (60 s at 30 fps), the length used to compare flits with
+Remotion and editly (bench/run.py, see bench/README.md). The README's headline number
+uses --frames 10000 (~5.5 min). Media files are reused between runs; only the scene changes.
 
 Only needs ffmpeg on PATH (no Python packages).
 """
 import json, os, subprocess, sys
 
-args = [a for a in sys.argv[1:] if not a.startswith("--")]
-out = os.path.abspath(args[0] if args else "bench")
-frames = int(sys.argv[sys.argv.index("--frames") + 1]) if "--frames" in sys.argv else 10000
+DEFAULT_FRAMES = 1800
+
+
+def parse_args(argv):
+    outdir, frames, i = None, DEFAULT_FRAMES, 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--frames":
+            frames = int(argv[i + 1])
+            i += 1
+        elif a.startswith("--frames="):
+            frames = int(a.split("=", 1)[1])
+        elif a.startswith("--"):
+            sys.exit(f"unknown option {a}")
+        else:
+            outdir = a
+        i += 1
+    return os.path.abspath(outdir or os.path.join("bench", "media")), frames
+
+
+out, frames = parse_args(sys.argv[1:])
 os.makedirs(out, exist_ok=True)
 
 
