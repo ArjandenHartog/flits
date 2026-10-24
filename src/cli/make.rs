@@ -47,11 +47,24 @@ pub fn still(scene: &Path, at: &[f64], out: &Path, scale: f64) -> Result<()> {
     Ok(())
 }
 
-pub fn sheet(scene: &Path, out: &Path, count: usize, cols: usize, thumb: u32) -> Result<()> {
+/// Which frames `flits sheet` shows.
+pub struct SheetPick {
+    pub count: usize,
+    pub at: Vec<f64>,
+    pub from: Option<f64>,
+    pub to: Option<f64>,
+}
+
+pub fn sheet(scene: &Path, out: &Path, pick: &SheetPick, cols: usize, thumb: u32) -> Result<()> {
     out_dir(out)?;
-    let (s, _) = Scene::load(scene)?;
-    let p = load(scene, thumb as f64 / s.width as f64)?;
-    render::sheet(&p, flits::pick_gpu("auto")?, count, cols, out)?;
+    // load once (a TypeScript scene runs its script once), then prepare at thumbnail size
+    let (s, warnings) = Scene::load(scene)?;
+    for w in &warnings {
+        eprintln!("warning: {w}");
+    }
+    let p = flits::Prepared::build(&s, thumb as f64 / s.width as f64)?;
+    let frames = render::sheet_frames(&p, pick.count, &pick.at, pick.from, pick.to);
+    render::sheet(&p, flits::pick_gpu("auto")?, &frames, cols, out)?;
     println!("{}", out.display());
     Ok(())
 }
@@ -92,7 +105,9 @@ pub fn init(dir: &Path, update: bool) -> Result<()> {
             anyhow!("no flits project here (a package.json with \"#flits\" in its imports); create one with `flits init <dir>`")
         })?;
         templates::project::write_sdk(&root)?;
-        println!("updated {} to the SDK of flits {}", root.join("flits").display(), env!("CARGO_PKG_VERSION"));
+        let skill = templates::skill::project_dir(&root);
+        templates::skill::install(&skill)?;
+        println!("updated {} and {} to flits {}", root.join("flits").display(), skill.display(), env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
     templates::project::init(dir)?;
@@ -101,7 +116,31 @@ pub fn init(dir: &Path, update: bool) -> Result<()> {
     println!("  flits preview {d}/src/video.ts                    live preview; edit src/video.ts and save");
     println!("  flits render {d}/src/video.ts -o {d}/out/video.mp4");
     println!("  cd {d} && npm install && npm run typecheck   optional: type-check with tsc\n");
+    println!("Coding agents: CLAUDE.md and the flits-video skill (.claude/skills/flits-video) are included;");
+    println!("  ask Claude Code in {d} for a video, e.g. \"make a 20 s launch video for ...\".\n");
     println!("{}", flits::scene::script::describe());
+    Ok(())
+}
+
+/// `flits skill install [--global]` / `flits skill print`.
+pub fn skill(print: bool, global: bool, dir: Option<PathBuf>) -> Result<()> {
+    if print {
+        print!("{}", templates::skill::print());
+        return Ok(());
+    }
+    let target = match (global, dir) {
+        (true, _) => templates::skill::global_dir()?,
+        (false, Some(d)) => templates::skill::project_dir(&d),
+        (false, None) => templates::skill::project_dir(Path::new(".")),
+    };
+    for f in templates::skill::install(&target)? {
+        println!("{}", f.display());
+    }
+    eprintln!(
+        "flits: installed the {} skill for Claude Code{}",
+        templates::skill::NAME,
+        if global { " (all projects)" } else { " (this project; --global for all projects)" }
+    );
     Ok(())
 }
 

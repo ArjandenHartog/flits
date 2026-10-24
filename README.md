@@ -108,6 +108,34 @@ Rules under words, cursors and chips are sized from real text metrics: the SDK a
 (`flits measure`), so they line up exactly with the rendered glyphs. A complete 33 s film made only of these
 components: [`bindings/typescript/example-motion.ts`](bindings/typescript/example-motion.ts).
 
+## Making videos with Claude Code
+
+flits is built to be driven by coding agents: an agent can't watch a video, but it can render any frame in about a
+second and look at the PNG. The `flits-video` skill teaches Claude Code (and other agents that read `SKILL.md`
+skills) that loop, plus the motion design rules that make a video look produced rather than generated.
+
+```sh
+flits init launch-video          # a project with the skill (.claude/skills/flits-video) and a CLAUDE.md
+cd launch-video && claude        # then ask, e.g.:
+#   "Make a 30 s 1080p launch video for Acme Notes: hook, three features, CTA. 60 fps, dark, one orange accent."
+flits skill install              # add the skill to an existing project (--global: for all your projects)
+flits skill print                # or read it / paste it into another agent
+```
+
+The loop the skill follows: pick the format and fps, storyboard the beats with timings, write `src/video.ts`, then
+
+```sh
+flits check src/video.ts --json                                    # errors, typos and layout lint: text off the
+                                                                   # canvas, text over text, text too brief to read
+flits still src/video.ts --at 0.4 --at 3.2 --at 7.5 -o out/s.png   # mid-motion and at-rest frames (prints the paths)
+flits sheet src/video.ts --from 2.8 --to 3.6 --count 8 -o out/t.png   # one transition, every tile time-labelled
+flits render src/video.ts -o out/video.mp4                         # seconds, not minutes
+```
+
+reading every PNG for clipping, overlap, alignment, contrast and timing, and fixing until a full contact sheet looks
+finished. A 15 s 1080p60 launch video made this way (`flits skill print` includes it as `example.ts`) renders in
+4.1 s on a laptop RTX 3050 Ti.
+
 ## Speed (laptop: i7-11800H + RTX 3050 Ti)
 
 | task | before | flits |
@@ -154,9 +182,12 @@ FLITS_PROFILE=1 flits render bench/media/scene.json --encoder null   # renderer 
 # scenes
 flits render scene.json -o video.mp4          # render (--scale 0.5 = quick preview, --speed fast, --codec hevc)
 flits preview scene.json                      # live preview in the browser, reloads when you save the scene
-flits sheet scene.json -o sheet.png           # contact sheet: check the whole video in one image
+flits sheet scene.json -o sheet.png           # contact sheet: check the whole video in one image (tiles labelled
+                                              # with their time; --at 1 --at 2.5, or --from 2 --to 3 --count 8)
 flits still scene.json --at 12.5 -o frame.png
-flits check scene.json                        # validate (typos are reported) + print the timeline
+flits check scene.json                        # validate (typos are reported), lint the layout, print the timeline
+                                              # (--json: one object with warnings, layout issues and the layer tree)
+flits skill install                           # the flits-video skill for Claude Code (--global for all projects)
 flits init my-video                           # TypeScript project (components, springs, data; see below)
 flits new kinetic-typography                  # starter scenes (-o x.ts for TypeScript): intro, quote, stats, lower-third, countdown, youtube-intro,
                                               # podcast-quote, product-promo, news-headline, end-screen, kinetic-typography

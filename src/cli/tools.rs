@@ -9,27 +9,83 @@ use std::path::Path;
 use std::process::Command;
 use std::time::Instant;
 
-pub fn check(scene: &Path) -> Result<()> {
-    let (s, warnings) = Scene::load(scene)?;
+fn kind_name(k: &Kind) -> &'static str {
+    match k {
+        Kind::Group => "group",
+        Kind::Rect(_) => "rect",
+        Kind::Image { .. } => "image",
+        Kind::Video { .. } => "video",
+        Kind::Text { .. } => "text",
+        Kind::Counter(_) => "counter",
+        Kind::Captions(_) => "captions",
+        Kind::Waveform { .. } => "waveform",
+        Kind::Shape(_) => "shape",
+    }
+}
+
+/// Seconds and pixels in JSON: 3 decimals.
+fn r3(v: f64) -> f64 {
+    (v * 1000.0).round() / 1000.0
+}
+
+/// `flits check`: validate, lint the layout and print the timeline (`json`: one JSON object on stdout).
+pub fn check(scene: &Path, json: bool) -> Result<()> {
+    let loaded = Scene::load(scene).and_then(|(s, w)| Prepared::build(&s, 0.25).map(|p| (s, w, p)));
+    let (s, warnings, p) = match loaded {
+        Ok(v) => v,
+        Err(e) => {
+            if json {
+                println!("{}", serde_json::json!({ "ok": false, "error": format!("{e:#}") }));
+            }
+            return Err(e);
+        }
+    };
+    let issues = flits::compose::lint::lint(&p);
+    if json {
+        fn tree(n: &[Node]) -> Vec<serde_json::Value> {
+            n.iter()
+                .map(|n| {
+                    let mut v = serde_json::json!({
+                        "type": kind_name(&n.kind), "label": n.label, "start": r3(n.start), "end": r3(n.end),
+                        "width": r3(n.w as f64), "height": r3(n.h as f64),
+                    });
+                    if !n.children.is_empty() {
+                        v["children"] = tree(&n.children).into();
+                    }
+                    v
+                })
+                .collect()
+        }
+        let audio: Vec<_> =
+            p.audio.iter().map(|a| serde_json::json!({ "src": a.path, "start": r3(a.start), "duration": r3(a.dur) })).collect();
+        let out = serde_json::json!({
+            "ok": true, "width": s.width, "height": s.height, "fps": s.fps, "duration": r3(p.duration), "frames": p.frames,
+            "warnings": warnings, "issues": issues, "audio": audio, "layers": tree(&p.nodes),
+        });
+        println!("{}", serde_json::to_string_pretty(&out)?);
+        return Ok(());
+    }
     for w in &warnings {
         println!("warning: {w}");
     }
-    let p = Prepared::build(&s, 0.25)?;
+    for i in &issues {
+        println!("warning: {:.2}-{:.2}s: {}", i.from, i.to, i.message);
+    }
     println!("ok: {}x{} @ {} fps, {:.2}s = {} frames, {} audio input(s)", s.width, s.height, s.fps, p.duration, p.frames, p.audio.len());
     fn walk(n: &[Node], depth: usize) {
         for n in n {
-            let kind = match &n.kind {
-                Kind::Group => "group",
-                Kind::Rect(_) => "rect",
-                Kind::Image { .. } => "image",
-                Kind::Video { .. } => "video",
-                Kind::Text { .. } => "text",
-                Kind::Counter(_) => "counter",
-                Kind::Captions(_) => "captions",
-                Kind::Waveform { .. } => "waveform",
-                Kind::Shape(_) => "shape",
-            };
-            println!("{:indent$}{kind:<9} {:>8.2}s -> {:>8.2}s  box {:.0}x{:.0}", "", n.start, n.end, n.w, n.h, indent = depth * 2);
+            let label: String = n.label.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(48).collect();
+            let label = if label.is_empty() { String::new() } else { format!("  \"{label}\"") };
+            println!(
+                "{:indent$}{:<9} {:>8.2}s -> {:>8.2}s  box {:.0}x{:.0}{label}",
+                "",
+                kind_name(&n.kind),
+                n.start,
+                n.end,
+                n.w,
+                n.h,
+                indent = depth * 2
+            );
             walk(&n.children, depth + 1);
         }
     }

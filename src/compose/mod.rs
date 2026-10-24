@@ -3,6 +3,7 @@
 
 pub mod captions;
 pub mod draw;
+pub mod lint;
 pub mod shape;
 pub mod waveform;
 
@@ -20,7 +21,7 @@ use captions::{CapKind, CapOptions, Captions, HiBox};
 use draw::gradient_pixmap;
 use rayon::prelude::*;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tiny_skia::Pixmap;
 use waveform::Spectrum;
@@ -198,6 +199,8 @@ impl Counter {
 pub struct Node {
     pub id: usize,
     pub kind: Kind,
+    /// what `flits check` calls this layer: its text, `id`, or media file name
+    pub label: String,
     pub start: f64,
     pub end: f64,
     pub w: f32,
@@ -224,6 +227,8 @@ pub struct Node {
     clip: bool,
     /// may be motion blurred (the scene's `motionBlur`, unless the layer opts out)
     motion_blur: bool,
+    /// text on its own `background` box: covers what is under it on purpose (layout lint)
+    backdrop: bool,
     pub children: Vec<Node>,
 }
 
@@ -514,6 +519,19 @@ fn rescale(mut s: Sprite, q: f32) -> Sprite {
 
 /// Largest side of a rasterized image, in px (8192 is the texture limit every GPU backend offers).
 const MAX_RASTER: f64 = 8192.0;
+/// A short name for a layer in messages: its text, its `id`, or its media file name.
+fn layer_label(l: &Layer) -> String {
+    if let Some(t) = &l.text {
+        return t.clone();
+    }
+    if let Some(id) = &l.id {
+        return id.clone();
+    }
+    match &l.src {
+        Some(src) => Path::new(src).file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_else(|| src.clone()),
+        None => String::new(),
+    }
+}
 
 fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale: f64, ctx: &mut Ctx) -> Result<Node> {
     let id = ctx.next_id;
@@ -864,6 +882,7 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
     Ok(Node {
         id,
         kind,
+        label: layer_label(l),
         start,
         end,
         w,
@@ -887,6 +906,7 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
         shadow,
         clip: l.clip,
         motion_blur: l.motion_blur.unwrap_or(true),
+        backdrop: l.background.is_some(),
         children,
     })
 }

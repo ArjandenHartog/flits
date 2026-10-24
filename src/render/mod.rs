@@ -8,7 +8,7 @@ pub mod profile;
 pub mod yuv;
 
 pub use frame::FrameRenderer;
-pub use preview::{sheet, stills};
+pub use preview::{sheet, sheet_frames, stills};
 pub use yuv::rgba_to_yuv420;
 
 use crate::compose::Prepared;

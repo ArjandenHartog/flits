@@ -9,6 +9,7 @@ pub mod fillers;
 pub mod podcast;
 pub mod project;
 pub mod reel;
+pub mod skill;
 pub mod slideshow;
 pub mod starters;
 

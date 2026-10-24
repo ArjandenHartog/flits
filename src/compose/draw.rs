@@ -217,7 +217,7 @@ fn motion_px(n: &Node, t0: f64, t1: f64, parent: Transform) -> f32 {
 }
 
 /// The enter/exit transition effect of a node at local time `lt`.
-fn node_fx(n: &Node, lt: f64, dur: f64) -> Fx {
+pub(crate) fn node_fx(n: &Node, lt: f64, dur: f64) -> Fx {
     let mut fx = Fx::default();
     let area = (n.area.0 as f64, n.area.1 as f64);
     if let Some(tr) = &n.enter {
@@ -230,7 +230,7 @@ fn node_fx(n: &Node, lt: f64, dur: f64) -> Fx {
 }
 
 /// Box-local -> canvas transform of a node (`None` when it is scaled to nothing).
-fn node_ts(n: &Node, lt: f64, dur: f64, parent: Transform, fx: &Fx) -> Option<Transform> {
+pub(crate) fn node_ts(n: &Node, lt: f64, dur: f64, parent: Transform, fx: &Fx) -> Option<Transform> {
     let x = n.x.eval(lt, dur) + fx.dx;
     let y = n.y.eval(lt, dur) + fx.dy;
     let s = n.scale.eval(lt, dur) * fx.scale;
