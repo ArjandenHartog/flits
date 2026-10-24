@@ -16,6 +16,8 @@ pub struct FrameRenderer {
     videos: VideoState,
     width: u32,
     height: u32,
+    /// fingerprint of the GPU frame last rendered into the caller's buffer
+    last: Option<u64>,
 }
 
 impl FrameRenderer {
@@ -29,7 +31,7 @@ impl FrameRenderer {
         };
         let mut videos = VideoState::default();
         videos.high_bit = gpu.as_ref().is_some_and(|(g, _)| g.high_bit_video);
-        Ok(FrameRenderer { gpu, canvas, videos, width: p.width, height: p.height })
+        Ok(FrameRenderer { gpu, canvas, videos, width: p.width, height: p.height, last: None })
     }
 
     pub fn is_gpu(&self) -> bool {
@@ -45,8 +47,10 @@ impl FrameRenderer {
         }
     }
 
-    /// Close video decoders (e.g. before jumping to a far-away part of the timeline).
+    /// Close video decoders (e.g. before jumping to a far-away part of the timeline). Also starts
+    /// a new output buffer: the next frame is always rendered.
     pub fn reset_videos(&mut self) {
+        self.last = None;
         let high_bit = self.videos.high_bit;
         self.videos = VideoState::default();
         self.videos.high_bit = high_bit;
@@ -58,7 +62,15 @@ impl FrameRenderer {
             (Some((g, tg)), _) => {
                 profile::time(Stage::Decode, || advance(p, frame, &mut self.videos))?;
                 let mut gp = GpuPainter::default();
-                profile::time(Stage::Compose, || draw_frame(p, frame, &mut gp, &self.videos));
+                let print = profile::time(Stage::Compose, || {
+                    draw_frame(p, frame, &mut gp, &self.videos);
+                    gp.fingerprint()
+                });
+                // a still moment (a hold, a pause between animations) is the previous frame again
+                if !out.is_empty() && self.last == Some(print) {
+                    return Ok(());
+                }
+                self.last = Some(print);
                 profile::time(Stage::Gpu, || g.render(tg, p.background, gp, Readback::Yuv420, out))
             }
             (None, Some(c)) => {

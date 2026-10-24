@@ -165,7 +165,27 @@ export const easing = Object.freeze({
   },
   spring: (x) => (x >= 1 ? 1 : 1 - Math.exp(-6.5 * x) * Math.cos(11 * x)),
   hold: (x) => (x >= 1 ? 1 : 0),
+  "expo-in": (x) => (x <= 0 ? 0 : 2 ** (10 * x - 10)),
+  "expo-out": (x) => (x >= 1 ? 1 : 1 - 2 ** (-10 * x)),
+  "expo-in-out": (x) => (x <= 0 || x >= 1 ? x : x < 0.5 ? 2 ** (20 * x - 10) / 2 : (2 - 2 ** (-20 * x + 10)) / 2),
+  "quint-out": (x) => 1 - (1 - x) ** 5,
+  "quint-in-out": (x) => (x < 0.5 ? 16 * x ** 5 : 1 - (-2 * x + 2) ** 5 / 2),
+  "circ-out": (x) => Math.sqrt(1 - (x - 1) ** 2),
 });
+
+/** A CSS-style cubic-bezier curve as a function of 0..1 (for interpolate); in scene props use the string "cubic-bezier(x1, y1, x2, y2)". */
+export function cubicBezier(x1, y1, x2, y2) {
+  const at = (u, a, b) => 3 * (1 - u) ** 2 * u * a + 3 * (1 - u) * u * u * b + u ** 3;
+  return (x) => {
+    let [lo, hi, u] = [0, 1, x];
+    for (let i = 0; i < 40; i++) {
+      u = (lo + hi) / 2;
+      if (at(u, x1, x2) < x) lo = u;
+      else hi = u;
+    }
+    return at(u, y1, y2);
+  };
+}
 
 /**
  * Map `input` from `inputRange` to `outputRange` (both ascending lists of equal length), like Remotion's

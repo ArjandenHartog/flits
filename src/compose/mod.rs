@@ -11,7 +11,7 @@ pub use draw::{advance, draw_frame, render_frame, VideoState};
 use crate::gfx::{box_shadow, Sprite};
 use crate::media::colorspace::{Adjust, NO_ADJUST};
 use crate::media::{self, image as assets, MediaInfo};
-use crate::scene::anim::{Prop, TKind, Transition};
+use crate::scene::anim::{Ease, Prop, TKind, Transition};
 use crate::scene::color::Rgba;
 use crate::scene::{Layer, Scene};
 use crate::text::{self, Align, FontDb, TextStyle};
@@ -63,6 +63,62 @@ pub struct Reveal {
     pub duration: f64,
     /// typewriter: pieces pop in without a fade/slide
     pub instant: bool,
+    pub style: RevealStyle,
+}
+
+/// How one reveal piece comes in.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum RevealStyle {
+    /// rises a third of its height while fading in
+    Rise,
+    /// slides up out of its own line box, clipped to it
+    Mask,
+    /// fades in where it is
+    Fade,
+    /// rises while a vertical smear sharpens
+    Blur,
+}
+
+impl RevealStyle {
+    pub fn parse(s: Option<&str>) -> Result<RevealStyle> {
+        Ok(match s.map(|s| s.trim().to_ascii_lowercase()).as_deref() {
+            None | Some("rise") => RevealStyle::Rise,
+            Some("mask") => RevealStyle::Mask,
+            Some("fade") => RevealStyle::Fade,
+            Some("blur") => RevealStyle::Blur,
+            Some(o) => bail!("unknown revealStyle '{o}' (rise, mask, fade, blur)"),
+        })
+    }
+
+    /// seconds one piece takes to come in
+    pub fn piece_time(self) -> f64 {
+        match self {
+            RevealStyle::Rise => 0.35,
+            RevealStyle::Mask => 0.7,
+            RevealStyle::Fade => 0.4,
+            RevealStyle::Blur => 0.5,
+        }
+    }
+
+    /// Eased progress of a piece that started `since` seconds ago.
+    pub fn progress(self, since: f64) -> f64 {
+        let x = (since / self.piece_time()).clamp(0.0, 1.0);
+        match self {
+            RevealStyle::Mask => Ease::ExpoOut.apply(x),
+            _ => Ease::Out.apply(x),
+        }
+    }
+
+    /// Vertical offset of a piece of height `h` at progress `e`, in its own units.
+    pub fn offset(self, e: f64, h: f32) -> f32 {
+        let k = (1.0 - e) as f32;
+        match self {
+            RevealStyle::Rise => k * h * 0.35,
+            RevealStyle::Mask => k * h * 1.1,
+            RevealStyle::Fade => 0.0,
+            RevealStyle::Blur => k * h * 0.25,
+        }
+    }
 }
 
 /// An animated number ("1.234 bezoekers"), drawn from per-character sprites.
@@ -166,6 +222,8 @@ pub struct Node {
     shadow: Option<Arc<Sprite>>,
     /// clip children to the box (groups)
     clip: bool,
+    /// may be motion blurred (the scene's `motionBlur`, unless the layer opts out)
+    motion_blur: bool,
     pub children: Vec<Node>,
 }
 
@@ -199,6 +257,8 @@ pub struct Prepared {
     pub audio: Vec<AudioInput>,
     /// master loudness target (LUFS)
     pub loudness: Option<f64>,
+    /// motion blur: (most samples per layer, shutter as a fraction of the frame interval)
+    pub motion_blur: Option<(usize, f64)>,
 }
 
 struct Ctx<'a> {
@@ -341,6 +401,7 @@ impl Prepared {
             nodes,
             audio: ctx.audio,
             loudness: scene.loudness,
+            motion_blur: scene.motion_blur.and_then(|m| m.settings()),
         })
     }
 }
@@ -622,6 +683,7 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
                         duration: l.reveal_duration.unwrap_or(if per > 0.0 { v.len() as f64 * per } else { 0.8 }),
                         pieces: v,
                         instant: mode == "typewriter",
+                        style: RevealStyle::parse(l.reveal_style.as_deref())?,
                     })
                 }
                 Some(o) => bail!("unknown reveal '{o}' (words, lines, chars, typewriter)"),
@@ -820,6 +882,7 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
         border,
         shadow,
         clip: l.clip,
+        motion_blur: l.motion_blur.unwrap_or(true),
         children,
     })
 }

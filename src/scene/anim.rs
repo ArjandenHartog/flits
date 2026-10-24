@@ -17,6 +17,14 @@ pub enum Ease {
     Bounce,
     Spring,
     Hold,
+    ExpoIn,
+    ExpoOut,
+    ExpoInOut,
+    QuintOut,
+    QuintInOut,
+    CircOut,
+    /// CSS `cubic-bezier(x1, y1, x2, y2)`
+    Bezier([f32; 4]),
 }
 
 impl Ease {
@@ -33,7 +41,26 @@ impl Ease {
             "bounce" => Ease::Bounce,
             "spring" => Ease::Spring,
             "hold" | "step" => Ease::Hold,
-            other => bail!("unknown ease '{other}' (linear, in, out, in-out, smooth, back-in, back-out, elastic, bounce, spring, hold)"),
+            "expo-in" => Ease::ExpoIn,
+            "expo-out" | "expo" => Ease::ExpoOut,
+            "expo-in-out" => Ease::ExpoInOut,
+            "quint-out" | "quint" => Ease::QuintOut,
+            "quint-in-out" => Ease::QuintInOut,
+            "circ-out" | "circ" => Ease::CircOut,
+            other if other.starts_with("cubic-bezier(") && other.ends_with(')') => {
+                let nums: Vec<f32> = other["cubic-bezier(".len()..other.len() - 1]
+                    .split(',')
+                    .map(|v| v.trim().parse::<f32>())
+                    .collect::<Result<_, _>>()
+                    .map_err(|_| anyhow!("bad cubic-bezier '{other}': four numbers, e.g. cubic-bezier(0.16, 1, 0.3, 1)"))?;
+                match nums[..] {
+                    [x1, y1, x2, y2] if (0.0..=1.0).contains(&x1) && (0.0..=1.0).contains(&x2) => Ease::Bezier([x1, y1, x2, y2]),
+                    _ => bail!("bad cubic-bezier '{other}': four numbers, x1 and x2 between 0 and 1"),
+                }
+            }
+            other => bail!(
+                "unknown ease '{other}' (linear, in, out, in-out, smooth, back-in, back-out, elastic, bounce, spring, hold,                  expo-in, expo-out, expo-in-out, quint-out, quint-in-out, circ-out, cubic-bezier(x1, y1, x2, y2))"
+            ),
         })
     }
 
@@ -97,8 +124,78 @@ impl Ease {
                     0.0
                 }
             }
+            Ease::ExpoIn => {
+                if x <= 0.0 {
+                    0.0
+                } else {
+                    2f64.powf(10.0 * x - 10.0)
+                }
+            }
+            Ease::ExpoOut => {
+                if x >= 1.0 {
+                    1.0
+                } else {
+                    1.0 - 2f64.powf(-10.0 * x)
+                }
+            }
+            Ease::ExpoInOut => {
+                if x <= 0.0 || x >= 1.0 {
+                    x
+                } else if x < 0.5 {
+                    2f64.powf(20.0 * x - 10.0) / 2.0
+                } else {
+                    (2.0 - 2f64.powf(-20.0 * x + 10.0)) / 2.0
+                }
+            }
+            Ease::QuintOut => 1.0 - (1.0 - x).powi(5),
+            Ease::QuintInOut => {
+                if x < 0.5 {
+                    16.0 * x.powi(5)
+                } else {
+                    1.0 - (-2.0 * x + 2.0).powi(5) / 2.0
+                }
+            }
+            Ease::CircOut => (1.0 - (x - 1.0).powi(2)).sqrt(),
+            Ease::Bezier([x1, y1, x2, y2]) => bezier(x, x1 as f64, y1 as f64, x2 as f64, y2 as f64),
         }
     }
+}
+
+/// CSS cubic-bezier timing: solve x(u) = x for the curve parameter u, return y(u).
+fn bezier(x: f64, x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
+    let coord = |u: f64, a: f64, b: f64| {
+        let v = 1.0 - u;
+        3.0 * v * v * u * a + 3.0 * v * u * u * b + u * u * u
+    };
+    let slope = |u: f64, a: f64, b: f64| {
+        let v = 1.0 - u;
+        3.0 * v * v * a + 6.0 * v * u * (b - a) + 3.0 * u * u * (1.0 - b)
+    };
+    // Newton from u = x, falling back to bisection where the slope is flat
+    let mut u = x;
+    for _ in 0..8 {
+        let d = slope(u, x1, x2);
+        if d.abs() < 1e-6 {
+            break;
+        }
+        let next = u - (coord(u, x1, x2) - x) / d;
+        if !(0.0..=1.0).contains(&next) {
+            break;
+        }
+        u = next;
+    }
+    if (coord(u, x1, x2) - x).abs() > 1e-5 {
+        let (mut lo, mut hi) = (0.0, 1.0);
+        for _ in 0..40 {
+            u = (lo + hi) / 2.0;
+            if coord(u, x1, x2) < x {
+                lo = u;
+            } else {
+                hi = u;
+            }
+        }
+    }
+    coord(u, y1, y2)
 }
 
 /// Time of a keyframe: seconds from layer start, or relative to the layer end.

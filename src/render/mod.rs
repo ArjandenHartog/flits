@@ -12,14 +12,16 @@ pub use preview::{sheet, stills};
 pub use yuv::rgba_to_yuv420;
 
 use crate::compose::Prepared;
-use crate::media::encode::{self, Encoder, Settings};
+use crate::media::encode::{self, Encoder, EncoderProc, Settings};
 use crate::media::{self, audio};
 use crate::paint::gpu::Gpu;
 use anyhow::{anyhow, bail, Result};
 use std::io::Write;
 use std::path::Path;
+use std::process::Child;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::{Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 pub struct RenderOpts {
@@ -47,11 +49,51 @@ fn chunks(total: i64, workers: usize) -> Vec<(i64, i64)> {
     (0..n).map(|i| (total * i as i64 / n as i64, total * (i as i64 + 1) / n as i64)).filter(|(a, b)| b > a).collect()
 }
 
-/// Render one chunk into `seg` (or discard it with the null encoder).
-fn render_chunk(p: &Prepared, fr: &mut FrameRenderer, opts: &RenderOpts, (a, b): (i64, i64), seg: &Path, done: &AtomicI64) -> Result<()> {
-    let mut enc =
-        profile::time(profile::Stage::EncoderSetup, || encode::spawn_encoder(&opts.encode, fr.yuv_width(), p.width, p.height, p.fps, seg))?;
-    let mut stdin = enc.stdin.take().unwrap();
+/// Counts encoder sessions that are open: hardware encoders refuse to open more than a few
+/// (NVENC on GeForce cards: 8), and a session stays open until its process has exited.
+struct Sessions {
+    free: Mutex<usize>,
+    cv: Condvar,
+}
+
+impl Sessions {
+    fn new(n: usize) -> Arc<Sessions> {
+        Arc::new(Sessions { free: Mutex::new(n), cv: Condvar::new() })
+    }
+
+    fn acquire(&self) {
+        let mut f = self.free.lock().unwrap();
+        while *f == 0 {
+            f = self.cv.wait(f).unwrap();
+        }
+        *f -= 1;
+    }
+
+    fn release(&self) {
+        *self.free.lock().unwrap() += 1;
+        self.cv.notify_one();
+    }
+}
+
+/// Start the encoder for a chunk.
+fn start_encoder(p: &Prepared, opts: &RenderOpts, in_w: u32, seg: &Path) -> Result<EncoderProc> {
+    profile::time(profile::Stage::EncoderSetup, || encode::spawn_encoder(&opts.encode, in_w, p.width, p.height, p.fps, seg))
+}
+
+/// Render one chunk into an encoder that is already running. Returns the encoder's shutdown
+/// (flushing the last frames, writing the file) as a background job, so the worker can go on
+/// with its next chunk meanwhile.
+fn render_chunk(
+    p: &Prepared,
+    fr: &mut FrameRenderer,
+    opts: &RenderOpts,
+    enc: EncoderProc,
+    (a, b): (i64, i64),
+    done: &AtomicI64,
+    sessions: &Arc<Sessions>,
+) -> Result<std::thread::JoinHandle<Result<()>>> {
+    let EncoderProc { child, mut input } = enc;
+    profile::time(profile::Stage::EncoderSetup, || sessions.acquire());
     fr.reset_videos();
     let mut yuv = Vec::new();
     let mut res = Ok(());
@@ -60,17 +102,32 @@ fn render_chunk(p: &Prepared, fr: &mut FrameRenderer, opts: &RenderOpts, (a, b):
             res = Err(e.context(format!("frame {f}")));
             break;
         }
-        if let Err(e) = profile::time(profile::Stage::Encode, || stdin.write_all(&yuv)) {
+        if let Err(e) = profile::time(profile::Stage::Encode, || input.write_all(&yuv)) {
             res = Err(anyhow!("encoder stopped: {e}"));
             break;
         }
         done.fetch_add(1, Ordering::Relaxed);
     }
-    drop(stdin);
-    let out = profile::time(profile::Stage::EncoderSetup, || enc.wait_with_output())?;
+    drop(input);
+    let settings = opts.encode;
+    if res.is_err() {
+        let e = finish_encoder(child, res, settings).unwrap_err();
+        sessions.release();
+        return Err(e);
+    }
+    let sessions = sessions.clone();
+    Ok(std::thread::spawn(move || {
+        let r = finish_encoder(child, Ok(()), settings);
+        sessions.release();
+        r
+    }))
+}
+
+/// Wait for an encoder whose input is closed; its own error message wins if it failed.
+fn finish_encoder(child: Child, mut res: Result<()>, settings: Settings) -> Result<()> {
+    let out = child.wait_with_output()?;
     if !out.status.success() && (res.is_ok() || stdin_closed(&res)) {
-        res =
-            Err(anyhow!("encoder {} failed: {}{}", opts.encode.codec_name(), ffmpeg_error(&out.stderr), encoder_hint(opts.encode.encoder)));
+        res = Err(anyhow!("encoder {} failed: {}{}", settings.codec_name(), ffmpeg_error(&out.stderr), encoder_hint(settings.encoder)));
     }
     res
 }
@@ -130,6 +187,8 @@ pub fn render(p: &Prepared, out: &Path, opts: &RenderOpts) -> Result<()> {
     let finished = AtomicBool::new(false);
     let next = AtomicUsize::new(0);
     let failed = AtomicBool::new(false);
+    let sessions = Sessions::new(opts.encode.max_sessions().min(usize::MAX / 2));
+    let finishing: Mutex<Vec<std::thread::JoinHandle<Result<()>>>> = Mutex::new(Vec::new());
     let audio_path = tmp.join("audio.m4a");
     let null = opts.encode.encoder == Encoder::Null;
 
@@ -154,17 +213,29 @@ pub fn render(p: &Prepared, out: &Path, opts: &RenderOpts) -> Result<()> {
             .map(|_| {
                 s.spawn(|| -> Result<()> {
                     let mut fr = FrameRenderer::new(p, opts.gpu.clone())?;
-                    loop {
+                    let in_w = fr.yuv_width();
+                    let claim = || {
                         let ci = next.fetch_add(1, Ordering::Relaxed);
-                        if ci >= chunks.len() || failed.load(Ordering::Relaxed) {
-                            return Ok(());
-                        }
-                        let seg = tmp.join(format!("seg{ci:04}.mp4"));
-                        if let Err(e) = render_chunk(p, &mut fr, opts, chunks[ci], &seg, &done) {
-                            failed.store(true, Ordering::Relaxed);
-                            return Err(e);
+                        (ci < chunks.len() && !failed.load(Ordering::Relaxed))
+                            .then(|| (ci, start_encoder(p, opts, in_w, &tmp.join(format!("seg{ci:04}.mp4")))))
+                    };
+                    let mut cur = claim();
+                    while let Some((ci, enc)) = cur.take() {
+                        let enc = enc.inspect_err(|_| failed.store(true, Ordering::Relaxed))?;
+                        // start the next chunk's encoder now: its process start-up overlaps this chunk
+                        cur = claim();
+                        match render_chunk(p, &mut fr, opts, enc, chunks[ci], &done, &sessions) {
+                            Ok(job) => finishing.lock().unwrap().push(job),
+                            Err(e) => {
+                                failed.store(true, Ordering::Relaxed);
+                                if let Some((_, Ok(mut next))) = cur {
+                                    let _ = next.child.kill();
+                                }
+                                return Err(e);
+                            }
                         }
                     }
+                    Ok(())
                 })
             })
             .collect();
@@ -177,6 +248,17 @@ pub fn render(p: &Prepared, out: &Path, opts: &RenderOpts) -> Result<()> {
                 }
                 Err(_) => {
                     first_err.get_or_insert(anyhow!("render thread panicked"));
+                }
+            }
+        }
+        for job in std::mem::take(&mut *finishing.lock().unwrap()) {
+            match job.join() {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => {
+                    first_err.get_or_insert(e);
+                }
+                Err(_) => {
+                    first_err.get_or_insert(anyhow!("encoder thread panicked"));
                 }
             }
         }

@@ -148,35 +148,52 @@
       "description": "Ducking: `true` (duck to 0.25) or the volume level (0..1) to duck to while other audio plays."
     },
     "Ease": {
-      "description": "Easing curve: linear, in, out, in-out (default for keyframes), smooth (sine in-out), back-in, back-out (overshoot), elastic, bounce, spring, hold (jump at the end of the segment).",
-      "enum": [
-        "linear",
-        "in",
-        "out",
-        "in-out",
-        "smooth",
-        "back-in",
-        "back-out",
-        "elastic",
-        "bounce",
-        "spring",
-        "hold",
-        "ease-in",
-        "easein",
-        "ease-out",
-        "easeout",
-        "ease",
-        "inout",
-        "ease-in-out",
-        "easeinout",
-        "sine",
-        "sine-in-out",
-        "anticipate",
-        "back",
-        "overshoot",
-        "step"
+      "anyOf": [
+        {
+          "enum": [
+            "linear",
+            "in",
+            "out",
+            "in-out",
+            "smooth",
+            "back-in",
+            "back-out",
+            "elastic",
+            "bounce",
+            "spring",
+            "hold",
+            "expo-in",
+            "expo-out",
+            "expo-in-out",
+            "quint-out",
+            "quint-in-out",
+            "circ-out",
+            "ease-in",
+            "easein",
+            "ease-out",
+            "easeout",
+            "ease",
+            "inout",
+            "ease-in-out",
+            "easeinout",
+            "sine",
+            "sine-in-out",
+            "anticipate",
+            "back",
+            "overshoot",
+            "step",
+            "expo",
+            "quint",
+            "circ"
+          ],
+          "type": "string"
+        },
+        {
+          "pattern": "^cubic-bezier\\(\\s*[-+]?(?:[0-9]+\\.?[0-9]*|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?\\s*,\\s*[-+]?(?:[0-9]+\\.?[0-9]*|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?\\s*,\\s*[-+]?(?:[0-9]+\\.?[0-9]*|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?\\s*,\\s*[-+]?(?:[0-9]+\\.?[0-9]*|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?\\s*\\)$",
+          "type": "string"
+        }
       ],
-      "type": "string"
+      "description": "Easing curve: linear, in, out, in-out (default for keyframes), smooth (sine in-out), back-in, back-out (overshoot), elastic, bounce, spring, hold (jump at the end of the segment), expo-in, expo-out, expo-in-out, quint-out, quint-in-out, circ-out, or a CSS cubic-bezier(x1, y1, x2, y2)."
     },
     "Filter": {
       "additionalProperties": false,
@@ -610,6 +627,10 @@
           "description": "waveform: bars grow from the centre line",
           "type": "boolean"
         },
+        "motionBlur": {
+          "description": "`false`: no motion blur for this layer and its children (when the scene has `motionBlur`)",
+          "type": "boolean"
+        },
         "opacity": {
           "$ref": "#/$defs/Animated",
           "description": "0..1"
@@ -684,6 +705,16 @@
         "revealDuration": {
           "description": "seconds over which the `reveal` pieces appear",
           "type": "number"
+        },
+        "revealStyle": {
+          "description": "how each `reveal` piece comes in: rise (default), mask (slides up out of its own line, clipped), fade, or blur (sharpens while it rises)",
+          "enum": [
+            "rise",
+            "mask",
+            "fade",
+            "blur"
+          ],
+          "type": "string"
         },
         "rotation": {
           "$ref": "#/$defs/Animated",
@@ -849,6 +880,36 @@
         "type"
       ],
       "type": "object"
+    },
+    "MotionBlur": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "comment": {
+              "description": "Free-form note for humans; ignored by flits.",
+              "type": "string"
+            },
+            "samples": {
+              "description": "most sub-frame samples per moving layer (default 8; layers that move little get fewer)",
+              "maximum": 64,
+              "minimum": 2,
+              "type": "integer"
+            },
+            "shutter": {
+              "description": "fraction of the frame interval the shutter is open (default 0.5 = 180°; 1 = smear over the whole frame)",
+              "maximum": 2.0,
+              "minimum": 0.0,
+              "type": "number"
+            }
+          },
+          "type": "object"
+        }
+      ],
+      "description": "Motion blur: `true`/`false`, or the number of samples and the shutter."
     },
     "Padding": {
       "anyOf": [
@@ -1110,6 +1171,10 @@
     "loudness": {
       "description": "normalize the final mix to this loudness (LUFS, e.g. -14 for social, -16 for podcasts)",
       "type": "number"
+    },
+    "motionBlur": {
+      "$ref": "#/$defs/MotionBlur",
+      "description": "motion blur for moving layers: `true` (up to 8 samples, 180° shutter) or `{ \"samples\": 12, \"shutter\": 0.5 }`"
     },
     "width": {
       "description": "canvas width in pixels",

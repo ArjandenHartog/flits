@@ -43,6 +43,7 @@ lowercase only (flits ignores case), and it cannot see files, fonts or media len
   "fonts": { "brand": "fonts/Rubik-Black.ttf" },   // aliases usable in "font"
   "fontFallback": ["Noto Color Emoji"],  // optional: fonts for characters a layer's font lacks
   "loudness": -14,                     // optional: normalize the final mix (LUFS; -14 social, -16 podcast)
+  "motionBlur": true,                  // optional: motion blur for moving layers (or { "samples": 12, "shutter": 0.5 })
   "audio": [ { "src": "music.mp3", "volume": 0.6, "fadeIn": 1, "fadeOut": 3, "duck": true } ],
   "layers": [ ... ]                    // drawn in order: first = bottom
 }
@@ -88,7 +89,19 @@ Any animatable number can be:
 * keyframes `[time, value, ease]`: `"y": [[0, 1200], [0.6, 540, "back-out"], ["end-0.5", 540], ["end", -200, "in"]]`
   (time in seconds from layer start, or `"end"`/`"end-0.5"`; the ease applies to the segment ending at that key)
 
-Eases: `linear`, `in`, `out`, `in-out` (default), `smooth`, `back-in`, `back-out`, `elastic`, `bounce`, `spring`, `hold`.
+Eases: `linear`, `in`, `out`, `in-out` (default), `smooth`, `back-in`, `back-out`, `elastic`, `bounce`, `spring`, `hold`,
+`expo-in`, `expo-out`, `expo-in-out`, `quint-out`, `quint-in-out`, `circ-out`, or a CSS curve `"cubic-bezier(0.16, 1, 0.3, 1)"`.
+`expo-out` is the snappy "lands and settles" curve of most motion design.
+
+### Motion blur
+
+`"motionBlur": true` on the scene blurs whatever moves, like a camera shutter: every layer that travels more than a
+pixel during the open shutter is drawn at several moments around the frame time and averaged. The number of samples
+follows the distance moved (one per 2 px, up to `samples`, default 8), so still layers cost nothing and fast ones get
+smooth trails. `{ "samples": 12, "shutter": 0.5 }`: `shutter` is the fraction of the frame interval the shutter is
+open (0.5 = a 180° film shutter; 1 = the whole frame). Movement counts from position, scale, rotation, transitions
+and text reveals; a moving group is sampled as a whole. `"motionBlur": false` on a layer exempts it and its children
+(e.g. a timecode that must stay crisp).
 
 ### Transitions (`in` / `out`)
 
@@ -132,7 +145,10 @@ Default duration = the (re-timed) clip length. iPhone HDR (HLG/PQ, 10-bit) is to
 `fonts` alias; default Segoe UI Bold), `weight` (for variable fonts), `size` (64), `color`, `align`
 (`left`/`center`/`right`), `maxWidth` (wraps), `lineHeight` (1.15), `letterSpacing`, `uppercase`,
 `stroke` `{width,color}`, `background` `{ "color": "#000a", "padding": [24,12], "radius": 16, "mode": "box"|"lines" }`,
-`reveal`: `"words"` | `"lines"` | `"chars"` | `"typewriter"` with `revealDuration` (seconds over which the pieces appear).
+`reveal`: `"words"` | `"lines"` | `"chars"` | `"typewriter"` with `revealDuration` (seconds over which the pieces appear)
+and `revealStyle`: `"rise"` (default: up a third of its height while fading in), `"mask"` (each piece slides up out of
+its own line box, clipped, on an expo-out curve: the classic kinetic-type reveal), `"fade"`, or `"blur"` (rises while
+a vertical smear sharpens).
 
 **counter** — an animated number: `value` (animatable, e.g. `{"from": 0, "to": 12840, "ease": "out", "end": 2.5}`),
 `decimals`, `prefix`, `suffix`, `separator` (thousands, default `","` → `1,234.5`; `"."` gives `1.234,5`; `"none"` gives `1234,5`),

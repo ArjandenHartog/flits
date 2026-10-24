@@ -27,6 +27,14 @@ export type Ease =
   | "bounce"
   | "spring"
   | "hold"
+  | "expo-in"
+  | "expo-out"
+  | "expo-in-out"
+  | "quint-out"
+  | "quint-in-out"
+  | "circ-out"
+  | `cubic-bezier(${number}, ${number}, ${number}, ${number})`
+  | `cubic-bezier(${number},${number},${number},${number})`
   | "ease-in"
   | "easein"
   | "ease-out"
@@ -40,7 +48,10 @@ export type Ease =
   | "anticipate"
   | "back"
   | "overshoot"
-  | "step";
+  | "step"
+  | "expo"
+  | "quint"
+  | "circ";
 
 /** Keyframe time: seconds from the layer start, or "end" / "end-0.5" (relative to the layer end). */
 export type KeyTime = number | "end" | `end-${number}` | `end+${number}` | `${number}`;
@@ -157,6 +168,18 @@ export type Fit = "cover" | "contain" | "fill" | "stretch";
 /** left, center (default), right (aliases start, middle, end) */
 export type Align = "left" | "center" | "right" | "start" | "middle" | "end";
 export type Reveal = "words" | "lines" | "chars" | "typewriter" | "none";
+/** How each `reveal` piece comes in: rise (default), mask (slides up out of its own line, clipped), fade, blur. */
+export type RevealStyle = "rise" | "mask" | "fade" | "blur";
+
+/** Motion blur: `true` (up to 8 samples, 180° shutter) or the samples and shutter. */
+export type MotionBlur = boolean | MotionBlurSpec;
+
+export interface MotionBlurSpec {
+  /** most sub-frame samples per moving layer (default 8; layers that move little get fewer) */
+  samples?: number;
+  /** fraction of the frame interval the shutter is open (default 0.5 = 180°) */
+  shutter?: number;
+}
 /** balance: even line lengths; greedy (default) */
 export type Wrap = "balance" | "greedy";
 /** karaoke (default), pop, bounce, word, line; aliases highlight, tiktok, jump, single, plain, subtitle */
@@ -306,6 +329,8 @@ export interface LayerProps {
   filter?: Filter;
   /** group: clip children to the group's box */
   clip?: boolean;
+  /** `false`: no motion blur for this layer and its children (when the scene has `motionBlur`) */
+  motionBlur?: boolean;
   /** free-form note; ignored by flits */
   comment?: string;
 
@@ -354,6 +379,8 @@ export interface LayerProps {
   wrap?: Wrap;
   /** seconds over which the `reveal` pieces appear */
   revealDuration?: number;
+  /** how each `reveal` piece comes in (default "rise") */
+  revealStyle?: RevealStyle;
 
   /** captions: named look; properties set on the layer override it */
   preset?: CaptionPreset;
@@ -480,6 +507,8 @@ export interface Scene {
   audio?: AudioTrack[];
   /** normalize the final mix to this loudness (LUFS, e.g. -14 for social, -16 for podcasts) */
   loudness?: number;
+  /** motion blur for moving layers */
+  motionBlur?: MotionBlur;
   /** drawn in order: the first is at the bottom */
   layers?: Layer[];
   comment?: string;

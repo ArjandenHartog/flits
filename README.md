@@ -9,7 +9,8 @@
 
 <sub>Rendered by flits from [docs/demo.json](docs/demo.json) in 2.2 s (no GPU).</sub>
 
-Describe a video as JSON (layers, keyframe animation, 22 transitions, word-by-word captions with
+Describe a video as JSON (layers, keyframe animation with expo and cubic-bezier curves, real motion blur, masked text
+reveals, 22 transitions, word-by-word captions with
 ready-made looks, colour emoji in any language, audio waveforms, counters) and flits composites it on the GPU,
 encodes it in parallel with hardware encoders and joins the pieces without re-encoding. On top of that: Whisper
 transcription on the GPU, beat-synced slideshows, silence and filler-word removal, podcast videos and animated captions.
@@ -176,7 +177,7 @@ remains the authority: it also catches what a schema can't (missing files, fonts
 plus a small wrapper around the CLI to render, check and transcribe from your own code.
 
 ```ts
-import { check, render, type Scene } from "@flits/scene"; // or a relative import of bindings/typescript/index.js
+import { check, render, type Scene } from "flits-video"; // npm i flits-video, or a relative import of bindings/typescript/index.js
 
 const scene: Scene = {
   width: 1080, height: 1920, duration: 4,
@@ -186,7 +187,7 @@ const { ok, warnings, error } = await check(scene);
 await render(scene, "hello.mp4", { scale: 0.5 });  // also: still, sheet, transcribe, schema
 ```
 
-**Python** ([`bindings/python`](bindings/python), `pip install ./bindings/python`, no dependencies on 3.11+):
+**Python** ([`bindings/python`](bindings/python), `pip install flits-video`, no dependencies on 3.11+):
 `TypedDict`s for the scene format and the same wrapper (`render`, `still`, `sheet`, `check`, `transcribe`, `schema`);
 animatable properties may be Python callables `f(t, ctx)`, sampled per frame like in TypeScript.
 See [`examples/hello.py`](bindings/python/examples/hello.py).

@@ -68,6 +68,25 @@ pub struct GpuPainter<'a> {
     ops: Vec<(Inst, TexRef<'a>)>,
 }
 
+impl GpuPainter<'_> {
+    /// Identifies the frame these ops draw: equal fingerprints draw identical pixels (same quads,
+    /// same textures, same video frame versions).
+    pub fn fingerprint(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        self.ops.len().hash(&mut h);
+        for (inst, tex) in &self.ops {
+            h.write(bytemuck::bytes_of(inst));
+            match tex {
+                TexRef::White => 0usize.hash(&mut h),
+                TexRef::Static(pm) => (*pm as *const Pixmap as usize).hash(&mut h),
+                TexRef::Video { key, ver, .. } => (key, ver).hash(&mut h),
+            }
+        }
+        h.finish()
+    }
+}
+
 fn det_scale(t: &Transform) -> f32 {
     (t.sx * t.sy - t.kx * t.ky).abs().sqrt().max(1e-6)
 }
@@ -609,9 +628,16 @@ impl Gpu {
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &tg.uni_bg, &[]);
             pass.set_vertex_buffer(0, tg.inst.slice(..));
-            for (i, b) in bgs.iter().enumerate() {
-                pass.set_bind_group(1, b.as_ref(), &[]);
-                pass.draw(0..6, i as u32..i as u32 + 1);
+            // one instanced draw per run of quads sharing a texture (solid fills all share `white`)
+            let mut i = 0;
+            while i < bgs.len() {
+                let mut j = i + 1;
+                while j < bgs.len() && Arc::ptr_eq(&bgs[i], &bgs[j]) {
+                    j += 1;
+                }
+                pass.set_bind_group(1, bgs[i].as_ref(), &[]);
+                pass.draw(0..6, i as u32..j as u32);
+                i = j;
             }
         }
         let row = (tg.real_w * 4).div_ceil(256) * 256;
