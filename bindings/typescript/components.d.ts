@@ -21,6 +21,9 @@ import type { Children } from "./compile.js";
 export { compile, flatten } from "./compile.js";
 export type { Children } from "./compile.js";
 
+// motion design components (KineticTitle, MaskLine, Rule, LineChart, Whip, ...) and the theme
+export * from "./motion.js";
+
 /** Props of a component for layer type L: everything but `type`, plus `children` where it makes sense. */
 export type LayerOptions<L extends Layer> = Omit<L, "type" | "children">;
 

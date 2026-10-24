@@ -169,6 +169,10 @@ pub fn load(path: &Path) -> Result<Value> {
         }
     }
     cmd.arg(dir.join("loader.mjs")).arg(&file).arg(&props).arg(&out);
+    // the SDK measures text with `flits measure` (motion components that sit next to words): use this flits
+    if let Ok(exe) = std::env::current_exe() {
+        cmd.env("FLITS_BIN", exe);
+    }
     // run from the project root (nearest package.json/tsconfig.json), like npm scripts: runtimes find
     // their tsconfig (JSX settings) and node_modules from there
     let root = file.ancestors().skip(1).find(|d| d.join("package.json").is_file() || d.join("tsconfig.json").is_file()).or(file.parent());

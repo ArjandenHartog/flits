@@ -10,6 +10,9 @@ import { audioTrack, compile, flatten } from "./compile.js";
 
 export { compile, flatten };
 
+// motion design components (KineticTitle, MaskLine, Rule, LineChart, Whip, ...) and the theme
+export * from "./motion.js";
+
 // ------------------------------------------------------------------ formats
 
 /** Common canvas sizes. Spread into a Composition: `<Composition {...formats.reel} fps={30}>`. */

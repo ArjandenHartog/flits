@@ -257,6 +257,21 @@ it): components (`Composition`, `Text`, `Image`, `Video`, `Rect`, `Shape`, `Coun
 `easing`, `random`, `fromTo`, `keyframes`, `defineVideo`, the scene types, and a JSX runtime. `flits new <starter> -o
 x.ts` writes a starter as a TypeScript module.
 
+**Motion components** (`motion.js`, also exported from `#flits`) build whole motion-design elements from these layers.
+Timing props are shared: `at` (seconds, relative to the parent, when it starts coming in) and `exit` (when it starts
+leaving; omitted = stays until the parent ends); `x`/`y` are the top-left (or top-centre/right with `align`).
+Text: `MaskLine`, `KineticTitle`, `Eyebrow`/`Label`, `Typewriter`, `HighlightRule`, `Quote`. Structure: `Rule`,
+`Outline`, `Tag`, `Grid`, `Hud`, `LowerThird`, `EndCard`, `Backdrop`. Data: `StatCounter`, `BarChart`, `LineChart`,
+`ProgressRing`, `Checklist`, `ProgressBars`. Timing: `Act` (a full-frame chapter from `at` for `duration` with an
+`exit` of `rise`/`sink`/`fade`/`whip`/`none`), `timeline({ name: seconds, ... })` (acts end to end: `{ name: { at, end,
+duration }, total }`), `Stagger` (shifts children's `start` by `each`), `Whip`. Colours (`background`, `surface`,
+`text`, `muted`, `subtle`, `line`, `accent`, `positive`, `negative`), fonts (`display`, `body`, `mono`), weights,
+`fontFiles`, motion defaults (`in` 0.9 s `expo-out`, `out` 0.55 s `expo-in`, `stagger` 0.12) and canvas size come from
+the theme: `setTheme({...})` once, or a `theme` prop per component; `themeScene()` gives the scene's `background` and
+`fonts`. Components that align to text (`HighlightRule`, `Typewriter`, `Tag`, `Eyebrow` markers, `KineticTitle` with
+`maxWidth`) measure it with `flits measure` (flits sets `FLITS_BIN` for the scripts it runs; results are cached in the
+temp folder; without flits the SDK estimates).
+
 ## Ready-made commands
 
     flits slideshow fotos/ --music liedje.mp3 --beats --title "Zomer 2026" --format 9:16
