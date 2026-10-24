@@ -207,6 +207,7 @@ flits cut recording.mp4 --export fcpxml,premiere,edl   # Final Cut Pro / Premier
 flits cut recording.mp4 --edit                # edit as text: delete lines/words in recording.edit.txt,
 flits cut recording.mp4 --apply recording.edit.txt     #   then cut exactly that (word-accurate)
 flits transcribe recording.m4a --lang en      # -> .words.json + .srt + .vtt + .txt
+flits warm                                    # load whisper now: the next transcription starts at once
 flits transcribe recording.m4a --initial-prompt "Arjan, flits" --vocab terms.txt   # names and jargon
 flits transcribe interview.m4a --diarize      # speaker labels (optional pyannote, needs HF_TOKEN)
 

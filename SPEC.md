@@ -384,6 +384,8 @@ audio-only timeline at 30 fps.
 itself after 10 idle minutes; `FLITS_WHISPER_IDLE` seconds, `FLITS_WHISPER_DAEMON=0` to run whisper
 fresh every time). Starting Python and loading the model is most of the time for short clips: a 35 s
 clip takes ~11 s the first time and under 2 s after that. Diarization always runs on its own.
+`flits warm` starts the worker and loads the model ahead of time (e.g. while you pick the footage);
+`flits reel` starts warming it by itself as soon as it starts, while it decodes the audio.
 
 `--initial-prompt`, `--vocab`, `--diarize` also work on `captions`, `podcast` and `cut` (whenever they transcribe).
 The JSON has `language`, `duration` and `segments` (`start`, `end`, `text`, `words`: `word`, `start`, `end`, `prob`),

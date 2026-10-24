@@ -177,6 +177,7 @@ transcript is reused), cuts silences (`--fillers`: also uh/ehm), follows the fac
 (`--focus auto`, the default), adds captions and a hook title, and renders only the reel's length:
 
 ```sh
+flits warm                                          # start loading whisper while you look around
 flits transcribe talk.mp4 --lang nl                 # first: read talk.words.txt (or .srt for times) to pick the best part
 flits reel talk.mp4 --from 1:12 --to 2:10 --fillers --title "Hook in a few words" --preset tiktok
 flits reel talk.mp4 --clips "0:40-1:05,3:10-3:32"   # several parts, in this order

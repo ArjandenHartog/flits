@@ -480,6 +480,10 @@ pub fn reel(video: &Path, out: Option<PathBuf>, a: &ReelArgs, transcript: Option
     if (a.fillers || a.repeats) && wo.initial_prompt.is_none() {
         wo.initial_prompt = fillers::verbatim_prompt(&wo.language).map(str::to_string);
     }
+    if transcript.is_none() && !transcribe::default_json(video).exists() {
+        // start loading whisper now: it is ready by the time the audio is
+        transcribe::prewarm(&wo);
+    }
     let windows = if a.windows.is_empty() { vec![(0.0, info.duration)] } else { a.windows.clone() };
     // who is where needs only the picture: work it out while whisper listens
     let (tr_path, framings) = std::thread::scope(|s| {

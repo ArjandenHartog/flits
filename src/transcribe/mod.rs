@@ -136,40 +136,90 @@ pub fn transcribe_many(jobs: &[(PathBuf, PathBuf)], o: &TranscribeOpts) -> Resul
     transcribe_local(jobs, o)
 }
 
+/// The helper script in `dir`, written only when it changed and then atomically: the prewarm
+/// thread and the transcription may get here at the same time, and a worker starting must never
+/// read a half-written file.
+fn write_script(dir: &Path) -> Result<PathBuf> {
+    let script = dir.join("whisper.py");
+    if std::fs::read_to_string(&script).ok().as_deref() != Some(SCRIPT) {
+        let tmp = dir.join(format!("whisper.py.{}.{:?}.tmp", std::process::id(), std::thread::current().id()));
+        std::fs::write(&tmp, SCRIPT)?;
+        if std::fs::rename(&tmp, &script).is_err() {
+            let _ = std::fs::remove_file(&tmp); // another writer won; its content is the same
+        }
+    }
+    Ok(script)
+}
+
+/// The command that runs the helper script (up to and including the interpreter).
+fn helper_command(o: &TranscribeOpts, use_cuda: bool) -> Result<Command> {
+    Ok(if let Some(py) = &o.python.clone().or_else(|| std::env::var_os("FLITS_PYTHON").map(PathBuf::from)) {
+        Command::new(py)
+    } else if has("uv") {
+        let mut c = Command::new("uv");
+        c.args(["run", "--quiet", "--no-project", "--python", "3.12", "--with", "faster-whisper>=1.1"]);
+        if use_cuda {
+            c.args(["--with", "nvidia-cublas-cu12", "--with", "nvidia-cudnn-cu12>=9,<10"]);
+        }
+        if o.diarize {
+            // optional and heavy (PyTorch): only pulled in when asked for
+            eprintln!("flits: diarization on; the first run installs pyannote.audio + PyTorch (a large download)");
+            c.args(["--with", "pyannote.audio>=3.3"]);
+        }
+        c.arg("python");
+        c
+    } else {
+        bail!(
+            "transcription needs either `uv` (https://docs.astral.sh/uv/) or --python pointing at a Python with faster-whisper installed"
+        );
+    })
+}
+
+/// Start the warm whisper worker and load the model, waiting until it is ready (`flits warm`).
+pub fn warm_now(o: &TranscribeOpts) -> Result<()> {
+    if !daemon::enabled() {
+        bail!("the whisper worker is turned off (FLITS_WHISPER_DAEMON=0)");
+    }
+    let dir = crate::media::process::user_temp_dir()?;
+    let script = write_script(&dir)?;
+    let use_cuda = o.device != "cpu" && has_nvidia();
+    let device = if o.device == "auto" && !use_cuda { "cpu".to_string() } else { o.device.clone() };
+    daemon::warm(&dir, &|| helper_command(o, use_cuda), &script, &o.model, &device)
+}
+
+/// Start the warm whisper worker and load the model in the background, so it is ready by the time
+/// the audio is decoded and the transcription is asked for (call it as early as possible). Does
+/// nothing when the worker is off, a GPU server is used, or diarization is on.
+pub fn prewarm(o: &TranscribeOpts) {
+    if !daemon::enabled() || o.diarize || remote_for(o).is_some() {
+        return;
+    }
+    let o = o.clone();
+    std::thread::spawn(move || {
+        let warm = || -> Result<()> {
+            let dir = crate::media::process::user_temp_dir()?;
+            let script = write_script(&dir)?;
+            let use_cuda = o.device != "cpu" && has_nvidia();
+            let device = if o.device == "auto" && !use_cuda { "cpu".to_string() } else { o.device.clone() };
+            daemon::warm(&dir, &|| helper_command(&o, use_cuda), &script, &o.model, &device)
+        };
+        // a failure here shows up (and falls back) when the transcription itself runs
+        let _ = warm();
+    });
+}
+
 fn transcribe_local(jobs: &[(PathBuf, PathBuf)], o: &TranscribeOpts) -> Result<()> {
     use rayon::prelude::*;
     // the helper script and its job files: in a folder no other user can write to
     let dir = crate::media::process::user_temp_dir()?;
-    let script = dir.join("whisper.py");
-    std::fs::write(&script, SCRIPT)?;
+    let script = write_script(&dir)?;
     if o.diarize && !has_hf_token() {
         bail!("--diarize needs a Hugging Face token in HF_TOKEN.\n{DIARIZE_HELP}");
     }
 
     let use_cuda = o.device != "cpu" && has_nvidia();
     let device = if o.device == "auto" && !use_cuda { "cpu".to_string() } else { o.device.clone() };
-    let make_cmd = || -> Result<Command> {
-        Ok(if let Some(py) = &o.python.clone().or_else(|| std::env::var_os("FLITS_PYTHON").map(PathBuf::from)) {
-            Command::new(py)
-        } else if has("uv") {
-            let mut c = Command::new("uv");
-            c.args(["run", "--quiet", "--no-project", "--python", "3.12", "--with", "faster-whisper>=1.1"]);
-            if use_cuda {
-                c.args(["--with", "nvidia-cublas-cu12", "--with", "nvidia-cudnn-cu12>=9,<10"]);
-            }
-            if o.diarize {
-                // optional and heavy (PyTorch): only pulled in when asked for
-                eprintln!("flits: diarization on; the first run installs pyannote.audio + PyTorch (a large download)");
-                c.args(["--with", "pyannote.audio>=3.3"]);
-            }
-            c.arg("python");
-            c
-        } else {
-            bail!(
-            "transcription needs either `uv` (https://docs.astral.sh/uv/) or --python pointing at a Python with faster-whisper installed"
-        );
-        })
-    };
+    let make_cmd = || helper_command(o, use_cuda);
     // decode everything with ffmpeg in parallel (fast, any format) to raw 16 kHz mono float32
     let t = std::time::Instant::now();
     let pcms: Vec<PathBuf> = (0..jobs.len()).map(|i| dir.join(format!("audio-{}-{i}.f32", std::process::id()))).collect();
@@ -191,7 +241,7 @@ fn transcribe_local(jobs: &[(PathBuf, PathBuf)], o: &TranscribeOpts) -> Result<(
     std::fs::write(&job_file, cfg.to_string())?;
     // the warm worker (model already loaded) when it can; diarization runs on its own
     if !o.diarize && daemon::enabled() {
-        match daemon::run(&dir, make_cmd()?, &script, &job_file) {
+        match daemon::run(&dir, &make_cmd, &script, &job_file) {
             Ok(()) => {
                 for p in pcms.iter().chain(std::iter::once(&job_file)) {
                     let _ = std::fs::remove_file(p);

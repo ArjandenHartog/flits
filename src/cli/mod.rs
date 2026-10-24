@@ -467,6 +467,12 @@ enum Cmd {
         #[command(flatten)]
         r: RenderArgs,
     },
+    /// Start the whisper worker and load the model now (it stays ready for 10 idle minutes), so the
+    /// next transcribe/reel/captions/cut starts at once
+    Warm {
+        #[command(flatten)]
+        w: WhisperArgs,
+    },
     /// Transcribe audio/video to word-timed JSON + SRT + VTT + TXT (several files: one model load)
     #[command(after_help = "Speaker labels (--diarize) are optional and need a Hugging Face token:\n  \
         1. create a read token at https://huggingface.co/settings/tokens\n  \
@@ -715,6 +721,12 @@ fn run(cli: Cli) -> Result<()> {
                 accent,
             };
             make::reel(&video, out, &a, transcript, &w, &r)
+        }
+        Cmd::Warm { w } => {
+            let t = std::time::Instant::now();
+            flits::transcribe::warm_now(&w.opts()?)?;
+            eprintln!("flits: whisper is ready ({:.1}s)", t.elapsed().as_secs_f64());
+            Ok(())
         }
         Cmd::Transcribe { inputs, out, outdir, words_only, segments_only, w } => {
             make::transcribe(&inputs, out, outdir, words_only, segments_only, &w)

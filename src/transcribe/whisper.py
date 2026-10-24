@@ -8,11 +8,14 @@
 #               "diarize": false, "speakers": null | 2,
 #               "jobs": [{"pcm": "a.f32", "out": "a.words.json"}, ...]}
 # Diarization (speaker labels) needs pyannote.audio and a Hugging Face token in HF_TOKEN.
-import json, os, sys, time, glob, site, socket, secrets
+import json, os, sys, time, glob, site, socket, secrets, threading
 
-class LOG:
-    # where progress goes: stderr, or the client's connection in --serve mode
+class _Log(threading.local):
+    # where progress goes: stderr, or (per connection thread) the client in --serve mode
     out = sys.stderr
+
+
+LOG = _Log()
 
 
 class Fail(Exception):
@@ -201,7 +204,7 @@ def serve(state_path):
     token = secrets.token_hex(16)
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.bind(("127.0.0.1", 0))
-    srv.listen(4)
+    srv.listen(8)
     srv.settimeout(5)
     tmp = f"{state_path}.{os.getpid()}.tmp"  # two workers starting at once don't share it
     # readable by this user only: the token is the key to the worker
@@ -209,31 +212,49 @@ def serve(state_path):
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump({"port": srv.getsockname()[1], "token": token, "pid": os.getpid()}, f)
     os.replace(tmp, state_path)
-    last = time.time()
-    while time.time() - last < idle:
-        try:
-            conn, _ = srv.accept()
-        except socket.timeout:
-            continue
+    work = threading.Lock()  # one job (or model load) at a time: they share the GPU
+    busy = [0]
+    count = threading.Lock()
+    last = [time.time()]
+
+    def handle(conn):
         with conn:
-            conn.settimeout(None)
             try:
                 req = json.loads(conn.makefile("r", encoding="utf-8").readline())
                 if req.get("token") != token:
                     conn.sendall(b"ERR bad token\n")
-                    continue
-                conn.sendall(b"ACK\n")  # at once: the client knows it reached a worker
+                    return
+                # at once, even while another job runs: the client knows it reached a worker
+                conn.sendall(b"ACK\n")
                 LOG.out = Lines(conn)
-                run(json.load(open(req["job"], encoding="utf-8")))
+                with work:
+                    if "warm" in req:  # load a model ahead of the job that will need it
+                        key = (req["warm"].get("model", "default"), req["warm"].get("device", "auto"))
+                        if key not in MODELS:
+                            MODELS[key] = load(*key)
+                    else:
+                        run(json.load(open(req["job"], encoding="utf-8")))
                 conn.sendall(b"OK\n")
-            except (Fail, Exception) as e:  # report, keep serving
+            except Exception as e:  # report, keep serving
                 try:
                     conn.sendall(("ERR " + str(e).replace("\n", " ") + "\n").encode("utf-8"))
                 except OSError:
                     pass
             finally:
                 LOG.out = sys.stderr
-                last = time.time()
+                with count:
+                    busy[0] -= 1
+                last[0] = time.time()
+
+    while busy[0] > 0 or time.time() - last[0] < idle:
+        try:
+            conn, _ = srv.accept()
+        except socket.timeout:
+            continue
+        conn.settimeout(None)
+        with count:
+            busy[0] += 1
+        threading.Thread(target=handle, args=(conn,), daemon=True).start()
     try:
         if json.load(open(state_path, encoding="utf-8")).get("pid") == os.getpid():
             os.remove(state_path)
