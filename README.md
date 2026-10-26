@@ -216,7 +216,10 @@ flits transcribe recording.m4a --initial-prompt "Arjan, flits" --vocab terms.txt
 flits transcribe interview.m4a --diarize      # speaker labels (optional pyannote, needs HF_TOKEN)
 
 # tools
-flits doctor                                  # what works on this machine (GPU, encoders, whisper, ...)
+flits doctor                                  # what works on this machine (GPU, encoders, whisper, ...), which
+                                              # binary runs, and a warning when it is older than the flits checkout
+                                              # in this folder (or the one it was built from)
+flits --version                               # version, git commit and build date
 flits info file.mp4
 flits info flyby.wav --peaks                  # loudness over time: the loudest moment (RMS, --window 0.25 s),
                                               # the loudest sample and dBFS per second (--json for scripts)

@@ -231,8 +231,71 @@ fn works(cmd: &str, args: &[&str]) -> bool {
     Command::new(cmd).args(args).output().map(|o| o.status.success()).unwrap_or(false)
 }
 
+/// Version of a flits checkout: the `version` of its Cargo.toml `[package]`, when it is flits.
+fn checkout_version(dir: &Path) -> Option<String> {
+    let toml = std::fs::read_to_string(dir.join("Cargo.toml")).ok()?;
+    let mut in_package = false;
+    let (mut name, mut version) = (None, None);
+    for line in toml.lines().map(str::trim) {
+        if line.starts_with('[') {
+            in_package = line == "[package]";
+            continue;
+        }
+        let Some((k, v)) = line.split_once('=').filter(|_| in_package) else { continue };
+        let v = v.trim().trim_matches('"').to_string();
+        match k.trim() {
+            "name" => name = Some(v),
+            "version" => version = Some(v),
+            _ => {}
+        }
+    }
+    version.filter(|_| name.as_deref() == Some("flits"))
+}
+
+/// Why the running binary is out of date compared with the flits checkout in `dir` (its version or
+/// HEAD commit differs from what this binary was built from), if it is.
+fn stale_against(dir: &Path) -> Option<String> {
+    let version = checkout_version(dir)?;
+    if version != env!("CARGO_PKG_VERSION") {
+        return Some(format!("the checkout is version {version}, this binary {}", env!("CARGO_PKG_VERSION")));
+    }
+    let built = env!("FLITS_GIT_COMMIT");
+    if built.is_empty() || !dir.join(".git").exists() {
+        return None;
+    }
+    let head = Command::new("git").arg("-C").arg(dir).args(["rev-parse", "HEAD"]).output().ok().filter(|o| o.status.success())?;
+    let head = String::from_utf8_lossy(&head.stdout).trim().to_string();
+    (!head.is_empty() && head != built).then(|| format!("the checkout is at commit {:.9}, this binary was built from {built:.9}", head))
+}
+
+/// `flits doctor`: which binary runs, and whether a flits checkout (the current folder or the one it
+/// was built from) has moved on since.
+fn doctor_binary() {
+    let exe = std::env::current_exe().ok();
+    let shown = exe.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "?".into());
+    let mut dirs: Vec<std::path::PathBuf> = vec![];
+    for d in [std::env::current_dir().ok(), Some(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")))].into_iter().flatten() {
+        let d = std::fs::canonicalize(&d).unwrap_or(d);
+        if !dirs.contains(&d) {
+            dirs.push(d);
+        }
+    }
+    let stale: Vec<_> = dirs.iter().filter_map(|d| stale_against(d).map(|why| (d, why))).collect();
+    println!("{}binary    flits {} at {shown}", tick(stale.is_empty()), env!("FLITS_LONG_VERSION"));
+    let exe = exe.and_then(|p| std::fs::canonicalize(p).ok());
+    for (d, why) in stale {
+        // a development build inside the checkout just needs rebuilding; an installed one reinstalling
+        let fix = if exe.as_ref().is_some_and(|e| e.starts_with(d.join("target"))) {
+            "cargo build --release".to_string()
+        } else {
+            format!("cargo install --path {}", d.display().to_string().trim_start_matches(r"\\?\"))
+        };
+        println!("   warning: this binary may be out of date: {why}; run `{fix}`");
+    }
+}
+
 pub fn doctor() -> Result<()> {
-    println!("flits {}", env!("CARGO_PKG_VERSION"));
+    doctor_binary();
     // ffmpeg
     let ff = Command::new("ffmpeg").arg("-version").output().ok().filter(|o| o.status.success());
     match &ff {
@@ -408,4 +471,46 @@ pub fn measure() -> Result<()> {
     }
     println!("{}", serde_json::to_string(&out)?);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_the_version_of_a_flits_checkout_only() {
+        let dir = std::env::temp_dir().join(format!("flits-doctor-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let toml = "[package]\nname = \"flits\"\nversion = \"9.9.9\"\n\n[dependencies]\nversion = \"1\"\n";
+        std::fs::write(dir.join("Cargo.toml"), toml).unwrap();
+        assert_eq!(checkout_version(&dir).as_deref(), Some("9.9.9"));
+        assert!(stale_against(&dir).unwrap().contains("9.9.9"));
+        std::fs::write(dir.join("Cargo.toml"), "[package]\nname = \"other\"\nversion = \"9.9.9\"\n").unwrap();
+        assert_eq!(checkout_version(&dir), None);
+        assert_eq!(stale_against(&dir), None);
+        // the same version without git: nothing to compare
+        let same = format!("[package]\nname = \"flits\"\nversion = \"{}\"\n", env!("CARGO_PKG_VERSION"));
+        std::fs::write(dir.join("Cargo.toml"), same).unwrap();
+        assert_eq!(stale_against(&dir), None);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn levels_of_a_burst() {
+        let rate = 8000;
+        let x: Vec<f32> = (0..rate * 4)
+            .map(|i| {
+                let t = i as f32 / rate as f32;
+                let a = if (2.0..2.5).contains(&t) { 0.5 } else { 0.01 };
+                a * (t * 440.0 * std::f32::consts::TAU).sin()
+            })
+            .collect();
+        let l = levels(&x, rate, 0.25);
+        assert!(l.loudest.0 > 2.1 && l.loudest.0 < 2.4, "{}", l.loudest.0);
+        assert!((l.loudest.1 + 9.0).abs() < 0.5, "{}", l.loudest.1); // 0.5 amplitude: -9 dBFS RMS
+        assert_eq!(l.step, 1.0);
+        assert_eq!(l.levels.len(), 4);
+        assert!((l.levels[0] + 43.0).abs() < 0.5);
+        assert_eq!(sparkline(&l.levels).chars().count(), 4);
+    }
 }

@@ -13,7 +13,7 @@ use std::time::Instant;
 #[derive(Parser)]
 #[command(
     name = "flits",
-    version,
+    version = env!("FLITS_LONG_VERSION"),
     about = "Blazing-fast GPU video and podcast renderer (JSON scene -> MP4) with built-in transcription",
     after_help = "Start with `flits new intro -o intro.json && flits render intro.json`, or write videos in TypeScript:\n`flits init my-video && flits preview my-video/src/video.ts`. `flits spec` documents the scene format;\n`flits doctor` checks your system. With Claude Code: `flits skill install` (in `flits init` projects already)."
 )]
