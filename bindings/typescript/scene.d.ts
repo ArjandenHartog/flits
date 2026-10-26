@@ -188,6 +188,7 @@ export type CaptionStyle = "karaoke" | "pop" | "bounce" | "word" | "line" | "hig
 export type CaptionPreset = "tiktok" | "karaoke-box" | "bounce" | "minimal" | "neon" | "highlighter" | "subtitle" | "word-pop-big";
 /** pill (default; glides from word to word) or marker (highlighter stroke); aliases box, highlighter */
 export type HighlightBox = "pill" | "marker" | "box" | "highlighter";
+export type CaptionBreaks = "greedy" | "phrase";
 /** box (default): one box around the text block; lines: one pill per line */
 export type TextBgMode = "box" | "lines";
 export type GradientType = "linear" | "radial";
@@ -398,6 +399,24 @@ export interface LayerProps {
   maxWords?: number;
   /** captions: most lines per chunk (default 2) */
   maxLines?: number;
+  /** captions: most characters per chunk, spaces included (default 9 per word of maxWords, at least 12) */
+  maxChars?: number;
+  /** captions: where a full chunk breaks (default "greedy"; noBreakAfter/language imply "phrase") */
+  breaks?: CaptionBreaks;
+  /** captions: words (case-insensitive) a chunk never ends on; implies breaks "phrase" */
+  noBreakAfter?: string[];
+  /** captions: built-in noBreakAfter list: "nl", "en" or "auto" (the transcript's language) */
+  language?: string;
+  /** captions: chunks spoken faster than this (s) merge with a neighbour; also the shortest time on screen */
+  minDuration?: number;
+  /** captions: seconds a chunk appears before its first word (default 0) */
+  lead?: number;
+  /** captions: seconds a chunk stays after its last word (default 0.25) */
+  hold?: number;
+  /** captions: gaps to the next chunk shorter than this (s) are closed (default 0.6); chunks never overlap */
+  gapClose?: number;
+  /** captions: seconds of fade/scale-in per chunk (default 0.12; 0 = at once) */
+  appear?: number;
   /** captions: active-word colours, cycled word by word (instead of `highlight`) */
   colors?: Color[];
   /** captions: size of the active word relative to the others (default 1.12 for pop, 1 otherwise) */

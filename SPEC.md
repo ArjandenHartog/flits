@@ -190,8 +190,33 @@ with a bounce as spoken) | `word` (one big word at a time) | `line` (plain),
 `maxWords` per chunk, `maxLines` per chunk (default 2; a chunk ends before it would wrap further),
 `speakerColors` (`{ "SPEAKER_00": "#ffffff", "SPEAKER_01": "#ffd60a" }`: word colour per diarization speaker; a
 `speaker` field on words or segments is read from WhisperX-style transcripts, and a new speaker starts a new chunk),
-`size`, `font` (default Segoe UI Black), `color`, `stroke`, `shadow`, `uppercase`, `lineHeight`, `wrap: "balance"`,
-`width` (wrap width).
+`size`, `font` (default Segoe UI Black), `color`, `stroke`, `shadow` (a fully transparent colour turns the default
+shadow off), `uppercase`, `lineHeight`, `wrap: "balance"`, `width` (wrap width).
+
+Grouping and timing of the chunks (all optional; the defaults are the behaviour without them):
+
+- `maxChars` per chunk (spaces included; default 9 per word of `maxWords`, at least 12). A word ending in `.`, `?`,
+  `!` or `:` always ends a chunk, as do a pause over 0.6 s and a new speaker.
+- `breaks`: `greedy` (default; a full chunk breaks as late as fits) | `phrase`: a full chunk breaks after its last
+  comma, otherwise never after a `noBreakAfter` word, and a lone trailing word joins the chunk before it (up to 8
+  characters over `maxChars`). `noBreakAfter` (case-insensitive word list, e.g. `["de", "het", "een", "van", "met"]`)
+  and `language` (`nl` | `en` | `auto` = the transcript's language: a built-in list of articles, prepositions and
+  conjunctions) imply `phrase`.
+- `minDuration` (s, e.g. 0.9): a chunk spoken faster than this merges with a neighbour (not across a sentence end, a
+  pause over 0.2 s or a new speaker, and only when the result fits `maxLines`); also the shortest time a chunk stays up.
+- `lead` (s a chunk appears before its first word, default 0), `hold` (s it stays after its last word, default 0.25),
+  `gapClose` (a gap to the next chunk shorter than this is closed, default 0.6), `appear` (s of fade/scale-in,
+  default 0.12; 0 = at once). Chunks never overlap: each ends at the latest when the next one appears.
+
+`flits srt scene.json -o out.srt` writes the chunks of all captions layers as SRT, timed exactly as rendered.
+One subtitle at a time on a coloured box per line, the way per-subtitle text layers would draw it:
+
+```json
+{ "type": "captions", "src": "talk.words.json", "style": "line", "y": 1450, "width": 880, "size": 56,
+  "lineHeight": 1.38, "wrap": "balance", "maxChars": 32, "language": "nl", "minDuration": 0.9, "lead": 0.05,
+  "appear": 0, "shadow": { "color": "#00000000" },
+  "background": { "color": "#f07d00", "padding": [22, 6], "radius": 14, "mode": "lines" } }
+```
 
 `preset` picks a ready-made look; any property set on the layer overrides the preset's value (objects such as
 `stroke` merge key by key), and outline/shadow sizes follow the layer's own `size`:

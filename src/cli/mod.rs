@@ -264,6 +264,13 @@ enum Cmd {
         #[arg(long)]
         json: bool,
     },
+    /// Export the captions of a scene as SRT: every captions layer's chunks, timed exactly as rendered
+    Srt {
+        scene: PathBuf,
+        /// write to this file instead of stdout
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+    },
     /// Write a ready-to-render example scene (intro, quote, stats, lower-third, countdown, ...)
     New {
         /// starter name; omit to list them
@@ -685,6 +692,7 @@ fn run(cli: Cli) -> Result<()> {
         }
         Cmd::Preview { scene, port, scale, gpu, no_open } => tools::preview(&scene, port, scale, &gpu, !no_open),
         Cmd::Check { scene, json } => tools::check(&scene, json),
+        Cmd::Srt { scene, out } => tools::srt(&scene, out.as_deref()),
         Cmd::New { starter, out, ts } => make::new(starter, out, ts),
         Cmd::Init { dir, update } => make::init(&dir, update),
         Cmd::Measure => tools::measure(),

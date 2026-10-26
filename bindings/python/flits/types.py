@@ -37,6 +37,7 @@ __all__ = [
     "ShapeKind",
     "LineCap",
     "HighlightBox",
+    "CaptionBreaks",
     "TextBgMode",
     "GradientType",
     "Border",
@@ -205,6 +206,7 @@ CaptionPreset = Literal[
     "tiktok", "karaoke-box", "bounce", "minimal", "neon", "highlighter", "subtitle", "word-pop-big",
 ]
 HighlightBox = Literal["pill", "marker", "box", "highlighter"]
+CaptionBreaks = Literal["greedy", "phrase"]
 TextBgMode = Literal["box", "lines"]
 GradientType = Literal["linear", "radial"]
 
@@ -354,6 +356,15 @@ Layer = TypedDict(
         "highlightBox": HighlightBox,  # "pill" (default) or "marker"
         "maxWords": int,
         "maxLines": int,  # default 2
+        "maxChars": int,  # per chunk, spaces included (default 9 per word of maxWords, at least 12)
+        "breaks": CaptionBreaks,  # "greedy" (default) or "phrase"
+        "noBreakAfter": List[str],  # words a chunk never ends on; implies breaks "phrase"
+        "language": str,  # built-in noBreakAfter list: "nl", "en" or "auto"
+        "minDuration": float,  # faster chunks merge with a neighbour; shortest time on screen
+        "lead": float,  # s before the first word (default 0)
+        "hold": float,  # s after the last word (default 0.25)
+        "gapClose": float,  # close gaps to the next chunk below this (default 0.6)
+        "appear": float,  # s of fade/scale-in (default 0.12; 0 = at once)
         "colors": List[Color],  # active-word colours, cycled word by word
         "activeScale": float,  # active word size (default 1.12 for pop, 1 otherwise)
         "speakerColors": Dict[str, Color],  # word colour per diarization speaker
