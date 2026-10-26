@@ -93,8 +93,102 @@ pub fn check(scene: &Path, json: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn info(file: &Path) -> Result<()> {
+/// Loudness over time (`flits info --peaks`): RMS levels in dBFS of the mono mix.
+pub struct Levels {
+    /// centre of the loudest `window` (s) and its RMS level
+    pub loudest: (f64, f64),
+    /// loudest single sample: time and level
+    pub peak: (f64, f64),
+    /// length of each entry in `levels` (s)
+    pub step: f64,
+    /// RMS level per `step`
+    pub levels: Vec<f64>,
+}
+
+/// Sample rate the levels are measured at: enough for a meaningful RMS of speech, engines and music.
+const LEVEL_RATE: u32 = 8000;
+
+/// Level in dBFS (0.1 dB; silence floors at -120).
+fn db(amplitude: f64) -> f64 {
+    (20.0 * amplitude.max(1e-6).log10() * 10.0).round() / 10.0
+}
+
+/// RMS levels of mono samples at `rate`: the loudest `window` (10 ms hops) and one level per step,
+/// the step growing (1, 2, 5, 10, ... s) so long files stay at most 120 entries.
+pub fn levels(x: &[f32], rate: u32, window: f64) -> Levels {
+    let r = rate as f64;
+    let n = x.len();
+    let mut sq = Vec::with_capacity(n + 1);
+    let mut acc = 0.0f64;
+    sq.push(0.0);
+    for &v in x {
+        acc += v as f64 * v as f64;
+        sq.push(acc);
+    }
+    let rms = |a: usize, b: usize| if b > a { ((sq[b] - sq[a]).max(0.0) / (b - a) as f64).sqrt() } else { 0.0 };
+    let win = ((window * r).round() as usize).clamp(1, n.max(1));
+    let hop = (rate as usize / 100).max(1);
+    let mut loudest = (win as f64 / 2.0 / r, 0.0);
+    let mut start = 0;
+    while start + win <= n {
+        let v = rms(start, start + win);
+        if v > loudest.1 {
+            loudest = ((start as f64 + win as f64 / 2.0) / r, v);
+        }
+        start += hop;
+    }
+    let (pi, pv) = x.iter().enumerate().fold((0, 0.0f32), |m, (i, v)| if v.abs() > m.1 { (i, v.abs()) } else { m });
+    let dur = n as f64 / r;
+    let step = [1.0, 2.0, 5.0, 10.0, 15.0, 30.0, 60.0, 120.0, 300.0, 600.0]
+        .into_iter()
+        .find(|s| dur / s <= 120.0)
+        .unwrap_or_else(|| (dur / 120.0).ceil());
+    let per = ((step * r) as usize).max(1);
+    let levels = (0..n.div_ceil(per)).map(|i| db(rms(i * per, ((i + 1) * per).min(n)))).collect();
+    Levels { loudest: (r3(loudest.0), db(loudest.1)), peak: (r3(pi as f64 / r), db(pv as f64)), step, levels }
+}
+
+/// `12s` below a minute, `1:05` for longer files.
+fn clock(t: f64, long: bool) -> String {
+    if long {
+        format!("{}:{:02}", (t / 60.0).floor(), (t % 60.0).floor())
+    } else {
+        format!("{t:.0}s")
+    }
+}
+
+/// One bar per level, the top 48 dB below the loudest.
+fn sparkline(levels: &[f64]) -> String {
+    let bars: Vec<char> = "▁▂▃▄▅▆▇█".chars().collect();
+    let top = levels.iter().cloned().fold(-120.0, f64::max);
+    let floor = top - 48.0;
+    levels.iter().map(|&l| bars[((l - floor) / (top - floor) * 7.0).round().clamp(0.0, 7.0) as usize]).collect()
+}
+
+pub fn info(file: &Path, peaks: bool, window: f64, json: bool) -> Result<()> {
     let i = media::probe(file)?;
+    let levels = if peaks {
+        if !i.has_audio {
+            anyhow::bail!("{} has no audio stream", file.display());
+        }
+        if window.is_nan() || window <= 0.0 {
+            anyhow::bail!("--window must be a positive number of seconds");
+        }
+        let x = media::audio::decode_audio(file, 0.0, i.duration.max(0.0) + 1.0, LEVEL_RATE)?;
+        Some(levels(&x, LEVEL_RATE, window))
+    } else {
+        None
+    };
+    if let (Some(l), true) = (&levels, json) {
+        let out = serde_json::json!({
+            "file": file, "duration": r3(i.duration), "window": window,
+            "loudest": {"time": l.loudest.0, "db": l.loudest.1},
+            "peak": {"time": l.peak.0, "db": l.peak.1},
+            "step": l.step, "levels": l.levels,
+        });
+        println!("{}", serde_json::to_string_pretty(&out)?);
+        return Ok(());
+    }
     println!("{}", file.display());
     println!("  duration   {:.2}s", i.duration);
     if i.has_video {
@@ -111,6 +205,17 @@ pub fn info(file: &Path) -> Result<()> {
         println!("  image      {}x{}", i.width, i.height);
     }
     println!("  audio      {}", if i.has_audio { "yes" } else { "no" });
+    if let Some(l) = levels {
+        println!("  loudest    {:.2}s  {:.1} dBFS RMS ({window} s window)", l.loudest.0, l.loudest.1);
+        println!("  peak       {:.2}s  {:.1} dBFS (sample)", l.peak.0, l.peak.1);
+        println!("  levels     dBFS RMS per {} s  {}", l.step, sparkline(&l.levels));
+        let long = i.duration >= 60.0;
+        let cells: Vec<String> =
+            l.levels.iter().enumerate().map(|(k, v)| format!("{:>5} {v:>6.1}", clock(k as f64 * l.step, long))).collect();
+        for row in cells.chunks(8) {
+            println!("            {}", row.join("  "));
+        }
+    }
     Ok(())
 }
 

@@ -530,8 +530,20 @@ enum Cmd {
     },
 
     // ------------------------------------------------ tools
-    /// Show duration, size, frame rate, colour and streams of a media file
-    Info { file: PathBuf },
+    /// Show duration, size, frame rate, colour and streams of a media file (--peaks: loudness over time)
+    Info {
+        file: PathBuf,
+        /// also measure the audio: the loudest moment (RMS over --window), the loudest sample and the
+        /// level per second (to line up the peak of a sound with a moment in a video)
+        #[arg(long)]
+        peaks: bool,
+        /// with --peaks: length of the RMS window for the loudest moment, in seconds
+        #[arg(long, default_value_t = 0.25, requires = "peaks")]
+        window: f64,
+        /// with --peaks: print one JSON object (duration, loudest, peak, step, levels; levels in dBFS)
+        #[arg(long, requires = "peaks")]
+        json: bool,
+    },
     /// Check ffmpeg, encoders, GPU, fonts, transcription and the remote server
     Doctor,
     /// Run a server other machines can offload transcription and rendering to
@@ -814,7 +826,7 @@ fn run(cli: Cli) -> Result<()> {
         Cmd::Transcribe { inputs, out, outdir, words_only, segments_only, w } => {
             make::transcribe(&inputs, out, outdir, words_only, segments_only, &w)
         }
-        Cmd::Info { file } => tools::info(&file),
+        Cmd::Info { file, peaks, window, json } => tools::info(&file, peaks, window, json),
         Cmd::Doctor => tools::doctor(),
         Cmd::Serve { port, token } => tools::serve(port, token),
         Cmd::Remote { url, token } => tools::remote(url, token),

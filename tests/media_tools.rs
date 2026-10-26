@@ -53,3 +53,43 @@ fn sheet_and_still_take_a_video() {
     let img = image::open(&still).unwrap();
     assert_eq!((img.width(), img.height()), (150, 100));
 }
+
+#[test]
+fn info_peaks_finds_a_burst() {
+    if !common::has_ffmpeg() {
+        return;
+    }
+    let dir = common::tmp("media-peaks");
+    // 6 s of a quiet tone with a loud burst centred on 3.6 s
+    let wav = dir.join("burst.wav");
+    let ok = Command::new("ffmpeg")
+        .args(["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i"])
+        .arg(r"aevalsrc=(0.01+0.8*exp(-pow((t-3.6)/0.15\,2)))*sin(300*2*PI*t):d=6:s=44100")
+        .arg(&wav)
+        .status()
+        .unwrap()
+        .success();
+    assert!(ok, "ffmpeg failed to make the test sound");
+
+    let out = run(flits().arg("info").arg(&wav).args(["--peaks", "--json"]));
+    let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+    let t = v["loudest"]["time"].as_f64().unwrap();
+    assert!((t - 3.6).abs() < 0.03, "loudest at {t}");
+    let db = v["loudest"]["db"].as_f64().unwrap();
+    assert!(db > -8.0 && db < -3.0, "loudest {db} dBFS");
+    assert!((v["peak"]["time"].as_f64().unwrap() - 3.6).abs() < 0.03);
+    assert_eq!(v["step"].as_f64(), Some(1.0));
+    let levels: Vec<f64> = v["levels"].as_array().unwrap().iter().map(|l| l.as_f64().unwrap()).collect();
+    assert_eq!(levels.len(), 6);
+    // the quiet tone: 0.01 amplitude = -43 dBFS RMS; second 3 holds the burst
+    assert!((levels[0] + 43.0).abs() < 1.0, "{levels:?}");
+    let loudest = levels.iter().enumerate().max_by(|a, b| a.1.total_cmp(b.1)).unwrap().0;
+    assert_eq!(loudest, 3, "{levels:?}");
+
+    // the text form, and a video's sound
+    let out = run(flits().arg("info").arg(&wav).args(["--peaks", "--window", "0.1"]));
+    assert!(out.contains("loudest    3.6"), "{out}");
+    let clip = common::clip(&dir, "clip.mp4", 2.0);
+    let out = run(flits().arg("info").arg(&clip).arg("--peaks"));
+    assert!(out.contains("levels"), "{out}");
+}

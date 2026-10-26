@@ -218,6 +218,8 @@ flits transcribe interview.m4a --diarize      # speaker labels (optional pyannot
 # tools
 flits doctor                                  # what works on this machine (GPU, encoders, whisper, ...)
 flits info file.mp4
+flits info flyby.wav --peaks                  # loudness over time: the loudest moment (RMS, --window 0.25 s),
+                                              # the loudest sample and dBFS per second (--json for scripts)
 flits measure < texts.json                    # text metrics for scripts that lay things out
 flits serve --token secret                    # make this (GPU) machine a render/transcription server
 flits remote http://gpu-box:7777 --token secret   # on another machine: offload work to it
