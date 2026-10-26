@@ -764,6 +764,8 @@ mod tests {
         o.timing = cues::Timing { lead: 0.05, ..cues::Timing::default() };
         o.min_duration = Some(0.9);
         o.appear = 0.0;
+        // wide enough for four words on two lines with any system's default font (Linux CI's is wider)
+        o.style.max_width = Some(800.0);
         let caps = build(&words(12, 100), 20.0, &o).unwrap();
         let c = caps.cues();
         assert_eq!(c[0].0, 0.0, "the lead stops at the layer start: {c:?}");
