@@ -11,7 +11,7 @@ use tiny_skia::{Point, Transform};
 /// A layout problem: what, which layer, and when.
 #[derive(Debug, Clone, Serialize)]
 pub struct Issue {
-    /// `offscreen` | `overlap` | `brief`
+    /// `offscreen` | `overlap` | `flash` (texts at the same spot overlapping briefly) | `brief`
     pub kind: &'static str,
     /// the layer (its text, `id` or file name)
     pub layer: String,
@@ -28,6 +28,9 @@ pub struct Issue {
 const MIN_OFFSCREEN: f64 = 0.5;
 /// Overlapping texts this long (s) are reported (shorter = a crossfade or a wipe).
 const MIN_OVERLAP: f64 = 0.3;
+/// Texts at the same spot overlapping in time for less than this (s) are reported as `flash`: two
+/// subtitles on screen at once for a frame or two, the signature of an off-by-a-frame end time.
+const MAX_BLINK: f64 = 0.5;
 /// Pixels of slack before text counts as outside the canvas.
 const SLACK: f32 = 2.0;
 /// Opacity from which a layer counts as visible.
@@ -40,6 +43,8 @@ struct Seen<'a> {
     op: f32,
     /// under a clipping group or a wipe/iris: going past the canvas is then a mask, not a mistake
     clipped: bool,
+    /// the layer's anchor point on the canvas (where it is positioned)
+    at: (f32, f32),
 }
 
 fn bounds(ts: Transform, w: f32, h: f32) -> [f32; 4] {
@@ -73,7 +78,12 @@ fn visit<'a>(n: &'a Node, t: f64, parent: Transform, parent_op: f32, clipped: bo
                 visit(c, t, ts, op, clipped || n.clip, out, cards);
             }
         }
-        Kind::Text { .. } | Kind::Counter(_) => out.push(Seen { n, b: bounds(ts, n.w, n.h), op, clipped }),
+        Kind::Text { .. } | Kind::Counter(_) => {
+            let mut p = [Point::from_xy(n.anchor.0 * n.w, n.anchor.1 * n.h)];
+            ts.map_points(&mut p);
+            let at = (p[0].x, p[0].y);
+            out.push(Seen { n, b: bounds(ts, n.w, n.h), op, clipped, at })
+        }
         Kind::Rect(fill) if op >= 0.9 && !matches!(fill, Fill::Solid(c) if c.a < 0.9) => cards.push((n.id, bounds(ts, n.w, n.h))),
         _ => {}
     }
@@ -199,6 +209,14 @@ pub fn lint(p: &Prepared) -> Vec<Issue> {
         }
     }
     done.extend(open.drain());
+    // pairs the sampled overlap check reports (the brief-overlap check below skips them)
+    let reported: Vec<(usize, usize)> = done
+        .iter()
+        .filter_map(|(k, r)| match k {
+            Key::Overlap(a, b) if r.to - r.from >= MIN_OVERLAP => Some((*a, *b)),
+            _ => None,
+        })
+        .collect();
 
     let mut issues = Vec::new();
     for (k, r) in done {
@@ -262,6 +280,63 @@ pub fn lint(p: &Prepared) -> Vec<Issue> {
             });
         }
     }
+    // two texts at the same spot that overlap only briefly: a subtitle off by a frame or two
+    let mut all: Vec<&Node> = vec![];
+    fn text_nodes<'a>(ns: &'a [Node], out: &mut Vec<&'a Node>) {
+        for n in ns {
+            if matches!(n.kind, Kind::Text { .. }) {
+                out.push(n);
+            }
+            text_nodes(&n.children, out);
+        }
+    }
+    text_nodes(&p.nodes, &mut all);
+    all.sort_by(|a, b| a.start.total_cmp(&b.start));
+    for (i, a) in all.iter().enumerate() {
+        for b in &all[i + 1..] {
+            if b.start >= a.end {
+                break;
+            }
+            let (from, to) = (b.start, a.end.min(b.end));
+            let pair = (a.id.min(b.id), a.id.max(b.id));
+            // a crossfade or animated opacity is on purpose
+            let faded = a.exit.is_some() || b.enter.is_some() || !a.opacity.is_const() || !b.opacity.is_const();
+            if to - from >= MAX_BLINK || to <= from || faded || reported.contains(&pair) {
+                continue;
+            }
+            let t = (from + to) / 2.0;
+            let mut seen = Vec::new();
+            for n in &p.nodes {
+                visit(n, t, Transform::identity(), 1.0, false, &mut seen, &mut Cards::new());
+            }
+            let (Some(sa), Some(sb)) = (seen.iter().find(|s| s.n.id == a.id), seen.iter().find(|s| s.n.id == b.id)) else {
+                continue;
+            };
+            let same_spot = (sa.at.0 - sb.at.0).abs() <= SLACK && (sa.at.1 - sb.at.1).abs() <= SLACK;
+            let (ba, bb) = (ink(&sa.b), ink(&sb.b));
+            let (iw, ih) = (ba[2].min(bb[2]) - ba[0].max(bb[0]), ba[3].min(bb[3]) - ba[1].max(bb[1]));
+            let area = |b: &[f32; 4]| ((b[2] - b[0]) * (b[3] - b[1])).max(1.0);
+            if !same_spot || iw <= 0.0 || ih <= 0.0 || iw * ih / area(&ba).min(area(&bb)) <= 0.15 {
+                continue;
+            }
+            issues.push(Issue {
+                kind: "flash",
+                layer: a.label.clone(),
+                other: Some(b.label.clone()),
+                from: r2(from),
+                to: r2(to),
+                message: format!(
+                    "layers {} and {} (text) overlap on screen for {:.2} s at {:.2} s: {} and {} (end the first where the next starts)",
+                    pair.0,
+                    pair.1,
+                    to - from,
+                    from,
+                    describe(a),
+                    describe(b)
+                ),
+            });
+        }
+    }
     issues.sort_by(|a, b| a.from.total_cmp(&b.from).then(a.kind.cmp(b.kind)));
     issues
 }
@@ -290,6 +365,34 @@ mod tests {
         let masked = issues(serde_json::json!([{ "type": "group", "clip": true, "width": 600, "height": 200,
             "children": [{ "type": "text", "text": "Hello", "size": 120, "x": 2000 }] }]));
         assert!(masked.is_empty(), "{masked:?}");
+    }
+
+    #[test]
+    fn finds_subtitles_that_overlap_for_a_frame() {
+        let sub = |text: &str, start: f64, duration: f64| {
+            serde_json::json!({ "type": "text", "text": text, "start": start, "duration": duration, "size": 56,
+                "x": 960, "y": 900, "anchor": [0.5, 0], "background": { "color": "#f07d00", "mode": "lines" } })
+        };
+        // the first ends 50 ms after the second starts: two boxes on screen at once
+        let flash = issues(serde_json::json!([sub("Dit is de eerste", 0.0, 1.85), sub("En dit de tweede", 1.8, 1.5)]));
+        let f: Vec<_> = flash.iter().filter(|i| i.kind == "flash").collect();
+        assert_eq!(f.len(), 1, "{flash:?}");
+        assert!(f[0].message.starts_with("layers 0 and 1 (text) overlap on screen for 0.05 s at 1.80 s"), "{}", f[0].message);
+        // back to back is fine
+        let ok = issues(serde_json::json!([sub("Dit is de eerste", 0.0, 1.8), sub("En dit de tweede", 1.8, 1.5)]));
+        assert!(ok.iter().all(|i| i.kind != "flash"), "{ok:?}");
+        // a deliberate stack: other positions, or on screen together for long
+        let stack = issues(serde_json::json!([
+            { "type": "text", "text": "Title", "size": 80, "y": 400, "duration": 3 },
+            { "type": "text", "text": "Subtitle", "size": 50, "y": 520, "start": 0.2, "duration": 2 },
+            sub("Lang samen", 0.0, 3.0), sub("in beeld", 1.0, 1.5),
+        ]));
+        assert!(stack.iter().all(|i| i.kind != "flash"), "{stack:?}");
+        // a crossfade from one text into the next at the same spot is on purpose
+        let mut a = sub("Dit is de eerste", 0.0, 2.1);
+        a["out"] = serde_json::json!("fade 0.3");
+        let fade = issues(serde_json::json!([a, sub("En dit de tweede", 1.8, 1.5)]));
+        assert!(fade.iter().all(|i| i.kind != "flash"), "{fade:?}");
     }
 
     #[test]

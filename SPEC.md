@@ -40,9 +40,12 @@ lowercase only (flits ignores case), and it cannot see files, fonts or media len
 **Layout lint.** `flits check` also samples the timeline (transforms only, no pixels) and warns about text or counters
 that run off the canvas for 0.5 s or more (entrances, exits and text inside a clipping group or wipe are fine), text that
 overlaps other text for 0.3 s or more (not when the upper one sits on its own `background` or on an opaque rect drawn
-between them), and text visible for less than ~0.1 s + 0.2 s per word. Each warning names the layer and the time range:
-`warning: 1.00-3.00s: text "Big headline" runs 140 px past the right edge (move it in, make it smaller or set maxWidth)`.
-With `--json` they are in `issues` (`kind`: `offscreen` | `overlap` | `brief`, `layer`, `other`, `from`, `to`,
+between them), two texts at the same position (same anchor point) on screen together for less than 0.5 s — subtitles
+whose end runs a frame past the next one's start, even on their own backgrounds (not with an `out`/`in` transition or
+animated opacity: a crossfade) — and text visible for less than ~0.1 s + 0.2 s per word. Each warning names the layer
+and the time range: `warning: 1.00-3.00s: text "Big headline" runs 140 px past the right edge (move it in, make it
+smaller or set maxWidth)`, `warning: 13.81-13.86s: layers 12 and 13 (text) overlap on screen for 0.05 s at 13.81 s: ...`.
+With `--json` they are in `issues` (`kind`: `offscreen` | `overlap` | `flash` | `brief`, `layer`, `other`, `from`, `to`,
 `message`) next to `warnings` (typos), the canvas, `duration`, `frames`, `audio` and the `layers` tree (`type`,
 `label`, `start`, `end`, `width`, `height`, `children`). A scene that fails to load prints `{"ok": false, "error": ...}`
 and exits with an error.
