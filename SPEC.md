@@ -8,6 +8,8 @@ A scene is one JSON file. flits renders it to MP4 (H.264/HEVC/AV1 + AAC):
     flits sheet scene.json -o sheet.png       # 12 frames in one image: check the whole video at a glance
                                               # (--at 1 --at 2.5: these times; --from 2 --to 3 --count 8: a range)
     flits still scene.json --at 12.5 -o f.png # single frame(s); prints the written paths, one per line
+    flits sheet clip.mov -o sheet.png         # sheet and still also take a plain video or image: a scene of its
+                                              # display size, fps and length with one full-frame layer
     flits check scene.json                    # validate (typos are reported), lint the layout, print the timeline
     flits check scene.json --json             # the same as one JSON object (ok, size, warnings, issues, layers)
     flits render video.ts --props '{"t": 1}'  # TypeScript/JavaScript scenes (see below); `flits init` starts a project
@@ -38,9 +40,12 @@ lowercase only (flits ignores case), and it cannot see files, fonts or media len
 **Layout lint.** `flits check` also samples the timeline (transforms only, no pixels) and warns about text or counters
 that run off the canvas for 0.5 s or more (entrances, exits and text inside a clipping group or wipe are fine), text that
 overlaps other text for 0.3 s or more (not when the upper one sits on its own `background` or on an opaque rect drawn
-between them), and text visible for less than ~0.1 s + 0.2 s per word. Each warning names the layer and the time range:
-`warning: 1.00-3.00s: text "Big headline" runs 140 px past the right edge (move it in, make it smaller or set maxWidth)`.
-With `--json` they are in `issues` (`kind`: `offscreen` | `overlap` | `brief`, `layer`, `other`, `from`, `to`,
+between them), two texts at the same position (same anchor point) on screen together for less than 0.5 s — subtitles
+whose end runs a frame past the next one's start, even on their own backgrounds (not with an `out`/`in` transition or
+animated opacity: a crossfade) — and text visible for less than ~0.1 s + 0.2 s per word. Each warning names the layer
+and the time range: `warning: 1.00-3.00s: text "Big headline" runs 140 px past the right edge (move it in, make it
+smaller or set maxWidth)`, `warning: 13.81-13.86s: layers 12 and 13 (text) overlap on screen for 0.05 s at 13.81 s: ...`.
+With `--json` they are in `issues` (`kind`: `offscreen` | `overlap` | `flash` | `brief`, `layer`, `other`, `from`, `to`,
 `message`) next to `warnings` (typos), the canvas, `duration`, `frames`, `audio` and the `layers` tree (`type`,
 `label`, `start`, `end`, `width`, `height`, `children`). A scene that fails to load prints `{"ok": false, "error": ...}`
 and exits with an error.
@@ -68,7 +73,11 @@ Hiragino; Linux: DejaVu Sans, Noto Sans, Noto Color Emoji, Noto Sans CJK, ...), 
 the character. Emoji are drawn in colour (COLR v0/v1 and CBDT/sbix bitmap fonts) and shaped, so sequences such as
 👍🏽, 🇳🇱, 1️⃣ and 👨‍👩‍👧 come out as one emoji. Hebrew, Arabic and the Indic scripts are shaped too; a text whose first
 letter is right-to-left is laid out right to left. Colour glyphs keep their own colours (no `color`/`stroke`), the
-text shadow applies to them.
+text shadow applies to them. A character that no font has (it would be drawn as a box) is reported once per layer by
+`flits check`, `render`, `still`, `sheet` and `preview`, e.g.
+`warning: layers.3 (text): no font has a glyph for U+26A0 '⚠' (font: seguibl.ttf); it is drawn as a box: add a font
+that has it to "fontFallback"` (text, counter and captions layers; joiners, variation selectors and other characters
+that draw nothing on their own are not reported).
 
 Audio track: `src`, `start` (scene time), `trim` (skip seconds of the source),
 `duration`, `volume` (number or keyframes, see Animation), `fadeIn`, `fadeOut`, `loop`,
@@ -157,7 +166,10 @@ When `zoom`/`panX`/`panY` don't change over the layer, only the part of the pict
 (contiguous `trim`s in a `sequence` group) rather than `hold` keyframes: they share one decoder.
 
 **text** — `text` (`\n` for line breaks), `font` (installed font name like `"Segoe UI Black"`, a .ttf/.otf path or a
-`fonts` alias; default Segoe UI Bold), `weight` (for variable fonts), `size` (64), `color`, `align`
+`fonts` alias; default Segoe UI Bold), `weight` (for variable fonts), `variations` (any axes of a variable font:
+4-letter tag -> value, e.g. `{"wdth": 75, "opsz": 36, "slnt": -8}`; applied to outlines, advances, shaping and colour
+glyphs; `weight` wins over a `"wght"` here; axes the font lacks are ignored with a warning; fallback fonts keep their
+default instance; also accepted by `flits measure` and on counter and captions layers), `size` (64), `color`, `align`
 (`left`/`center`/`right`), `maxWidth` (wraps), `lineHeight` (1.15), `letterSpacing`, `uppercase`,
 `stroke` `{width,color}`, `background` `{ "color": "#000a", "padding": [24,12], "radius": 16, "mode": "box"|"lines" }`,
 `reveal`: `"words"` | `"lines"` | `"chars"` | `"typewriter"` with `revealDuration` (seconds over which the pieces appear)
@@ -181,8 +193,33 @@ with a bounce as spoken) | `word` (one big word at a time) | `line` (plain),
 `maxWords` per chunk, `maxLines` per chunk (default 2; a chunk ends before it would wrap further),
 `speakerColors` (`{ "SPEAKER_00": "#ffffff", "SPEAKER_01": "#ffd60a" }`: word colour per diarization speaker; a
 `speaker` field on words or segments is read from WhisperX-style transcripts, and a new speaker starts a new chunk),
-`size`, `font` (default Segoe UI Black), `color`, `stroke`, `shadow`, `uppercase`, `lineHeight`, `wrap: "balance"`,
-`width` (wrap width).
+`size`, `font` (default Segoe UI Black), `color`, `stroke`, `shadow` (a fully transparent colour turns the default
+shadow off), `uppercase`, `lineHeight`, `wrap: "balance"`, `width` (wrap width).
+
+Grouping and timing of the chunks (all optional; the defaults are the behaviour without them):
+
+- `maxChars` per chunk (spaces included; default 9 per word of `maxWords`, at least 12). A word ending in `.`, `?`,
+  `!` or `:` always ends a chunk, as do a pause over 0.6 s and a new speaker.
+- `breaks`: `greedy` (default; a full chunk breaks as late as fits) | `phrase`: a full chunk breaks after its last
+  comma, otherwise never after a `noBreakAfter` word, and a lone trailing word joins the chunk before it (up to 8
+  characters over `maxChars`). `noBreakAfter` (case-insensitive word list, e.g. `["de", "het", "een", "van", "met"]`)
+  and `language` (`nl` | `en` | `auto` = the transcript's language: a built-in list of articles, prepositions and
+  conjunctions) imply `phrase`.
+- `minDuration` (s, e.g. 0.9): a chunk spoken faster than this merges with a neighbour (not across a sentence end, a
+  pause over 0.2 s or a new speaker, and only when the result fits `maxLines`); also the shortest time a chunk stays up.
+- `lead` (s a chunk appears before its first word, default 0), `hold` (s it stays after its last word, default 0.25),
+  `gapClose` (a gap to the next chunk shorter than this is closed, default 0.6), `appear` (s of fade/scale-in,
+  default 0.12; 0 = at once). Chunks never overlap: each ends at the latest when the next one appears.
+
+`flits srt scene.json -o out.srt` writes the chunks of all captions layers as SRT, timed exactly as rendered.
+One subtitle at a time on a coloured box per line, the way per-subtitle text layers would draw it:
+
+```json
+{ "type": "captions", "src": "talk.words.json", "style": "line", "y": 1450, "width": 880, "size": 56,
+  "lineHeight": 1.38, "wrap": "balance", "maxChars": 32, "language": "nl", "minDuration": 0.9, "lead": 0.05,
+  "appear": 0, "shadow": { "color": "#00000000" },
+  "background": { "color": "#f07d00", "padding": [22, 6], "radius": 14, "mode": "lines" } }
+```
 
 `preset` picks a ready-made look; any property set on the layer overrides the preset's value (objects such as
 `stroke` merge key by key), and outline/shadow sizes follow the layer's own `size`:
@@ -435,7 +472,8 @@ clip takes ~11 s the first time and under 2 s after that. Diarization always run
 `flits reel` starts warming it by itself as soon as it starts, while it decodes the audio.
 
 `--initial-prompt`, `--vocab`, `--diarize` also work on `captions`, `podcast` and `cut` (whenever they transcribe).
-The JSON has `language`, `duration` and `segments` (`start`, `end`, `text`, `words`: `word`, `start`, `end`, `prob`),
+The JSON has `language`, `duration` and `segments` (`start`, `end`, `text`, `words`: `word`, `start`, `end`, `prob`;
+one segment per sentence: whisper's segments are re-split at sentence ends and pauses of 0.7 s or more),
 with `--diarize` plus `speaker` per segment and word (`"SPEAKER_00"`, ...) and a `speakers` list. SRT/TXT then
 name the speaker when it changes, VTT uses `<v SPEAKER_00>` voice tags.
 

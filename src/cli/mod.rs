@@ -13,7 +13,7 @@ use std::time::Instant;
 #[derive(Parser)]
 #[command(
     name = "flits",
-    version,
+    version = env!("FLITS_LONG_VERSION"),
     about = "Blazing-fast GPU video and podcast renderer (JSON scene -> MP4) with built-in transcription",
     after_help = "Start with `flits new intro -o intro.json && flits render intro.json`, or write videos in TypeScript:\n`flits init my-video && flits preview my-video/src/video.ts`. `flits spec` documents the scene format;\n`flits doctor` checks your system. With Claude Code: `flits skill install` (in `flits init` projects already)."
 )]
@@ -207,6 +207,7 @@ enum Cmd {
     },
     /// Render single frames to PNG (quick visual check)
     Still {
+        /// scene (.json/.ts/...), or a plain video or image
         scene: PathBuf,
         /// time(s) in seconds or mm:ss; repeat for several
         #[arg(long = "at", required = true, value_parser = parse_time)]
@@ -219,6 +220,7 @@ enum Cmd {
     /// Contact sheet: evenly spaced frames in one PNG, each labelled with its time (check a whole video, or one
     /// transition with --from/--to, at a glance)
     Sheet {
+        /// scene (.json/.ts/...), or a plain video or image
         scene: PathBuf,
         #[arg(short, long)]
         out: PathBuf,
@@ -262,6 +264,13 @@ enum Cmd {
         #[arg(long)]
         json: bool,
     },
+    /// Export the captions of a scene as SRT: every captions layer's chunks, timed exactly as rendered
+    Srt {
+        scene: PathBuf,
+        /// write to this file instead of stdout
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+    },
     /// Write a ready-to-render example scene (intro, quote, stats, lower-third, countdown, ...)
     New {
         /// starter name; omit to list them
@@ -294,7 +303,7 @@ enum Cmd {
         #[arg(short, long)]
         out: Option<PathBuf>,
     },
-    /// Measure text: reads a JSON array of {text, font, size, maxWidth, lineHeight, balance, letterSpacing, weight}
+    /// Measure text: reads a JSON array of {text, font, size, maxWidth, lineHeight, balance, letterSpacing, weight, variations}
     /// on stdin, prints [{width, height, lines}] (for scripts that place things next to text)
     Measure,
 
@@ -528,8 +537,20 @@ enum Cmd {
     },
 
     // ------------------------------------------------ tools
-    /// Show duration, size, frame rate, colour and streams of a media file
-    Info { file: PathBuf },
+    /// Show duration, size, frame rate, colour and streams of a media file (--peaks: loudness over time)
+    Info {
+        file: PathBuf,
+        /// also measure the audio: the loudest moment (RMS over --window), the loudest sample and the
+        /// level per second (to line up the peak of a sound with a moment in a video)
+        #[arg(long)]
+        peaks: bool,
+        /// with --peaks: length of the RMS window for the loudest moment, in seconds
+        #[arg(long, default_value_t = 0.25, requires = "peaks")]
+        window: f64,
+        /// with --peaks: print one JSON object (duration, loudest, peak, step, levels; levels in dBFS)
+        #[arg(long, requires = "peaks")]
+        json: bool,
+    },
     /// Check ffmpeg, encoders, GPU, fonts, transcription and the remote server
     Doctor,
     /// Run a server other machines can offload transcription and rendering to
@@ -589,8 +610,52 @@ pub fn load(scene_path: &Path, scale: f64) -> Result<Prepared> {
         eprintln!("warning: {w}");
     }
     let p = Prepared::build(&scene, scale)?;
+    for w in &p.warnings {
+        eprintln!("warning: {w}");
+    }
     eprintln!("flits: prepared scene in {:.2}s", t.elapsed().as_secs_f64());
     Ok(p)
+}
+
+const VIDEO_EXTS: &[&str] = &["mp4", "mov", "m4v", "mkv", "webm", "avi", "mts", "m2ts", "ts", "mpg", "mpeg", "3gp", "wmv", "flv"];
+const IMAGE_EXTS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "bmp", "svg"];
+
+/// A scene file, or a plain video/image wrapped in a scene that shows it full frame (for `still` and
+/// `sheet`): canvas = the display size (rotation applied), fps and duration from the file.
+pub fn load_scene_or_media(path: &Path) -> Result<(Scene, Vec<String>)> {
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
+    let is_media = VIDEO_EXTS.contains(&ext.as_str()) || IMAGE_EXTS.contains(&ext.as_str());
+    if !is_media {
+        // unknown extension: a scene unless it is not one and ffprobe can read it
+        return match Scene::load(path) {
+            Ok(v) => Ok(v),
+            Err(e) if ext != "json" && !flits::scene::script::is_script(path) => match media_scene(path, false) {
+                Ok(v) => Ok(v),
+                Err(_) => Err(e),
+            },
+            Err(e) => Err(e),
+        };
+    }
+    media_scene(path, IMAGE_EXTS.contains(&ext.as_str()))
+}
+
+fn media_scene(path: &Path, image: bool) -> Result<(Scene, Vec<String>)> {
+    let src = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    let src = src.to_string_lossy().to_string();
+    let scene = if image {
+        let (w, h) = flits::media::image::image_size(path)?;
+        serde_json::json!({"width": w, "height": h, "fps": 30, "duration": 1, "layers": [{"type": "image", "src": src}]})
+    } else {
+        let i = flits::media::probe(path)?;
+        if !i.has_video || i.width == 0 || i.height == 0 {
+            anyhow::bail!("{}: no video stream (not a scene or a video)", path.display());
+        }
+        let fps = if i.fps > 1.0 && i.fps <= 240.0 { (i.fps * 1000.0).round() / 1000.0 } else { 30.0 };
+        let duration = if i.duration > 0.0 { i.duration } else { 1.0 / fps };
+        let layer = serde_json::json!({"type": "video", "src": src, "volume": 0});
+        serde_json::json!({"width": i.width, "height": i.height, "fps": fps, "duration": duration, "layers": [layer]})
+    };
+    Scene::from_value(scene, path.parent().map(Path::to_path_buf).unwrap_or_default())
 }
 
 /// `dir/name.mp4` -> `dir/name<suffix>`
@@ -627,6 +692,7 @@ fn run(cli: Cli) -> Result<()> {
         }
         Cmd::Preview { scene, port, scale, gpu, no_open } => tools::preview(&scene, port, scale, &gpu, !no_open),
         Cmd::Check { scene, json } => tools::check(&scene, json),
+        Cmd::Srt { scene, out } => tools::srt(&scene, out.as_deref()),
         Cmd::New { starter, out, ts } => make::new(starter, out, ts),
         Cmd::Init { dir, update } => make::init(&dir, update),
         Cmd::Measure => tools::measure(),
@@ -771,7 +837,7 @@ fn run(cli: Cli) -> Result<()> {
         Cmd::Transcribe { inputs, out, outdir, words_only, segments_only, w } => {
             make::transcribe(&inputs, out, outdir, words_only, segments_only, &w)
         }
-        Cmd::Info { file } => tools::info(&file),
+        Cmd::Info { file, peaks, window, json } => tools::info(&file, peaks, window, json),
         Cmd::Doctor => tools::doctor(),
         Cmd::Serve { port, token } => tools::serve(port, token),
         Cmd::Remote { url, token } => tools::remote(url, token),

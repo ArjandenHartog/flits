@@ -440,6 +440,10 @@
           "minItems": 2,
           "type": "array"
         },
+        "appear": {
+          "description": "captions: seconds over which a chunk fades and scales in (default 0.12; 0 = it appears at once)",
+          "type": "number"
+        },
         "background": {
           "$ref": "#/$defs/TextBg"
         },
@@ -455,6 +459,14 @@
         },
         "border": {
           "$ref": "#/$defs/Border"
+        },
+        "breaks": {
+          "description": "Captions: where a full chunk breaks. greedy (default): as late as fits. phrase: after the last comma, otherwise never after a `noBreakAfter` word; a lone trailing word joins the chunk before it. Setting `noBreakAfter` or `language` implies phrase.",
+          "enum": [
+            "greedy",
+            "phrase"
+          ],
+          "type": "string"
         },
         "children": {
           "description": "group: child layers (positioned and timed relative to the group)",
@@ -543,6 +555,10 @@
           "description": "waveform: gap between bars as a fraction of a slot (0..1)",
           "type": "number"
         },
+        "gapClose": {
+          "description": "captions: a gap to the next chunk shorter than this (seconds) is closed, so the chunk stays up until the next one (default 0.6). Chunks never overlap.",
+          "type": "number"
+        },
         "gradient": {
           "$ref": "#/$defs/Gradient",
           "description": "rect/shape: gradient fill (instead of `color`)"
@@ -573,6 +589,10 @@
           ],
           "type": "string"
         },
+        "hold": {
+          "description": "captions: seconds a chunk stays after its last word (default 0.25)",
+          "type": "number"
+        },
         "id": {
           "description": "optional name (for your own bookkeeping)",
           "type": "string"
@@ -583,6 +603,14 @@
         },
         "innerRadius": {
           "description": "shape \"star\": inner radius as a fraction of the outer one (default 0.5)",
+          "type": "number"
+        },
+        "language": {
+          "description": "captions: language for the built-in `noBreakAfter` list: nl, en, or auto (the transcript's own language); implies `breaks: \"phrase\"`",
+          "type": "string"
+        },
+        "lead": {
+          "description": "captions: seconds a chunk appears before its first word is spoken (default 0)",
           "type": "number"
         },
         "letterSpacing": {
@@ -608,6 +636,11 @@
           "description": "video: loop the clip",
           "type": "boolean"
         },
+        "maxChars": {
+          "description": "captions: most characters per chunk, spaces included (default 9 per word of `maxWords`, at least 12)",
+          "minimum": 0,
+          "type": "integer"
+        },
         "maxLines": {
           "description": "captions: most lines per chunk (default 2; a chunk ends before it would wrap further)",
           "minimum": 0,
@@ -622,6 +655,10 @@
           "minimum": 0,
           "type": "integer"
         },
+        "minDuration": {
+          "description": "captions: a chunk spoken faster than this (seconds) merges with a neighbour (not across a sentence end, a pause over 0.2 s or a new speaker, and only within `maxLines`); also the shortest time a chunk stays on screen, as far as the next one allows (default: off)",
+          "type": "number"
+        },
         "mirror": {
           "default": false,
           "description": "waveform: bars grow from the centre line",
@@ -630,6 +667,13 @@
         "motionBlur": {
           "description": "`false`: no motion blur for this layer and its children (when the scene has `motionBlur`)",
           "type": "boolean"
+        },
+        "noBreakAfter": {
+          "description": "captions: words (case-insensitive) a chunk never ends on, e.g. articles and prepositions [\"de\", \"het\", \"een\", \"van\", ...]; implies `breaks: \"phrase\"`",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "opacity": {
           "$ref": "#/$defs/Animated",
@@ -842,6 +886,13 @@
         "value": {
           "$ref": "#/$defs/Animated",
           "description": "counter: the number (animate it, e.g. {\"from\": 0, \"to\": 12840, \"ease\": \"out\", \"end\": 2.5})"
+        },
+        "variations": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "variable font axes: 4-letter tag -> value, e.g. {\"wdth\": 75, \"opsz\": 36, \"slnt\": -8} (`weight` wins over \"wght\")",
+          "type": "object"
         },
         "volume": {
           "$ref": "#/$defs/Animated",

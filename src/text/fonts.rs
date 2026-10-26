@@ -16,12 +16,36 @@ pub struct Face {
     pub index: u32,
     /// has colour glyphs (COLR, CBDT or sbix: emoji fonts)
     pub color: bool,
+    /// file name (for messages)
+    pub file: String,
+    /// variation axis values set on this face (axes the font has): applied to outlines, advances,
+    /// shaping and colour glyphs alike
+    pub variations: Vec<Axis>,
 }
 
 pub type FaceRef = Arc<Face>;
 
+/// A variation axis setting: 4-letter tag (`wght`, `wdth`, `opsz`, `slnt`, ...) and value.
+pub type Axis = ([u8; 4], f32);
+
+/// Parse a layer's `variations` (`{"wdth": 75, "opsz": 36}`) into axis settings.
+pub fn parse_variations<'a>(v: impl IntoIterator<Item = (&'a String, &'a f64)>) -> Result<Vec<Axis>> {
+    v.into_iter()
+        .map(|(tag, value)| {
+            let t: [u8; 4] = tag
+                .as_bytes()
+                .try_into()
+                .ok()
+                .filter(|t: &[u8; 4]| t.iter().all(|b| b.is_ascii_graphic()))
+                .ok_or_else(|| anyhow!("variations: '{tag}' is not a 4-letter axis tag (wght, wdth, opsz, slnt, ital, ...)"))?;
+            Ok((t, *value as f32))
+        })
+        .collect()
+}
+
 impl Face {
-    fn load(path: &Path, index: u32, weight: Option<f64>) -> Result<Face> {
+    /// Load a face; `weight` sets the `wght` axis (it wins over a `wght` in `variations`).
+    fn load(path: &Path, index: u32, weight: Option<f64>, variations: &[Axis]) -> Result<Face> {
         let data = std::fs::read(path).with_context(|| format!("reading font {}", path.display()))?;
         let color = ttf_parser::Face::parse(&data, index)
             .map(|f| {
@@ -30,19 +54,46 @@ impl Face {
             })
             .unwrap_or(false);
         let mut ab = FontVec::try_from_vec_and_index(data, index).map_err(|_| anyhow!("invalid font file {}", path.display()))?;
-        if let Some(w) = weight {
-            ab.set_variation(b"wght", w as f32);
+        let mut set: Vec<Axis> = Vec::new();
+        let wght = weight.map(|w| (*b"wght", w as f32));
+        for &(tag, value) in variations.iter().filter(|a| wght.is_none() || a.0 != *b"wght").chain(wght.iter()) {
+            if ab.set_variation(&tag, value) {
+                set.retain(|a| a.0 != tag);
+                set.push((tag, value));
+            }
         }
-        Ok(Face { ab, index, color })
+        let file = path.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
+        Ok(Face { ab, index, color, file, variations: set })
     }
 
     pub fn covers(&self, ch: char) -> bool {
         self.ab.glyph_id(ch).0 != 0
     }
 
-    /// The face parsed by ttf-parser (for colour glyphs).
+    /// The variation axes the font has (empty for a static font).
+    pub fn axes(&self) -> Vec<[u8; 4]> {
+        self.parsed().map(|f| f.variation_axes().into_iter().map(|a| a.tag.to_bytes()).collect()).unwrap_or_default()
+    }
+
+    /// The face parsed by ttf-parser (for colour glyphs), with this face's variations set.
     pub fn parsed(&self) -> Option<ttf_parser::Face<'_>> {
-        ttf_parser::Face::parse(self.ab.font_data(), self.index).ok()
+        let mut f = ttf_parser::Face::parse(self.ab.font_data(), self.index).ok()?;
+        for (tag, value) in &self.variations {
+            f.set_variation(ttf_parser::Tag::from_bytes(tag), *value);
+        }
+        Some(f)
+    }
+
+    /// The face for shaping, with this face's variations set.
+    pub fn shaper(&self) -> Option<rustybuzz::Face<'_>> {
+        let mut f = rustybuzz::Face::from_slice(self.ab.font_data(), self.index)?;
+        let v: Vec<rustybuzz::Variation> = self
+            .variations
+            .iter()
+            .map(|(t, value)| rustybuzz::Variation { tag: rustybuzz::ttf_parser::Tag::from_bytes(t), value: *value })
+            .collect();
+        f.set_variations(&v);
+        Some(f)
     }
 }
 
@@ -78,13 +129,22 @@ impl Font {
         }
         covering_face(ch).unwrap_or_else(|| self.face.clone())
     }
+
+    /// Whether this font, the scene's `fontFallback` or some installed font has a glyph for `ch`
+    /// (otherwise it is drawn as a .notdef box).
+    pub fn has_glyph(&self, ch: char) -> bool {
+        self.face.covers(ch) || self.face_for(ch, false).covers(ch)
+    }
 }
 
 /// Resolves font names ("Segoe UI Black", "Arial", a path, or a scene alias) to loaded fonts.
+/// (file, face index, weight or -1, variation axes with values * 1000)
+type FontKey = (PathBuf, u32, i32, Vec<([u8; 4], i64)>);
+
 pub struct FontDb {
     aliases: HashMap<String, PathBuf>,
     fallback: Arc<Vec<FaceRef>>,
-    cache: Mutex<HashMap<(PathBuf, u32, i32), FontRef>>,
+    cache: Mutex<HashMap<FontKey, FontRef>>,
 }
 
 /// A font file (and face index for collections) on disk.
@@ -235,7 +295,7 @@ fn load_shared(file: &FontFile) -> Option<FaceRef> {
     if let Some(f) = faces.lock().unwrap().get(file) {
         return f.clone();
     }
-    let face = Face::load(&file.0, file.1, None).ok().map(Arc::new);
+    let face = Face::load(&file.0, file.1, None, &[]).ok().map(Arc::new);
     faces.lock().unwrap().insert(file.clone(), face.clone());
     face
 }
@@ -416,16 +476,23 @@ impl FontDb {
     }
 
     pub fn get(&self, name: Option<&str>, weight: Option<f64>) -> Result<FontRef> {
+        self.get_with(name, weight, &[])
+    }
+
+    /// A font with variation axes set (`weight` wins over a `wght` in `variations`). Axes the font
+    /// lacks are ignored (see [`Face::axes`]); the fallback fonts keep their default instance.
+    pub fn get_with(&self, name: Option<&str>, weight: Option<f64>, variations: &[Axis]) -> Result<FontRef> {
         let name = name.unwrap_or(DEFAULT_FONT);
         let (path, index) = self.find(name, weight).or_else(|e| {
             // the Windows fonts flits defaults to (and presets use) get a look-alike elsewhere
             standin(name).iter().find_map(|n| self.find(n, None).ok()).ok_or(e)
         })?;
-        let key = (path.clone(), index, weight.map(|w| w as i32).unwrap_or(-1));
+        let vars: Vec<([u8; 4], i64)> = variations.iter().map(|(t, v)| (*t, (*v as f64 * 1000.0).round() as i64)).collect();
+        let key = (path.clone(), index, weight.map(|w| w as i32).unwrap_or(-1), vars);
         if let Some(f) = self.cache.lock().unwrap().get(&key) {
             return Ok(f.clone());
         }
-        let face = Arc::new(Face::load(&path, index, weight)?);
+        let face = Arc::new(Face::load(&path, index, weight, variations)?);
         let f = Arc::new(Font { face, fallback: self.fallback.clone() });
         self.cache.lock().unwrap().insert(key, f.clone());
         Ok(f)

@@ -24,7 +24,7 @@ Files: `api.md` (API cheat sheet), `example.ts` (a complete, reviewed 15 s launc
 3. **Write `src/video.ts`.** One component per beat (a function returning a `Group`), timed with `At`/`Sequence`.
    Keep design tokens (colours, fonts, margins, eases) in constants at the top.
 4. **`flits check src/video.ts`** - schema errors, typos (unknown keys are warnings), missing files, and layout
-   lint: text running off the canvas, text overlapping text, text on screen too briefly to read. Fix every
+   lint: text running off the canvas, text overlapping text (also subtitles overlapping for a frame), text on screen too briefly to read. Fix every
    warning (or know why it is intended). `--json` gives the same as one JSON object (timeline + issues).
 5. **Look at stills.** Pick moments from your storyboard: each beat at rest *and* mid-motion.
    ```sh

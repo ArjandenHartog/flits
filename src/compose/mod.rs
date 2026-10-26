@@ -3,6 +3,7 @@
 
 pub mod captions;
 pub mod crop;
+pub mod cues;
 pub mod draw;
 pub mod lint;
 pub mod shape;
@@ -291,6 +292,8 @@ pub struct Prepared {
     pub loudness: Option<f64>,
     /// motion blur: (most samples per layer, shutter as a fraction of the frame interval)
     pub motion_blur: Option<(usize, f64)>,
+    /// problems found while preparing (characters no font has): printed like the scene's warnings
+    pub warnings: Vec<String>,
 }
 
 struct Ctx<'a> {
@@ -300,6 +303,9 @@ struct Ctx<'a> {
     next_id: usize,
     audio: Vec<AudioInput>,
     render_scale: f64,
+    /// path of the layer being built ("layers.2.children.0"), for warnings
+    here: String,
+    warnings: Vec<String>,
 }
 
 fn prop(p: &Option<Prop>, default: f64) -> Prop {
@@ -363,7 +369,7 @@ impl Prepared {
             })
             .collect();
         let fonts = FontDb::new(aliases).with_fallback(&fallback)?;
-        let mut ctx = Ctx { scene, fonts, probes, next_id: 0, audio: vec![], render_scale };
+        let mut ctx = Ctx { scene, fonts, probes, next_id: 0, audio: vec![], render_scale, here: String::new(), warnings: vec![] };
 
         let (cw, ch) = (scene.width as f32, scene.height as f32);
         let default_end = scene.duration.unwrap_or(f64::INFINITY);
@@ -444,6 +450,7 @@ impl Prepared {
             audio: ctx.audio,
             loudness: scene.loudness,
             motion_blur: scene.motion_blur.and_then(|m| m.settings()),
+            warnings: ctx.warnings,
         })
     }
 }
@@ -488,7 +495,10 @@ fn build_list(
 ) -> Result<Vec<Node>> {
     let mut out = Vec::with_capacity(layers.len());
     let mut cursor = 0.0;
+    let parent = std::mem::take(&mut ctx.here);
+    let list = if parent.is_empty() { "layers".to_string() } else { format!("{parent}.children") };
     for (i, l) in layers.iter().enumerate() {
+        ctx.here = format!("{list}.{i}");
         let label = l.id.clone().unwrap_or_else(|| format!("{} #{i}", l.kind));
         let node = if sequence {
             let mut l2 = l.clone();
@@ -507,11 +517,111 @@ fn build_list(
         };
         out.push(node);
     }
+    ctx.here = parent;
     Ok(out)
 }
 
-fn text_style(l: &Layer, ctx: &Ctx, default_font: Option<&str>, default_size: f64, q: f32) -> Result<TextStyle> {
-    let font = ctx.fonts.get(l.font.as_deref().or(default_font), l.weight)?;
+/// The captions of all captions layers as subtitle cues (start, end, text) in scene time, in
+/// order: what is on screen, cut to each layer's lifetime.
+pub fn scene_cues(nodes: &[Node]) -> Vec<(f64, f64, String)> {
+    fn walk(nodes: &[Node], out: &mut Vec<(f64, f64, String)>) {
+        for n in nodes {
+            if let Kind::Captions(c) = &n.kind {
+                for (a, b, t) in c.cues() {
+                    let (a, b) = ((n.start + a).max(n.start), (n.start + b).min(n.end));
+                    if b > a {
+                        out.push((a, b, t));
+                    }
+                }
+            }
+            walk(&n.children, out);
+        }
+    }
+    let mut out = vec![];
+    walk(nodes, &mut out);
+    out.sort_by(|a, b| a.0.total_cmp(&b.0));
+    out
+}
+
+/// A captions layer's break rules: phrase-aware or not, and the words not to end a chunk on.
+fn caption_breaks(l: &Layer, transcript_language: Option<&str>) -> Result<(bool, Vec<String>)> {
+    let mut weak: Vec<String> = l.no_break_after.iter().flatten().map(|w| w.trim().to_lowercase()).filter(|w| !w.is_empty()).collect();
+    if let Some(lang) = l.language.as_deref() {
+        let lang = if lang == "auto" { transcript_language.unwrap_or("") } else { lang };
+        match cues::weak_words(lang) {
+            Some(list) => weak.extend(list.iter().map(|w| w.to_string())),
+            None if l.language.as_deref() == Some("auto") => {}
+            None => bail!("captions: no built-in noBreakAfter list for language '{lang}' (nl, en or auto; or set noBreakAfter)"),
+        }
+    }
+    let phrase = match l.breaks.as_deref() {
+        None => l.no_break_after.is_some() || l.language.is_some(),
+        Some("greedy") => false,
+        Some("phrase") => true,
+        Some(o) => bail!("unknown captions breaks '{o}' (greedy, phrase)"),
+    };
+    Ok((phrase, weak))
+}
+
+/// A captions layer's on-screen timing.
+fn captions_timing(l: &Layer) -> Result<cues::Timing> {
+    let d = cues::Timing::default();
+    for (name, v) in [("lead", l.lead), ("hold", l.hold), ("gapClose", l.gap_close), ("minDuration", l.min_duration), ("appear", l.appear)]
+    {
+        if v.is_some_and(|v| !(v >= 0.0 && v.is_finite())) {
+            bail!("captions: {name} must be a number of seconds >= 0");
+        }
+    }
+    Ok(cues::Timing {
+        lead: l.lead.unwrap_or(d.lead),
+        hold: l.hold.unwrap_or(d.hold),
+        gap_close: l.gap_close.unwrap_or(d.gap_close),
+        min_duration: None,
+    })
+}
+
+/// Warn about characters in `texts` that no font has a glyph for (they would show as boxes).
+fn check_glyphs<'t>(l: &Layer, ctx: &mut Ctx, style: &TextStyle, texts: impl IntoIterator<Item = &'t str>) {
+    let mut missing = Vec::new();
+    for t in texts {
+        text::missing_glyphs(&style.font, t, &mut missing);
+    }
+    if missing.is_empty() {
+        return;
+    }
+    let chars: Vec<String> = missing.iter().map(|c| format!("U+{:04X} '{c}'", *c as u32)).collect();
+    let id = l.id.as_deref().map(|i| format!(" \"{i}\"")).unwrap_or_default();
+    ctx.warnings.push(format!(
+        "{} ({}{id}): no font has a glyph for {} (font: {}); {} drawn as a box: add a font that has {} to \"fontFallback\"",
+        ctx.here,
+        l.kind,
+        chars.join(", "),
+        style.font.face.file,
+        if missing.len() == 1 { "it is" } else { "they are" },
+        if missing.len() == 1 { "it" } else { "them" },
+    ));
+}
+
+fn text_style(l: &Layer, ctx: &mut Ctx, default_font: Option<&str>, default_size: f64, q: f32) -> Result<TextStyle> {
+    let mut vars = text::parse_variations(l.variations.iter().flatten())?;
+    vars.sort_by_key(|v| v.0);
+    let font = ctx.fonts.get_with(l.font.as_deref().or(default_font), l.weight, &vars)?;
+    if !vars.is_empty() {
+        let axes = font.face.axes();
+        let missing: Vec<String> =
+            vars.iter().filter(|v| !axes.contains(&v.0)).map(|v| String::from_utf8_lossy(&v.0).into_owned()).collect();
+        if !missing.is_empty() {
+            let have: Vec<String> = axes.iter().map(|a| String::from_utf8_lossy(a).into_owned()).collect();
+            ctx.warnings.push(format!(
+                "{} ({}): font {} has no {} axis (ignored; its axes: {})",
+                ctx.here,
+                l.kind,
+                font.face.file,
+                missing.join(", "),
+                if have.is_empty() { "none, it is not a variable font".to_string() } else { have.join(", ") }
+            ));
+        }
+    }
     let size = l.size.unwrap_or(default_size) as f32;
     let bg = l.background.as_ref().map(|b| {
         let (px, py) = b.padding.as_ref().map(|p| p.xy()).unwrap_or((size as f64 * 0.4, size as f64 * 0.2));
@@ -528,7 +638,8 @@ fn text_style(l: &Layer, ctx: &Ctx, default_font: Option<&str>, default_size: f6
         max_width: l.max_width.map(|m| m as f32 * q),
         stroke: l.stroke.as_ref().map(|s| (s.width as f32 * q, s.color)),
         balance: l.wrap.as_deref() == Some("balance"),
-        shadow: l.shadow.as_ref().map(|s| (s.color, s.blur as f32 * q, s.x as f32 * q, s.y as f32 * q)),
+        // a fully transparent shadow is no shadow (turns off the captions' default one)
+        shadow: l.shadow.as_ref().filter(|s| s.color.a > 0.0).map(|s| (s.color, s.blur as f32 * q, s.x as f32 * q, s.y as f32 * q)),
         bg,
     })
 }
@@ -698,6 +809,7 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
             // HTML-style soft hyphen as used in existing copy
             let raw = raw.replace("&shy;", "\u{ad}");
             let style = text_style(l, ctx, None, 64.0, q)?;
+            check_glyphs(l, ctx, &style, [raw.as_str()]);
             let lay = text::layout(&style, &text::tokenize(&raw));
             let sprite = rescale(text::render(&style, &lay, None, None)?, q);
             let reveal = match l.reveal.as_deref() {
@@ -767,6 +879,8 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
             };
             let decimal_mark = if separator == Some(',') { '.' } else { ',' };
             let style = text_style(l, ctx, None, 96.0, q)?;
+            let marks: String = separator.into_iter().chain([decimal_mark]).collect();
+            check_glyphs(l, ctx, &style, l.prefix.iter().chain(&l.suffix).map(String::as_str).chain([marks.as_str()]));
             let glyph = |t: &str| -> Result<Arc<Sprite>> { Ok(Arc::new(rescale(text::render_word(&style, t, style.color, None)?, q))) };
             let mut glyphs = HashMap::new();
             for c in "0123456789-".chars().chain(separator).chain(std::iter::once(decimal_mark)) {
@@ -808,10 +922,11 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
             let bh = h.unwrap_or((size * 1.15 * 2.6) as f32);
             w = Some(bw);
             h = Some(bh);
-            let words: Vec<captions::Word> = captions::load_transcript(&src)?
-                .into_iter()
-                .map(|wd| captions::Word { start: wd.start - l.trim, end: wd.end - l.trim, ..wd })
-                .collect();
+            let transcript = captions::load_transcript_full(&src)?;
+            let words: Vec<captions::Word> =
+                transcript.words().into_iter().map(|wd| captions::Word { start: wd.start - l.trim, end: wd.end - l.trim, ..wd }).collect();
+            let shown: Vec<String> = words.iter().map(|w| if l.uppercase { w.text.to_uppercase() } else { w.text.clone() }).collect();
+            check_glyphs(l, ctx, &style, shown.iter().map(String::as_str));
             let dur_guess = match (l.end, l.duration) {
                 (Some(e), _) => base + e - start,
                 (_, Some(d)) => d,
@@ -826,6 +941,7 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
             if !(l.end.is_some() || l.duration.is_some() || default_end.is_finite()) {
                 natural = Some(dur_guess);
             }
+            let (phrase, no_break_after) = caption_breaks(l, transcript.language.as_deref())?;
             let opts = CapOptions {
                 kind,
                 style,
@@ -839,6 +955,12 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
                     CapKind::Line => 9,
                 }),
                 max_lines: l.max_lines.unwrap_or(2),
+                max_chars: l.max_chars,
+                phrase,
+                no_break_after,
+                min_duration: l.min_duration.filter(|d| *d > 0.0),
+                timing: captions_timing(l)?,
+                appear: l.appear.unwrap_or(0.12),
                 uppercase: l.uppercase,
                 colors: l.colors.clone().unwrap_or_default(),
                 active_scale: l.active_scale.map(|v| v as f32),
@@ -955,3 +1077,27 @@ fn build_layer(l: &Layer, base: f64, default_end: f64, pbox: (f32, f32), pscale:
 }
 
 // ---------------------------------------------------------------- drawing
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn warns_about_characters_no_font_has() {
+        // U+10FFFD (private use, plane 16) is in no font; the variation selector and the joiner draw nothing
+        let scene = serde_json::json!({ "width": 640, "height": 360, "fps": 30, "duration": 1, "layers": [
+            { "type": "text", "text": "Hello" },
+            { "type": "group", "children": [
+                { "type": "text", "id": "title", "text": "Let op \u{10FFFD} \u{26A0}\u{FE0F} \u{10FFFD}\u{200D}" },
+            ] },
+            { "type": "counter", "value": 42, "suffix": " \u{10FFFD}" },
+        ] });
+        let (s, _) = Scene::from_value(scene, std::env::temp_dir()).unwrap();
+        let w = Prepared::build(&s, 0.25).unwrap().warnings;
+        assert_eq!(w.len(), 2, "{w:?}");
+        assert!(w[0].starts_with("layers.1.children.0 (text \"title\"): no font has a glyph for U+10FFFD"), "{}", w[0]);
+        assert_eq!(w[0].matches("U+10FFFD").count(), 1, "listed once: {}", w[0]);
+        assert!(!w[0].contains("U+FE0F") && !w[0].contains("U+200D"), "{}", w[0]);
+        assert!(w[1].starts_with("layers.2 (counter): no font has a glyph for U+10FFFD"), "{}", w[1]);
+    }
+}

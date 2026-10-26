@@ -69,6 +69,7 @@ pub const WRAPS: &[&str] = &["balance", "greedy"];
 pub const CAPTION_STYLES: &[&str] =
     &["karaoke", "pop", "bounce", "word", "line", "highlight", "tiktok", "jump", "single", "plain", "subtitle"];
 pub const HIGHLIGHT_BOXES: &[&str] = &["pill", "marker", "box", "highlighter"];
+pub const CAPTION_BREAKS: &[&str] = &["greedy", "phrase"];
 pub const TEXT_BG_MODES: &[&str] = &["box", "lines"];
 pub const GRADIENT_TYPES: &[&str] = &["linear", "radial"];
 
@@ -232,6 +233,15 @@ pub(crate) fn highlight_box(_: &mut SchemaGenerator) -> Schema {
         "Shape of the `highlightBg` box: pill (default; glides from word to word) or marker (a highlighter stroke that \
          wipes in). Aliases: box, highlighter.",
         HIGHLIGHT_BOXES,
+    )
+}
+
+pub(crate) fn caption_breaks(_: &mut SchemaGenerator) -> Schema {
+    string_enum(
+        "Captions: where a full chunk breaks. greedy (default): as late as fits. phrase: after the last comma, \
+         otherwise never after a `noBreakAfter` word; a lone trailing word joins the chunk before it. \
+         Setting `noBreakAfter` or `language` implies phrase.",
+        CAPTION_BREAKS,
     )
 }
 

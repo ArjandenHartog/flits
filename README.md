@@ -185,6 +185,8 @@ flits preview scene.json                      # live preview in the browser, rel
 flits sheet scene.json -o sheet.png           # contact sheet: check the whole video in one image (tiles labelled
                                               # with their time; --at 1 --at 2.5, or --from 2 --to 3 --count 8)
 flits still scene.json --at 12.5 -o frame.png
+flits sheet clip.mov -o sheet.png             # sheet/still also take a plain video or image (shown full frame,
+                                              # rotation and HDR handled like a video layer)
 flits check scene.json                        # validate (typos are reported), lint the layout, print the timeline
                                               # (--json: one object with warnings, layout issues and the layer tree)
 flits skill install                           # the flits-video skill for Claude Code (--global for all projects)
@@ -214,8 +216,13 @@ flits transcribe recording.m4a --initial-prompt "Arjan, flits" --vocab terms.txt
 flits transcribe interview.m4a --diarize      # speaker labels (optional pyannote, needs HF_TOKEN)
 
 # tools
-flits doctor                                  # what works on this machine (GPU, encoders, whisper, ...)
+flits doctor                                  # what works on this machine (GPU, encoders, whisper, ...), which
+                                              # binary runs, and a warning when it is older than the flits checkout
+                                              # in this folder (or the one it was built from)
+flits --version                               # version, git commit and build date
 flits info file.mp4
+flits info flyby.wav --peaks                  # loudness over time: the loudest moment (RMS, --window 0.25 s),
+                                              # the loudest sample and dBFS per second (--json for scripts)
 flits measure < texts.json                    # text metrics for scripts that lay things out
 flits serve --token secret                    # make this (GPU) machine a render/transcription server
 flits remote http://gpu-box:7777 --token secret   # on another machine: offload work to it

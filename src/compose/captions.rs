@@ -1,5 +1,6 @@
 //! Word-timed animated captions from a transcript.
 
+use super::cues;
 use crate::gfx::Sprite;
 use crate::paint::{sprite_op, Clip, Op, Painter, Src};
 use crate::scene::anim::Ease;
@@ -203,6 +204,8 @@ struct CapWord {
 struct CapGroup {
     start: f64,
     end: f64,
+    /// the words as shown (for subtitle export)
+    text: String,
     cx: f32,
     cy: f32,
     words: Vec<CapWord>,
@@ -223,6 +226,8 @@ pub struct Captions {
     line: f32,
     /// box width: single words wider than this are scaled down
     box_w: f32,
+    /// seconds over which a chunk fades and scales in
+    appear: f64,
 }
 
 pub struct CapOptions {
@@ -235,6 +240,18 @@ pub struct CapOptions {
     pub max_words: usize,
     /// lines per chunk (a chunk ends before it would wrap onto more lines)
     pub max_lines: usize,
+    /// characters per chunk (default: 9 per word of `max_words`, at least 12)
+    pub max_chars: Option<usize>,
+    /// phrase-aware breaks (see `cues::Rules::phrase`)
+    pub phrase: bool,
+    /// lowercase words a chunk doesn't end on (with `phrase`)
+    pub no_break_after: Vec<String>,
+    /// chunks spoken faster than this (s) merge with a neighbour; also the shortest time on screen
+    pub min_duration: Option<f64>,
+    /// lead, hold and gap closing on screen
+    pub timing: cues::Timing,
+    /// seconds over which a chunk fades and scales in (0 = at once)
+    pub appear: f64,
     pub uppercase: bool,
     /// active-word colours, cycled word by word (overrides `highlight`)
     pub colors: Vec<Rgba>,
@@ -262,39 +279,32 @@ fn color_key(c: Rgba) -> [u8; 4] {
 /// `words` times are already layer-local (seconds since the layer starts).
 pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
     let maxw = if o.kind == CapKind::Word { 1 } else { o.max_words.max(1) };
-    let max_chars = (maxw * 9).max(12);
+    let max_chars = o.max_chars.unwrap_or((maxw * 9).max(12)).max(1);
     let mut style = o.style.clone();
     let chunk_bg = style.bg.take();
     // outlines grow into the gap between words: give that space back
     style.word_spacing += style.stroke.map(|s| s.0).unwrap_or(0.0);
-    // 1. group words into on-screen chunks
-    let mut chunks: Vec<Vec<Word>> = vec![];
-    for w in words.iter().filter(|w| w.end > 0.0 && w.start < dur) {
-        let text = if o.uppercase { w.text.to_uppercase() } else { w.text.clone() };
-        let w = Word { text, ..w.clone() };
-        let new_chunk = match chunks.last() {
-            None => true,
-            Some(c) => {
-                let last = c.last().unwrap();
-                let chars: usize = c.iter().map(|x| x.text.chars().count() + 1).sum();
-                c.len() >= maxw
-                    || w.start - last.end > 0.6
-                    || chars + w.text.chars().count() > max_chars
-                    || last.text.ends_with(['.', '?', '!', ':'])
-                    || (last.text.ends_with(',') && c.len() > maxw / 2)
-                    || w.speaker != last.speaker
-                    || {
-                        let toks: Vec<String> = c.iter().chain(std::iter::once(&w)).map(|x| x.text.clone()).collect();
-                        layout(&style, &toks).lines.len() > o.max_lines.max(1)
-                    }
-            }
-        };
-        if new_chunk {
-            chunks.push(vec![w]);
-        } else {
-            chunks.last_mut().unwrap().push(w);
-        }
-    }
+    // 1. group words into on-screen chunks, and time them
+    let shown: Vec<Word> = words
+        .iter()
+        .filter(|w| w.end > 0.0 && w.start < dur)
+        .map(|w| Word { text: if o.uppercase { w.text.to_uppercase() } else { w.text.clone() }, ..w.clone() })
+        .collect();
+    let rules = cues::Rules {
+        max_words: maxw,
+        max_chars,
+        phrase: o.phrase,
+        no_break_after: o.no_break_after.clone(),
+        min_duration: o.min_duration,
+        ..cues::Rules::default()
+    };
+    let max_lines = o.max_lines.max(1);
+    let mut lines_ok = |ws: &[Word]| {
+        let toks: Vec<String> = ws.iter().map(|x| x.text.clone()).collect();
+        layout(&style, &toks).lines.len() <= max_lines
+    };
+    let chunks = rules.group(&shown, &mut lines_ok);
+    let times = cues::Timing { min_duration: o.min_duration, ..o.timing }.apply(&chunks, dur);
     // 2. colours per word, then unique (text, colour) sprites rendered in parallel
     let mut gi = 0usize;
     let colored: Vec<Vec<(Rgba, Rgba)>> = chunks
@@ -341,14 +351,7 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
         let lh = style.line_px();
         let spread = spread_for_scale(&lay, active_scale, o.box_w);
         let centres = &spread.centres;
-        let next_start = chunks.get(ci + 1).map(|n| n[0].start).unwrap_or(f64::INFINITY);
-        let start = c[0].start;
-        // keep the chunk up until the next one starts if the gap is short
-        let mut end = c.last().unwrap().end + 0.25;
-        if next_start - end < 0.6 {
-            end = next_start;
-        }
-        let end = end.min(next_start).min(dur);
+        let (start, end) = times[ci];
         let words = c
             .iter()
             .zip(&lay.words)
@@ -389,7 +392,7 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
             }
             None => vec![],
         };
-        groups.push(CapGroup { start, end, cx: o.box_w / 2.0 / o.q, cy: o.box_h / 2.0 / o.q, words, boxes });
+        groups.push(CapGroup { start, end, text: cues::text(c), cx: o.box_w / 2.0 / o.q, cy: o.box_h / 2.0 / o.q, words, boxes });
     }
     Ok(Captions {
         groups,
@@ -400,6 +403,7 @@ pub fn build(words: &[Word], dur: f64, o: &CapOptions) -> Result<Captions> {
         size: style.size / o.q,
         line: style.line_px() / o.q,
         box_w: o.box_w / o.q,
+        appear: o.appear.max(0.0),
     })
 }
 
@@ -486,6 +490,11 @@ fn spread_for_scale(lay: &crate::text::TextLayout, scale: f32, max_w: f32) -> Sp
 }
 
 impl Captions {
+    /// The chunks as subtitle cues: (start, end, text) in layer time, in order, never overlapping.
+    pub fn cues(&self) -> Vec<(f64, f64, String)> {
+        self.groups.iter().filter(|g| g.end > g.start).map(|g| (g.start, g.end, g.text.clone())).collect()
+    }
+
     /// Pill rectangle (x0, y0, x1, y1) around a word.
     fn pill(&self, w: &CapWord) -> [f32; 4] {
         let (hw, hh) = (w.normal.w / 2.0 + self.size * 0.18, self.line / 2.0 + self.size * 0.02);
@@ -525,7 +534,7 @@ impl Captions {
             return;
         }
         let since = t - g.start;
-        let appear = (since / 0.12).clamp(0.0, 1.0);
+        let appear = if self.appear > 0.0 { (since / self.appear).clamp(0.0, 1.0) } else { 1.0 };
         let gop = opacity * appear as f32;
         let gscale = (0.92 + 0.08 * Ease::BackOut.apply(appear)) as f32;
         let gts = ts.pre_translate(g.cx, g.cy).pre_scale(gscale, gscale).pre_translate(-g.cx, -g.cy);
@@ -662,6 +671,12 @@ mod tests {
             highlight_box: HiBox::Pill,
             max_words: 20,
             max_lines: 2,
+            max_chars: None,
+            phrase: false,
+            no_break_after: vec![],
+            min_duration: None,
+            timing: cues::Timing::default(),
+            appear: 0.12,
             uppercase: false,
             colors: vec![Rgba::rgba8(255, 0, 0, 1.0), Rgba::rgba8(0, 255, 0, 1.0)],
             active_scale: None,
@@ -740,6 +755,61 @@ mod tests {
         let caps = build(&words(6, 3), 20.0, &opts(CapKind::Karaoke)).unwrap();
         assert_eq!(caps.groups.len(), 2, "a new speaker starts a new chunk");
         assert_eq!(caps.groups[0].words.len(), 3);
+    }
+
+    #[test]
+    fn timing_options_lead_and_never_overlap() {
+        let mut o = opts(CapKind::Line);
+        o.max_words = 2;
+        o.timing = cues::Timing { lead: 0.05, ..cues::Timing::default() };
+        o.min_duration = Some(0.9);
+        o.appear = 0.0;
+        // wide enough for four words on two lines with any system's default font (Linux CI's is wider)
+        o.style.max_width = Some(800.0);
+        let caps = build(&words(12, 100), 20.0, &o).unwrap();
+        let c = caps.cues();
+        assert_eq!(c[0].0, 0.0, "the lead stops at the layer start: {c:?}");
+        assert!((c[1].0 - (caps.groups[1].words[0].start - 0.05)).abs() < 1e-9, "{c:?}");
+        for p in c.windows(2) {
+            assert!(p[0].1 <= p[1].0, "overlap: {p:?}");
+        }
+        // 0.55 s per two words is under minDuration: chunks merged up to the two lines
+        assert!(caps.groups.iter().all(|g| g.words.len() > 2 || g.words.last().unwrap().end - g.words[0].start >= 0.9));
+        assert!(caps.groups.iter().any(|g| g.words.len() > 2), "{c:?}");
+    }
+
+    #[test]
+    fn a_scene_exports_its_captions_with_static_boxes() {
+        let dir = std::env::temp_dir().join(format!("flits-scene-cues-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let words: Vec<serde_json::Value> = "Dit is de eerste zin. En dan komt er nog een tweede zin met de rest."
+            .split_whitespace()
+            .enumerate()
+            .map(|(i, w)| serde_json::json!({"word": w, "start": i as f64 * 0.3, "end": i as f64 * 0.3 + 0.32}))
+            .collect();
+        std::fs::write(dir.join("t.words.json"), serde_json::json!({"language": "nl", "words": words}).to_string()).unwrap();
+        // one caption at a time, white on a coloured rounded box per line, balanced, no pop-in
+        let scene = serde_json::json!({"width": 1080, "height": 1920, "duration": 6, "layers": [{
+            "type": "captions", "src": "t.words.json", "start": 0.5, "style": "line", "size": 56, "lineHeight": 1.38,
+            "width": 880, "wrap": "balance", "maxChars": 32, "language": "auto", "minDuration": 0.9,
+            "lead": 0.05, "appear": 0, "shadow": {"color": "#00000000"},
+            "background": {"color": "#f07d00", "padding": [22, 6], "radius": 14, "mode": "lines"}
+        }]});
+        let (s, warnings) = crate::scene::Scene::from_value(scene, dir.clone()).unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+        let p = crate::compose::Prepared::build(&s, 0.25).unwrap();
+        let c = crate::compose::scene_cues(&p.nodes);
+        assert!(c.len() >= 2, "{c:?}");
+        assert!((c[0].0 - 0.5).abs() < 1e-9, "starts with the layer (the lead can't go before it): {c:?}");
+        assert_eq!(c[0].2, "Dit is de eerste zin.");
+        for p in c.windows(2) {
+            assert!(p[0].1 <= p[1].0, "{p:?}");
+        }
+        for (_, _, t) in &c {
+            let last = t.split_whitespace().last().unwrap();
+            assert!(!cues::WEAK_NL.contains(&last), "{c:?}");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

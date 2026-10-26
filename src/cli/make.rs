@@ -1,6 +1,6 @@
 //! Commands that produce media.
 
-use super::{load, with_suffix, write_scene_and_render, CutArgs, RenderArgs, WhisperArgs};
+use super::{load, load_scene_or_media, with_suffix, write_scene_and_render, CutArgs, RenderArgs, WhisperArgs};
 use anyhow::{anyhow, bail, Context, Result};
 use flits::compose::captions::load_transcript_full;
 use flits::templates::{self, cut, edit, export, fillers, slideshow, starters};
@@ -40,7 +40,11 @@ fn out_dir(out: &Path) -> Result<()> {
 
 pub fn still(scene: &Path, at: &[f64], out: &Path, scale: f64) -> Result<()> {
     out_dir(out)?;
-    let p = load(scene, scale)?;
+    let (s, warnings) = load_scene_or_media(scene)?;
+    for w in &warnings {
+        eprintln!("warning: {w}");
+    }
+    let p = flits::Prepared::build(&s, scale)?;
     for f in render::stills(&p, flits::pick_gpu("auto")?, at, out)? {
         println!("{}", f.display());
     }
@@ -58,11 +62,14 @@ pub struct SheetPick {
 pub fn sheet(scene: &Path, out: &Path, pick: &SheetPick, cols: usize, thumb: u32) -> Result<()> {
     out_dir(out)?;
     // load once (a TypeScript scene runs its script once), then prepare at thumbnail size
-    let (s, warnings) = Scene::load(scene)?;
+    let (s, warnings) = load_scene_or_media(scene)?;
     for w in &warnings {
         eprintln!("warning: {w}");
     }
     let p = flits::Prepared::build(&s, thumb as f64 / s.width as f64)?;
+    for w in &p.warnings {
+        eprintln!("warning: {w}");
+    }
     let frames = render::sheet_frames(&p, pick.count, &pick.at, pick.from, pick.to);
     render::sheet(&p, flits::pick_gpu("auto")?, &frames, cols, out)?;
     println!("{}", out.display());
