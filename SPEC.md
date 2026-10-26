@@ -472,7 +472,8 @@ clip takes ~11 s the first time and under 2 s after that. Diarization always run
 `flits reel` starts warming it by itself as soon as it starts, while it decodes the audio.
 
 `--initial-prompt`, `--vocab`, `--diarize` also work on `captions`, `podcast` and `cut` (whenever they transcribe).
-The JSON has `language`, `duration` and `segments` (`start`, `end`, `text`, `words`: `word`, `start`, `end`, `prob`),
+The JSON has `language`, `duration` and `segments` (`start`, `end`, `text`, `words`: `word`, `start`, `end`, `prob`;
+one segment per sentence: whisper's segments are re-split at sentence ends and pauses of 0.7 s or more),
 with `--diarize` plus `speaker` per segment and word (`"SPEAKER_00"`, ...) and a `speakers` list. SRT/TXT then
 name the speaker when it changes, VTT uses `<v SPEAKER_00>` voice tags.
 

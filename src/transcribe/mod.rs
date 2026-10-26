@@ -125,7 +125,7 @@ pub fn transcribe_many(jobs: &[(PathBuf, PathBuf)], o: &TranscribeOpts) -> Resul
                         ok = false;
                         break;
                     }
-                    write_subtitles(out, &load_transcript_full(out)?)?;
+                    finish(out)?;
                 }
                 if ok {
                     return Ok(());
@@ -248,7 +248,7 @@ fn transcribe_local(jobs: &[(PathBuf, PathBuf)], o: &TranscribeOpts) -> Result<(
                     let _ = std::fs::remove_file(p);
                 }
                 for (_, out) in jobs {
-                    write_subtitles(out, &load_transcript_full(out)?)?;
+                    finish(out)?;
                 }
                 return Ok(());
             }
@@ -265,7 +265,7 @@ fn transcribe_local(jobs: &[(PathBuf, PathBuf)], o: &TranscribeOpts) -> Result<(
         bail!("transcription failed");
     }
     for (_, out) in jobs {
-        write_subtitles(out, &load_transcript_full(out)?)?;
+        finish(out)?;
     }
     Ok(())
 }
@@ -331,6 +331,66 @@ pub fn write_subtitles(json: &Path, tr: &Transcript) -> Result<()> {
     Ok(())
 }
 
+/// Tidy a fresh transcript JSON (sentence-sized segments) and write its subtitles next to it.
+fn finish(json: &Path) -> Result<()> {
+    split_segments(json)?;
+    write_subtitles(json, &load_transcript_full(json)?)
+}
+
+/// A pause between words this long (s) starts a new segment.
+const SEGMENT_PAUSE: f64 = 0.7;
+
+/// Re-split whisper's segments (sometimes one per file: 20+ s and many sentences) at sentence ends
+/// and long pauses, using the word timings. Words, their fields and the rest of the file stay as they are.
+pub fn split_segments(json: &Path) -> Result<()> {
+    let mut v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(json)?)?;
+    let Some(segs) = v["segments"].as_array() else { return Ok(()) };
+    let mut out = Vec::with_capacity(segs.len());
+    let mut changed = false;
+    for s in segs {
+        let words = s["words"].as_array().map(Vec::as_slice).unwrap_or_default();
+        let parts = sentence_parts(words);
+        if parts.len() <= 1 {
+            out.push(s.clone());
+            continue;
+        }
+        changed = true;
+        for part in parts {
+            let mut seg = s.clone();
+            let text: String = part.iter().filter_map(|w| w["word"].as_str()).collect();
+            seg["text"] = serde_json::Value::from(text.trim());
+            seg["start"] = part[0]["start"].clone();
+            seg["end"] = part[part.len() - 1]["end"].clone();
+            seg["words"] = serde_json::Value::Array(part.to_vec());
+            out.push(seg);
+        }
+    }
+    if changed {
+        v["segments"] = serde_json::Value::Array(out);
+        std::fs::write(json, serde_json::to_string_pretty(&v)?)?;
+    }
+    Ok(())
+}
+
+/// Split words after a sentence end (.?!, also before a closing quote or bracket) that another word
+/// follows, and at pauses of `SEGMENT_PAUSE` or more.
+fn sentence_parts(words: &[serde_json::Value]) -> Vec<&[serde_json::Value]> {
+    let mut parts = vec![];
+    let mut from = 0;
+    for i in 1..words.len() {
+        let prev = words[i - 1]["word"].as_str().unwrap_or("").trim_end_matches(['"', '\'', '\u{201d}', '\u{2019}', ')']);
+        let gap = words[i]["start"].as_f64().unwrap_or(0.0) - words[i - 1]["end"].as_f64().unwrap_or(0.0);
+        if prev.ends_with(['.', '?', '!']) || gap >= SEGMENT_PAUSE {
+            parts.push(&words[from..i]);
+            from = i;
+        }
+    }
+    if from < words.len() {
+        parts.push(&words[from..]);
+    }
+    parts
+}
+
 /// `<dir>/<stem>.words.json` next to the media file.
 pub fn default_json(input: &Path) -> PathBuf {
     let stem = input.file_stem().and_then(|s| s.to_str()).unwrap_or("transcript");
@@ -389,6 +449,26 @@ mod tests {
             words: words.to_vec(),
         };
         Transcript { language: language.map(str::to_string), segments: vec![seg] }
+    }
+
+    #[test]
+    fn splits_segments_at_sentences_and_pauses() {
+        let w = |t: &str, a: f64, b: f64| serde_json::json!({"word": t, "start": a, "end": b, "probability": 0.9});
+        let v = serde_json::json!({"language": "nl", "segments": [{"start": 0.0, "end": 3.6, "text": "x", "words": [
+            w(" Zo,", 0.0, 0.4), w(" klaar.", 0.5, 0.9), w(" Over", 1.0, 1.2), w(" twee", 1.2, 1.4),
+            w(" weken", 2.5, 2.8), w(" dan!", 2.9, 3.1), w(" Tot", 3.2, 3.4), w(" 3.5", 3.4, 3.6)]}]});
+        let p = std::env::temp_dir().join(format!("flits-split-{}.words.json", std::process::id()));
+        std::fs::write(&p, v.to_string()).unwrap();
+        split_segments(&p).unwrap();
+        let out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&p).unwrap()).unwrap();
+        let _ = std::fs::remove_file(&p);
+        let segs = out["segments"].as_array().unwrap();
+        let texts: Vec<&str> = segs.iter().map(|s| s["text"].as_str().unwrap()).collect();
+        // sentence ends and the 1.1 s pause split; "3.5" (a number) does not
+        assert_eq!(texts, ["Zo, klaar.", "Over twee", "weken dan!", "Tot 3.5"]);
+        assert_eq!((segs[2]["start"].as_f64(), segs[2]["end"].as_f64()), (Some(2.5), Some(3.1)));
+        assert_eq!(segs[0]["words"][0]["probability"], 0.9);
+        assert_eq!(out["language"], "nl");
     }
 
     #[test]
