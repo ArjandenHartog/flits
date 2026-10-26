@@ -185,6 +185,8 @@ flits preview scene.json                      # live preview in the browser, rel
 flits sheet scene.json -o sheet.png           # contact sheet: check the whole video in one image (tiles labelled
                                               # with their time; --at 1 --at 2.5, or --from 2 --to 3 --count 8)
 flits still scene.json --at 12.5 -o frame.png
+flits sheet clip.mov -o sheet.png             # sheet/still also take a plain video or image (shown full frame,
+                                              # rotation and HDR handled like a video layer)
 flits check scene.json                        # validate (typos are reported), lint the layout, print the timeline
                                               # (--json: one object with warnings, layout issues and the layer tree)
 flits skill install                           # the flits-video skill for Claude Code (--global for all projects)

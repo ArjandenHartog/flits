@@ -207,6 +207,7 @@ enum Cmd {
     },
     /// Render single frames to PNG (quick visual check)
     Still {
+        /// scene (.json/.ts/...), or a plain video or image
         scene: PathBuf,
         /// time(s) in seconds or mm:ss; repeat for several
         #[arg(long = "at", required = true, value_parser = parse_time)]
@@ -219,6 +220,7 @@ enum Cmd {
     /// Contact sheet: evenly spaced frames in one PNG, each labelled with its time (check a whole video, or one
     /// transition with --from/--to, at a glance)
     Sheet {
+        /// scene (.json/.ts/...), or a plain video or image
         scene: PathBuf,
         #[arg(short, long)]
         out: PathBuf,
@@ -591,6 +593,47 @@ pub fn load(scene_path: &Path, scale: f64) -> Result<Prepared> {
     let p = Prepared::build(&scene, scale)?;
     eprintln!("flits: prepared scene in {:.2}s", t.elapsed().as_secs_f64());
     Ok(p)
+}
+
+const VIDEO_EXTS: &[&str] = &["mp4", "mov", "m4v", "mkv", "webm", "avi", "mts", "m2ts", "ts", "mpg", "mpeg", "3gp", "wmv", "flv"];
+const IMAGE_EXTS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "bmp", "svg"];
+
+/// A scene file, or a plain video/image wrapped in a scene that shows it full frame (for `still` and
+/// `sheet`): canvas = the display size (rotation applied), fps and duration from the file.
+pub fn load_scene_or_media(path: &Path) -> Result<(Scene, Vec<String>)> {
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
+    let is_media = VIDEO_EXTS.contains(&ext.as_str()) || IMAGE_EXTS.contains(&ext.as_str());
+    if !is_media {
+        // unknown extension: a scene unless it is not one and ffprobe can read it
+        return match Scene::load(path) {
+            Ok(v) => Ok(v),
+            Err(e) if ext != "json" && !flits::scene::script::is_script(path) => match media_scene(path, false) {
+                Ok(v) => Ok(v),
+                Err(_) => Err(e),
+            },
+            Err(e) => Err(e),
+        };
+    }
+    media_scene(path, IMAGE_EXTS.contains(&ext.as_str()))
+}
+
+fn media_scene(path: &Path, image: bool) -> Result<(Scene, Vec<String>)> {
+    let src = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    let src = src.to_string_lossy().to_string();
+    let scene = if image {
+        let (w, h) = flits::media::image::image_size(path)?;
+        serde_json::json!({"width": w, "height": h, "fps": 30, "duration": 1, "layers": [{"type": "image", "src": src}]})
+    } else {
+        let i = flits::media::probe(path)?;
+        if !i.has_video || i.width == 0 || i.height == 0 {
+            anyhow::bail!("{}: no video stream (not a scene or a video)", path.display());
+        }
+        let fps = if i.fps > 1.0 && i.fps <= 240.0 { (i.fps * 1000.0).round() / 1000.0 } else { 30.0 };
+        let duration = if i.duration > 0.0 { i.duration } else { 1.0 / fps };
+        let layer = serde_json::json!({"type": "video", "src": src, "volume": 0});
+        serde_json::json!({"width": i.width, "height": i.height, "fps": fps, "duration": duration, "layers": [layer]})
+    };
+    Scene::from_value(scene, path.parent().map(Path::to_path_buf).unwrap_or_default())
 }
 
 /// `dir/name.mp4` -> `dir/name<suffix>`
