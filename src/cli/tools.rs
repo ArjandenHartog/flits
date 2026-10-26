@@ -93,6 +93,28 @@ pub fn check(scene: &Path, json: bool) -> Result<()> {
     Ok(())
 }
 
+/// `flits srt`: the captions layers of a scene as one SRT file (or stdout).
+pub fn srt(scene: &Path, out: Option<&Path>) -> Result<()> {
+    let (s, warnings) = Scene::load(scene)?;
+    for w in &warnings {
+        eprintln!("warning: {w}");
+    }
+    let p = Prepared::build(&s, 1.0)?;
+    let cues = flits::compose::scene_cues(&p.nodes);
+    if cues.is_empty() {
+        eprintln!("flits: the scene has no captions");
+    }
+    let text = flits::transcribe::srt(&cues);
+    match out {
+        Some(path) => {
+            std::fs::write(path, text)?;
+            eprintln!("flits: {} cue(s) written to {}", cues.len(), path.display());
+        }
+        None => print!("{text}"),
+    }
+    Ok(())
+}
+
 pub fn info(file: &Path) -> Result<()> {
     let i = media::probe(file)?;
     println!("{}", file.display());

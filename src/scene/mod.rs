@@ -407,6 +407,29 @@ pub struct Layer {
     pub max_words: Option<usize>,
     /// captions: most lines per chunk (default 2; a chunk ends before it would wrap further)
     pub max_lines: Option<usize>,
+    /// captions: most characters per chunk, spaces included (default 9 per word of `maxWords`, at least 12)
+    pub max_chars: Option<usize>,
+    #[schemars(schema_with = "schema::caption_breaks")]
+    pub breaks: Option<String>,
+    /// captions: words (case-insensitive) a chunk never ends on, e.g. articles and prepositions
+    /// ["de", "het", "een", "van", ...]; implies `breaks: "phrase"`
+    pub no_break_after: Option<Vec<String>>,
+    /// captions: language for the built-in `noBreakAfter` list: nl, en, or auto (the transcript's own
+    /// language); implies `breaks: "phrase"`
+    pub language: Option<String>,
+    /// captions: a chunk spoken faster than this (seconds) merges with a neighbour (not across a sentence
+    /// end, a pause over 0.2 s or a new speaker, and only within `maxLines`); also the shortest time a
+    /// chunk stays on screen, as far as the next one allows (default: off)
+    pub min_duration: Option<f64>,
+    /// captions: seconds a chunk appears before its first word is spoken (default 0)
+    pub lead: Option<f64>,
+    /// captions: seconds a chunk stays after its last word (default 0.25)
+    pub hold: Option<f64>,
+    /// captions: a gap to the next chunk shorter than this (seconds) is closed, so the chunk stays up until
+    /// the next one (default 0.6). Chunks never overlap.
+    pub gap_close: Option<f64>,
+    /// captions: seconds over which a chunk fades and scales in (default 0.12; 0 = it appears at once)
+    pub appear: Option<f64>,
     /// captions: active-word colours, cycled word by word (instead of `highlight`)
     pub colors: Option<Vec<Rgba>>,
     /// captions: size of the active word relative to the others (default 1.12 for pop, 1 otherwise)
