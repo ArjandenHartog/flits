@@ -16,6 +16,8 @@ pub struct Face {
     pub index: u32,
     /// has colour glyphs (COLR, CBDT or sbix: emoji fonts)
     pub color: bool,
+    /// file name (for messages)
+    pub file: String,
 }
 
 pub type FaceRef = Arc<Face>;
@@ -33,7 +35,8 @@ impl Face {
         if let Some(w) = weight {
             ab.set_variation(b"wght", w as f32);
         }
-        Ok(Face { ab, index, color })
+        let file = path.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
+        Ok(Face { ab, index, color, file })
     }
 
     pub fn covers(&self, ch: char) -> bool {
@@ -77,6 +80,12 @@ impl Font {
             return f.clone();
         }
         covering_face(ch).unwrap_or_else(|| self.face.clone())
+    }
+
+    /// Whether this font, the scene's `fontFallback` or some installed font has a glyph for `ch`
+    /// (otherwise it is drawn as a .notdef box).
+    pub fn has_glyph(&self, ch: char) -> bool {
+        self.face.covers(ch) || self.face_for(ch, false).covers(ch)
     }
 }
 

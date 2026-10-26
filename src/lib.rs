@@ -116,6 +116,9 @@ pub fn render_file(scene: &Path, out: &Path, o: &Options) -> Result<Stats> {
         eprintln!("warning: {w}");
     }
     let p = Prepared::build(&s, o.scale)?;
+    for w in &p.warnings {
+        eprintln!("warning: {w}");
+    }
     render_prepared(&p, out, o)
 }
 
@@ -126,5 +129,8 @@ pub fn render_json(scene: serde_json::Value, base_dir: &Path, out: &Path, o: &Op
         eprintln!("warning: {w}");
     }
     let p = Prepared::build(&s, o.scale)?;
+    for w in &p.warnings {
+        eprintln!("warning: {w}");
+    }
     render_prepared(&p, out, o)
 }

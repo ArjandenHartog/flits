@@ -63,6 +63,9 @@ pub fn sheet(scene: &Path, out: &Path, pick: &SheetPick, cols: usize, thumb: u32
         eprintln!("warning: {w}");
     }
     let p = flits::Prepared::build(&s, thumb as f64 / s.width as f64)?;
+    for w in &p.warnings {
+        eprintln!("warning: {w}");
+    }
     let frames = render::sheet_frames(&p, pick.count, &pick.at, pick.from, pick.to);
     render::sheet(&p, flits::pick_gpu("auto")?, &frames, cols, out)?;
     println!("{}", out.display());

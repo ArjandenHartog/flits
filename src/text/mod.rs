@@ -213,6 +213,20 @@ impl TextStyle {
     }
 }
 
+/// Characters of `text` that no font has a glyph for (they would be drawn as .notdef boxes),
+/// added to `out` once each. Characters that draw nothing on their own (whitespace, joiners,
+/// variation selectors, tags, skin tones, combining marks, soft hyphens) are not reported.
+pub fn missing_glyphs(font: &fonts::Font, text: &str, out: &mut Vec<char>) {
+    for c in text.chars() {
+        if c.is_whitespace() || c.is_control() || c == SHY || c == '\u{FEFF}' || is_joiner(c) || is_invisible(c) || out.contains(&c) {
+            continue;
+        }
+        if !font.has_glyph(c) {
+            out.push(c);
+        }
+    }
+}
+
 /// A positioned glyph: `x` from the word origin, `dy` up from the baseline (px).
 #[derive(Clone)]
 struct Glyph {

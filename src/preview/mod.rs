@@ -184,7 +184,9 @@ fn reload(st: &State) -> Vec<PathBuf> {
     let res = Scene::load(&st.scene).and_then(|(s, w)| {
         warnings = w;
         files.extend(referenced_files(&s));
-        Ok((Prepared::build(&s, st.scale)?, (s.width, s.height)))
+        let p = Prepared::build(&s, st.scale)?;
+        warnings.extend(p.warnings.iter().cloned());
+        Ok((p, (s.width, s.height)))
     });
     let secs = t.elapsed().as_secs_f64();
     for w in &warnings {

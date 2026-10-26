@@ -31,7 +31,7 @@ fn r3(v: f64) -> f64 {
 /// `flits check`: validate, lint the layout and print the timeline (`json`: one JSON object on stdout).
 pub fn check(scene: &Path, json: bool) -> Result<()> {
     let loaded = Scene::load(scene).and_then(|(s, w)| Prepared::build(&s, 0.25).map(|p| (s, w, p)));
-    let (s, warnings, p) = match loaded {
+    let (s, mut warnings, p) = match loaded {
         Ok(v) => v,
         Err(e) => {
             if json {
@@ -40,6 +40,7 @@ pub fn check(scene: &Path, json: bool) -> Result<()> {
             return Err(e);
         }
     };
+    warnings.extend(p.warnings.iter().cloned());
     let issues = flits::compose::lint::lint(&p);
     if json {
         fn tree(n: &[Node]) -> Vec<serde_json::Value> {

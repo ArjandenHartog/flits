@@ -68,7 +68,11 @@ Hiragino; Linux: DejaVu Sans, Noto Sans, Noto Color Emoji, Noto Sans CJK, ...), 
 the character. Emoji are drawn in colour (COLR v0/v1 and CBDT/sbix bitmap fonts) and shaped, so sequences such as
 👍🏽, 🇳🇱, 1️⃣ and 👨‍👩‍👧 come out as one emoji. Hebrew, Arabic and the Indic scripts are shaped too; a text whose first
 letter is right-to-left is laid out right to left. Colour glyphs keep their own colours (no `color`/`stroke`), the
-text shadow applies to them.
+text shadow applies to them. A character that no font has (it would be drawn as a box) is reported once per layer by
+`flits check`, `render`, `still`, `sheet` and `preview`, e.g.
+`warning: layers.3 (text): no font has a glyph for U+26A0 '⚠' (font: seguibl.ttf); it is drawn as a box: add a font
+that has it to "fontFallback"` (text, counter and captions layers; joiners, variation selectors and other characters
+that draw nothing on their own are not reported).
 
 Audio track: `src`, `start` (scene time), `trim` (skip seconds of the source),
 `duration`, `volume` (number or keyframes, see Animation), `fadeIn`, `fadeOut`, `loop`,

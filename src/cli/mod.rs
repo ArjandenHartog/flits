@@ -589,6 +589,9 @@ pub fn load(scene_path: &Path, scale: f64) -> Result<Prepared> {
         eprintln!("warning: {w}");
     }
     let p = Prepared::build(&scene, scale)?;
+    for w in &p.warnings {
+        eprintln!("warning: {w}");
+    }
     eprintln!("flits: prepared scene in {:.2}s", t.elapsed().as_secs_f64());
     Ok(p)
 }
