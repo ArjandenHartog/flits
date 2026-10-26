@@ -368,6 +368,8 @@ pub struct Layer {
     pub size: Option<f64>,
     /// weight for variable fonts / font families (e.g. 900)
     pub weight: Option<f64>,
+    /// variable font axes: 4-letter tag -> value, e.g. {"wdth": 75, "opsz": 36, "slnt": -8} (`weight` wins over "wght")
+    pub variations: Option<HashMap<String, f64>>,
     #[schemars(schema_with = "schema::align")]
     pub align: Option<String>,
     /// wrap text at this width in px

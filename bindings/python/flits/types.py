@@ -334,6 +334,7 @@ Layer = TypedDict(
         "font": str,
         "size": float,
         "weight": float,
+        "variations": Dict[str, float],  # variable font axes, e.g. {"wdth": 75, "opsz": 36} (weight wins over "wght")
         "align": Align,
         "maxWidth": float,
         "lineHeight": float,

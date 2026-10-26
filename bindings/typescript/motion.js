@@ -218,6 +218,7 @@ export function measureText(requests, options = {}) {
     size: r.size ?? 64,
     font: r.font ?? t.fonts.body,
     weight: r.weight,
+    variations: r.variations,
     letterSpacing: r.letterSpacing ?? 0,
     uppercase: !!r.uppercase,
     maxWidth: r.maxWidth,

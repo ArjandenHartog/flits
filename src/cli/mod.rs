@@ -294,7 +294,7 @@ enum Cmd {
         #[arg(short, long)]
         out: Option<PathBuf>,
     },
-    /// Measure text: reads a JSON array of {text, font, size, maxWidth, lineHeight, balance, letterSpacing, weight}
+    /// Measure text: reads a JSON array of {text, font, size, maxWidth, lineHeight, balance, letterSpacing, weight, variations}
     /// on stdin, prints [{width, height, lines}] (for scripts that place things next to text)
     Measure,
 

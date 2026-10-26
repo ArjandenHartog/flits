@@ -3,7 +3,7 @@
 pub mod color;
 pub mod fonts;
 
-pub use fonts::{Face, FaceRef, FontDb, FontRef, DEFAULT_FONT};
+pub use fonts::{parse_variations, Axis, Face, FaceRef, FontDb, FontRef, DEFAULT_FONT};
 
 use crate::gfx::{rounded_rect, with_shadow, Sprite};
 use crate::scene::color::Rgba;
@@ -238,7 +238,7 @@ struct Glyph {
 
 /// Shape `text` with `face`: (glyph id, x offset, y offset, advance) in font units.
 fn shape(face: &Face, text: &str) -> Vec<(u16, f32, f32, f32)> {
-    let Some(rb) = rustybuzz::Face::from_slice(face.ab.font_data(), face.index) else {
+    let Some(rb) = face.shaper() else {
         return text.chars().map(|c| (face.ab.glyph_id(c).0, 0.0, 0.0, face.ab.h_advance_unscaled(face.ab.glyph_id(c)))).collect();
     };
     let mut buf = rustybuzz::UnicodeBuffer::new();
@@ -650,6 +650,35 @@ mod tests {
         assert!(lay.words[0].x > lay.words[1].x, "first word on the right");
         let lay = layout(&st, &tokenize("hello world"));
         assert!(lay.words[0].x < lay.words[1].x);
+    }
+
+    #[test]
+    fn variation_axes_change_the_width() {
+        // Bahnschrift (Windows) has wdth and wght axes; skip where no such font is installed
+        let db = FontDb::new(Default::default());
+        let get = |vars: &[Axis]| db.get_with(Some("Bahnschrift"), None, vars).ok();
+        let Some(normal) = get(&[(*b"wdth", 100.0)]).filter(|f| f.face.axes().contains(b"wdth")) else {
+            eprintln!("no variable font with a wdth axis installed: skipping");
+            return;
+        };
+        let narrow = get(&[(*b"wdth", 75.0)]).unwrap();
+        assert!(!Arc::ptr_eq(&normal, &narrow), "cached per variation");
+        let with = |font: FontRef| TextStyle { font, ..style(None) };
+        let (wn, wc) = (with(normal).measure("Condensed headline"), with(narrow.clone()).measure("Condensed headline"));
+        assert!(wc < wn * 0.95, "wdth 75 is narrower: {wc} vs {wn}");
+        // shaping (other scripts, emoji runs) uses the same instance as the outlines
+        let shaped: f32 = shape(&narrow.face, "Condensed").iter().map(|g| g.3).sum();
+        let k = 40.0 / narrow.units_per_em().unwrap();
+        assert!(
+            (shaped * k - with(narrow.clone()).measure("Condensed")).abs() < 2.0,
+            "{} vs {}",
+            shaped * k,
+            with(narrow).measure("Condensed")
+        );
+        // `weight` wins over a "wght" in variations
+        let bold = db.get_with(Some("Bahnschrift"), Some(700.0), &[(*b"wght", 300.0)]).unwrap();
+        assert!(bold.face.variations.contains(&(*b"wght", 700.0)) && !bold.face.variations.contains(&(*b"wght", 300.0)));
+        assert!(parse_variations([(&"wdth".to_string(), &75.0)]).is_ok() && parse_variations([(&"width".to_string(), &75.0)]).is_err());
     }
 
     #[test]

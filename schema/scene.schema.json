@@ -843,6 +843,13 @@
           "$ref": "#/$defs/Animated",
           "description": "counter: the number (animate it, e.g. {\"from\": 0, \"to\": 12840, \"ease\": \"out\", \"end\": 2.5})"
         },
+        "variations": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "variable font axes: 4-letter tag -> value, e.g. {\"wdth\": 75, \"opsz\": 36, \"slnt\": -8} (`weight` wins over \"wght\")",
+          "type": "object"
+        },
         "volume": {
           "$ref": "#/$defs/Animated",
           "description": "video: audio volume (default 1, 0 = mute)"

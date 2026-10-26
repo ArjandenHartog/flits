@@ -161,7 +161,10 @@ When `zoom`/`panX`/`panY` don't change over the layer, only the part of the pict
 (contiguous `trim`s in a `sequence` group) rather than `hold` keyframes: they share one decoder.
 
 **text** — `text` (`\n` for line breaks), `font` (installed font name like `"Segoe UI Black"`, a .ttf/.otf path or a
-`fonts` alias; default Segoe UI Bold), `weight` (for variable fonts), `size` (64), `color`, `align`
+`fonts` alias; default Segoe UI Bold), `weight` (for variable fonts), `variations` (any axes of a variable font:
+4-letter tag -> value, e.g. `{"wdth": 75, "opsz": 36, "slnt": -8}`; applied to outlines, advances, shaping and colour
+glyphs; `weight` wins over a `"wght"` here; axes the font lacks are ignored with a warning; fallback fonts keep their
+default instance; also accepted by `flits measure` and on counter and captions layers), `size` (64), `color`, `align`
 (`left`/`center`/`right`), `maxWidth` (wraps), `lineHeight` (1.15), `letterSpacing`, `uppercase`,
 `stroke` `{width,color}`, `background` `{ "color": "#000a", "padding": [24,12], "radius": 16, "mode": "box"|"lines" }`,
 `reveal`: `"words"` | `"lines"` | `"chars"` | `"typewriter"` with `revealDuration` (seconds over which the pieces appear)

@@ -365,6 +365,8 @@ export interface LayerProps {
   size?: number;
   /** weight for variable fonts / font families (e.g. 900) */
   weight?: number;
+  /** variable font axes: 4-letter tag -> value, e.g. { wdth: 75, opsz: 36, slnt: -8 } (`weight` wins over "wght") */
+  variations?: Record<string, number>;
   align?: Align;
   /** wrap text at this width in px */
   maxWidth?: number;

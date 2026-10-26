@@ -542,8 +542,26 @@ fn check_glyphs<'t>(l: &Layer, ctx: &mut Ctx, style: &TextStyle, texts: impl Int
     ));
 }
 
-fn text_style(l: &Layer, ctx: &Ctx, default_font: Option<&str>, default_size: f64, q: f32) -> Result<TextStyle> {
-    let font = ctx.fonts.get(l.font.as_deref().or(default_font), l.weight)?;
+fn text_style(l: &Layer, ctx: &mut Ctx, default_font: Option<&str>, default_size: f64, q: f32) -> Result<TextStyle> {
+    let mut vars = text::parse_variations(l.variations.iter().flatten())?;
+    vars.sort_by_key(|v| v.0);
+    let font = ctx.fonts.get_with(l.font.as_deref().or(default_font), l.weight, &vars)?;
+    if !vars.is_empty() {
+        let axes = font.face.axes();
+        let missing: Vec<String> =
+            vars.iter().filter(|v| !axes.contains(&v.0)).map(|v| String::from_utf8_lossy(&v.0).into_owned()).collect();
+        if !missing.is_empty() {
+            let have: Vec<String> = axes.iter().map(|a| String::from_utf8_lossy(a).into_owned()).collect();
+            ctx.warnings.push(format!(
+                "{} ({}): font {} has no {} axis (ignored; its axes: {})",
+                ctx.here,
+                l.kind,
+                font.face.file,
+                missing.join(", "),
+                if have.is_empty() { "none, it is not a variable font".to_string() } else { have.join(", ") }
+            ));
+        }
+    }
     let size = l.size.unwrap_or(default_size) as f32;
     let bg = l.background.as_ref().map(|b| {
         let (px, py) = b.padding.as_ref().map(|p| p.xy()).unwrap_or((size as f64 * 0.4, size as f64 * 0.2));

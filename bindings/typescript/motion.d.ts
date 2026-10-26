@@ -119,6 +119,8 @@ export interface MeasureRequest {
   /** font name, file or `theme.fontFiles` alias (default: the theme's body font) */
   font?: string;
   weight?: number;
+  /** variable font axes, e.g. { wdth: 75 } */
+  variations?: Record<string, number>;
   letterSpacing?: number;
   uppercase?: boolean;
   /** wrap width in px */

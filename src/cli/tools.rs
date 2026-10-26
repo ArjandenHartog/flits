@@ -254,6 +254,8 @@ struct MeasureReq {
     #[serde(default = "default_size")]
     size: f32,
     weight: Option<f64>,
+    #[serde(default)]
+    variations: std::collections::BTreeMap<String, f64>,
     max_width: Option<f32>,
     #[serde(default = "default_lh")]
     line_height: f32,
@@ -281,7 +283,7 @@ pub fn measure() -> Result<()> {
     let mut out = vec![];
     for r in reqs {
         let style = flits::text::TextStyle {
-            font: fonts.get(r.font.as_deref(), r.weight)?,
+            font: fonts.get_with(r.font.as_deref(), r.weight, &flits::text::parse_variations(&r.variations)?)?,
             size: r.size,
             color: flits::scene::color::Rgba::WHITE,
             line_height: r.line_height,
