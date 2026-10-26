@@ -14,6 +14,7 @@ cargo build --profile fast        # quick iteration (no LTO)
 cargo test --profile fast         # unit, parity and pipeline tests
 cargo clippy --all-targets -- -D warnings
 cargo fmt
+node --test "bindings/typescript/test/*.test.js"   # TypeScript SDK tests (Node 24)
 flits doctor                      # what works on your machine
 ```
 
@@ -49,8 +50,8 @@ scene.json --(scene/)--> Scene --(compose/)--> Prepared (everything static pre-r
 
 1. Fork and create a branch (`feature/…` or `fix/…`).
 2. Keep PRs small and focused; one topic per PR.
-3. Make sure `cargo fmt`, `cargo clippy -- -D warnings` and `cargo test` pass (CI checks this on
-   Linux and Windows).
+3. Make sure `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` and the
+   TypeScript SDK tests pass (CI runs exactly these on Linux and Windows).
 4. Describe what changed, why, and how you tested it (for visual changes, attach a `flits sheet` image).
 
 ## Good first ideas
