@@ -8,6 +8,8 @@ A scene is one JSON file. flits renders it to MP4 (H.264/HEVC/AV1 + AAC):
     flits sheet scene.json -o sheet.png       # 12 frames in one image: check the whole video at a glance
                                               # (--at 1 --at 2.5: these times; --from 2 --to 3 --count 8: a range)
     flits still scene.json --at 12.5 -o f.png # single frame(s); prints the written paths, one per line
+    flits sheet clip.mov -o sheet.png         # sheet and still also take a plain video or image: a scene of its
+                                              # display size, fps and length with one full-frame layer
     flits check scene.json                    # validate (typos are reported), lint the layout, print the timeline
     flits check scene.json --json             # the same as one JSON object (ok, size, warnings, issues, layers)
     flits render video.ts --props '{"t": 1}'  # TypeScript/JavaScript scenes (see below); `flits init` starts a project
